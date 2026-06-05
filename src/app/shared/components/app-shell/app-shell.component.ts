@@ -29,6 +29,20 @@ import { AuthService } from '../../../core/services/auth.service';
               >
                 Inventory
               </a>
+              <a
+                routerLink="/recipes"
+                routerLinkActive="bg-brand-50 text-brand-700"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
+              >
+                Recipes
+              </a>
+              <a
+                routerLink="/meal-plan"
+                routerLinkActive="bg-brand-50 text-brand-700"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
+              >
+                Meal Plan
+              </a>
             </nav>
           </div>
           <button

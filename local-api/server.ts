@@ -69,6 +69,148 @@ function upsertFoodItemHistory(userId: string, payload: FoodItemHistoryPayload):
   );
 }
 
+interface RecipeRow {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  prep_time_minutes: number | null;
+  portions: number | null;
+  tags: string;
+  created_at: string;
+}
+
+function toIntOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const num = Number(value);
+  return Number.isNaN(num) ? null : Math.trunc(num);
+}
+
+function toNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
+}
+
+function normalizeTags(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((tag) => String(tag).trim())
+    .filter((tag) => tag.length > 0);
+}
+
+function serializeRecipe(row: RecipeRow) {
+  const ingredients = db
+    .prepare(
+      `select id, recipe_id, name, quantity, unit
+       from recipe_ingredients
+       where recipe_id = ?
+       order by name asc`
+    )
+    .all(row.id);
+
+  let tags: string[] = [];
+  try {
+    const parsed = JSON.parse(row.tags ?? '[]');
+    tags = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    tags = [];
+  }
+
+  return { ...row, tags, ingredients };
+}
+
+function getRecipeRow(id: string, userId: string): RecipeRow | undefined {
+  return db
+    .prepare(
+      `select id, user_id, title, description, prep_time_minutes, portions, tags, created_at
+       from recipes
+       where id = ? and user_id = ?`
+    )
+    .get(id, userId) as RecipeRow | undefined;
+}
+
+interface MealPlanRow {
+  id: string;
+  user_id: string;
+  date: string;
+  meal_type: string;
+  recipe_id: string | null;
+  created_at: string;
+}
+
+const VALID_MEAL_TYPES = new Set(['breakfast', 'lunch', 'dinner', 'snack']);
+
+function serializeRecipeSummary(row: RecipeRow | undefined) {
+  if (!row) {
+    return null;
+  }
+
+  let tags: string[] = [];
+  try {
+    const parsed = JSON.parse(row.tags ?? '[]');
+    tags = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    tags = [];
+  }
+
+  return {
+    id: row.id,
+    title: row.title,
+    tags,
+    prep_time_minutes: row.prep_time_minutes,
+  };
+}
+
+function serializeMealPlanEntry(row: MealPlanRow) {
+  const recipe = row.recipe_id
+    ? serializeRecipeSummary(getRecipeRow(row.recipe_id, row.user_id))
+    : null;
+
+  return {
+    ...row,
+    recipe: recipe ?? undefined,
+  };
+}
+
+function getMealPlanEntryRow(id: string, userId: string): MealPlanRow | undefined {
+  return db
+    .prepare(
+      `select id, user_id, date, meal_type, recipe_id, created_at
+       from meal_plan
+       where id = ? and user_id = ?`
+    )
+    .get(id, userId) as MealPlanRow | undefined;
+}
+
+function replaceRecipeIngredients(recipeId: string, ingredients: unknown): void {
+  db.prepare('delete from recipe_ingredients where recipe_id = ?').run(recipeId);
+
+  if (!Array.isArray(ingredients)) {
+    return;
+  }
+
+  const insert = db.prepare(
+    'insert into recipe_ingredients (id, recipe_id, name, quantity, unit) values (?, ?, ?, ?, ?)'
+  );
+
+  for (const ingredient of ingredients) {
+    const name = String(ingredient?.name ?? '').trim();
+    if (!name) {
+      continue;
+    }
+    const quantity = toNumberOrNull(ingredient?.quantity);
+    const unit = ingredient?.unit?.trim?.() || null;
+    insert.run(crypto.randomUUID(), recipeId, name, quantity, unit);
+  }
+}
+
 function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
@@ -334,6 +476,260 @@ app.delete('/food-items/:id', authMiddleware, (req: AuthenticatedRequest, res) =
 
   res.status(204).send();
 });
+
+app.get('/recipes', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const rows = db
+    .prepare(
+      `select id, user_id, title, description, prep_time_minutes, portions, tags, created_at
+       from recipes
+       where user_id = ?
+       order by created_at desc`
+    )
+    .all(req.userId) as RecipeRow[];
+
+  res.json({ data: rows.map(serializeRecipe) });
+});
+
+app.get('/recipes/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const row = getRecipeRow(req.params['id']!, req.userId!);
+
+  if (!row) {
+    res.status(404).json({ error: 'Recipe not found.' });
+    return;
+  }
+
+  res.json({ data: serializeRecipe(row) });
+});
+
+app.post('/recipes', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const title = String(req.body?.title ?? '').trim();
+  if (!title) {
+    res.status(400).json({ error: 'Title is required.' });
+    return;
+  }
+
+  const id = crypto.randomUUID();
+  const description = req.body?.description?.trim?.() || null;
+  const prep_time_minutes = toIntOrNull(req.body?.prep_time_minutes);
+  const portions = toIntOrNull(req.body?.portions);
+  const tags = JSON.stringify(normalizeTags(req.body?.tags));
+
+  db.prepare(
+    `insert into recipes (id, user_id, title, description, prep_time_minutes, portions, tags)
+     values (?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, req.userId, title, description, prep_time_minutes, portions, tags);
+
+  replaceRecipeIngredients(id, req.body?.ingredients);
+
+  res.status(201).json({ data: serializeRecipe(getRecipeRow(id, req.userId!)!) });
+});
+
+app.put('/recipes/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const existing = getRecipeRow(req.params['id']!, req.userId!);
+  if (!existing) {
+    res.status(404).json({ error: 'Recipe not found.' });
+    return;
+  }
+
+  const title = String(req.body?.title ?? '').trim();
+  if (!title) {
+    res.status(400).json({ error: 'Title is required.' });
+    return;
+  }
+
+  const description = req.body?.description?.trim?.() || null;
+  const prep_time_minutes = toIntOrNull(req.body?.prep_time_minutes);
+  const portions = toIntOrNull(req.body?.portions);
+  const tags = JSON.stringify(normalizeTags(req.body?.tags));
+
+  db.prepare(
+    `update recipes
+     set title = ?, description = ?, prep_time_minutes = ?, portions = ?, tags = ?
+     where id = ? and user_id = ?`
+  ).run(title, description, prep_time_minutes, portions, tags, req.params['id'], req.userId);
+
+  replaceRecipeIngredients(req.params['id']!, req.body?.ingredients);
+
+  res.json({ data: serializeRecipe(getRecipeRow(req.params['id']!, req.userId!)!) });
+});
+
+app.delete('/recipes/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const result = db
+    .prepare('delete from recipes where id = ? and user_id = ?')
+    .run(req.params['id'], req.userId);
+
+  if (result.changes === 0) {
+    res.status(404).json({ error: 'Recipe not found.' });
+    return;
+  }
+
+  res.status(204).send();
+});
+
+app.get('/meal-plan/today', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const today = new Date();
+  const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const rows = db
+    .prepare(
+      `select id, user_id, date, meal_type, recipe_id, created_at
+       from meal_plan
+       where user_id = ? and date = ?
+       order by meal_type asc`
+    )
+    .all(req.userId, date) as MealPlanRow[];
+
+  res.json({ data: rows.map(serializeMealPlanEntry) });
+});
+
+app.get('/meal-plan', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const start = String(req.query['start'] ?? '');
+  const end = String(req.query['end'] ?? '');
+
+  if (!start || !end) {
+    res.status(400).json({ error: 'Start and end dates are required.' });
+    return;
+  }
+
+  const rows = db
+    .prepare(
+      `select id, user_id, date, meal_type, recipe_id, created_at
+       from meal_plan
+       where user_id = ? and date >= ? and date <= ?
+       order by date asc, meal_type asc`
+    )
+    .all(req.userId, start, end) as MealPlanRow[];
+
+  res.json({ data: rows.map(serializeMealPlanEntry) });
+});
+
+app.put('/meal-plan', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const date = String(req.body?.date ?? '').trim();
+  const mealType = String(req.body?.meal_type ?? '').trim();
+  const recipeId = String(req.body?.recipe_id ?? '').trim();
+
+  if (!date || !mealType || !recipeId) {
+    res.status(400).json({ error: 'Date, meal type, and recipe are required.' });
+    return;
+  }
+
+  if (!VALID_MEAL_TYPES.has(mealType)) {
+    res.status(400).json({ error: 'Invalid meal type.' });
+    return;
+  }
+
+  const recipe = getRecipeRow(recipeId, req.userId!);
+  if (!recipe) {
+    res.status(404).json({ error: 'Recipe not found.' });
+    return;
+  }
+
+  const existing = db
+    .prepare(
+      `select id from meal_plan
+       where user_id = ? and date = ? and meal_type = ?`
+    )
+    .get(req.userId, date, mealType) as { id: string } | undefined;
+
+  if (existing) {
+    db.prepare(
+      `update meal_plan
+       set recipe_id = ?
+       where id = ? and user_id = ?`
+    ).run(recipeId, existing.id, req.userId);
+
+    const row = getMealPlanEntryRow(existing.id, req.userId!);
+    res.json({ data: serializeMealPlanEntry(row!) });
+    return;
+  }
+
+  const id = crypto.randomUUID();
+  db.prepare(
+    `insert into meal_plan (id, user_id, date, meal_type, recipe_id)
+     values (?, ?, ?, ?, ?)`
+  ).run(id, req.userId, date, mealType, recipeId);
+
+  const row = getMealPlanEntryRow(id, req.userId!);
+  res.json({ data: serializeMealPlanEntry(row!) });
+});
+
+app.post('/meal-plan/duplicate-week', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const targetWeekStart = String(req.body?.targetWeekStart ?? '').trim();
+
+  if (!targetWeekStart) {
+    res.status(400).json({ error: 'Target week start date is required.' });
+    return;
+  }
+
+  const previousStart = addDaysIso(targetWeekStart, -7);
+  const previousEnd = addDaysIso(targetWeekStart, -1);
+
+  const sourceRows = db
+    .prepare(
+      `select date, meal_type, recipe_id
+       from meal_plan
+       where user_id = ? and date >= ? and date <= ? and recipe_id is not null`
+    )
+    .all(req.userId, previousStart, previousEnd) as {
+    date: string;
+    meal_type: string;
+    recipe_id: string;
+  }[];
+
+  const targetEnd = addDaysIso(targetWeekStart, 6);
+  const existingRows = db
+    .prepare(
+      `select date, meal_type
+       from meal_plan
+       where user_id = ? and date >= ? and date <= ?`
+    )
+    .all(req.userId, targetWeekStart, targetEnd) as { date: string; meal_type: string }[];
+
+  const occupied = new Set(existingRows.map((row) => `${row.date}|${row.meal_type}`));
+  const insert = db.prepare(
+    `insert into meal_plan (id, user_id, date, meal_type, recipe_id)
+     values (?, ?, ?, ?, ?)`
+  );
+
+  let copiedCount = 0;
+
+  for (const row of sourceRows) {
+    const targetDate = addDaysIso(row.date, 7);
+    const key = `${targetDate}|${row.meal_type}`;
+
+    if (occupied.has(key)) {
+      continue;
+    }
+
+    insert.run(crypto.randomUUID(), req.userId, targetDate, row.meal_type, row.recipe_id);
+    occupied.add(key);
+    copiedCount++;
+  }
+
+  res.json({ data: { copiedCount } });
+});
+
+app.delete('/meal-plan/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const result = db
+    .prepare('delete from meal_plan where id = ? and user_id = ?')
+    .run(req.params['id'], req.userId);
+
+  if (result.changes === 0) {
+    res.status(404).json({ error: 'Meal plan entry not found.' });
+    return;
+  }
+
+  res.status(204).send();
+});
+
+function addDaysIso(date: string, days: number): string {
+  const parsed = new Date(`${date}T00:00:00`);
+  parsed.setDate(parsed.getDate() + days);
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 app.listen(PORT, () => {
   console.log(`Local SQLite API running at http://localhost:${PORT}`);

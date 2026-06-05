@@ -29,6 +29,37 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/inventory/inventory.component').then((m) => m.InventoryComponent),
       },
+      {
+        path: 'recipes',
+        loadComponent: () =>
+          import('./features/recipes/recipes.component').then((m) => m.RecipesComponent),
+      },
+      {
+        path: 'recipes/new',
+        loadComponent: () =>
+          import('./features/recipes/recipe-form/recipe-form.component').then(
+            (m) => m.RecipeFormComponent
+          ),
+      },
+      {
+        path: 'recipes/:id',
+        loadComponent: () =>
+          import('./features/recipes/recipe-detail/recipe-detail.component').then(
+            (m) => m.RecipeDetailComponent
+          ),
+      },
+      {
+        path: 'recipes/:id/edit',
+        loadComponent: () =>
+          import('./features/recipes/recipe-form/recipe-form.component').then(
+            (m) => m.RecipeFormComponent
+          ),
+      },
+      {
+        path: 'meal-plan',
+        loadComponent: () =>
+          import('./features/meal-plan/meal-plan.component').then((m) => m.MealPlanComponent),
+      },
     ],
   },
   {

@@ -172,6 +172,10 @@ export class InventoryComponent implements OnInit {
     this.editingItem.set(null);
     this.formError.set(null);
     this.showForm.set(true);
+
+    void this.foodItemHistoryService.loadHistory();
+    void this.foodCategoryService.loadCategories();
+    void this.foodCatalogService.loadCatalog();
   }
 
   openEditForm(item: FoodItem): void {

@@ -3,6 +3,7 @@ import {
   ElementRef,
   HostListener,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -24,8 +25,8 @@ import { SearchSelectOption } from '../../../core/models/search-select-option.mo
         [formControl]="control()"
         [placeholder]="placeholder()"
         class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-        (focus)="openDropdown()"
-        (input)="onInput()"
+        (focus)="onFocus()"
+        (input)="onInput($event)"
         (keydown)="onKeydown($event)"
         autocomplete="off"
         role="combobox"
@@ -33,7 +34,7 @@ import { SearchSelectOption } from '../../../core/models/search-select-option.mo
         aria-autocomplete="list"
       />
 
-      @if (isOpen() && filteredOptions().length > 0) {
+      @if (isOpen()) {
         <ul
           class="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-stone-200 bg-white py-1 shadow-lg"
           role="listbox"
@@ -45,7 +46,7 @@ import { SearchSelectOption } from '../../../core/models/search-select-option.mo
                 class="w-full px-3 py-2 text-left text-sm hover:bg-stone-50"
                 [class.bg-brand-50]="highlightedIndex() === index"
                 role="option"
-                (mousedown.prevent="selectOption(option)"
+                (mousedown)="$event.preventDefault(); selectOption(option)"
               >
                 <span class="block font-medium text-stone-900">{{ option.label }}</span>
                 @if (option.subtitle) {
@@ -53,6 +54,8 @@ import { SearchSelectOption } from '../../../core/models/search-select-option.mo
                 }
               </button>
             </li>
+          } @empty {
+            <li class="px-3 py-2 text-sm text-stone-500">No matches</li>
           }
         </ul>
       }
@@ -72,6 +75,15 @@ export class SearchSelectComponent {
   readonly query = signal('');
   readonly isOpen = signal(false);
   readonly highlightedIndex = signal(0);
+
+  constructor() {
+    effect((onCleanup) => {
+      const subscription = this.control().valueChanges.subscribe((value) =>
+        this.query.set(value ?? '')
+      );
+      onCleanup(() => subscription.unsubscribe());
+    });
+  }
 
   readonly filteredOptions = computed(() => {
     const normalizedQuery = this.query().trim().toLowerCase();
@@ -101,8 +113,13 @@ export class SearchSelectComponent {
     this.highlightedIndex.set(0);
   }
 
-  onInput(): void {
+  onFocus(): void {
     this.query.set(this.control().value ?? '');
+    this.openDropdown();
+  }
+
+  onInput(event: Event): void {
+    this.query.set((event.target as HTMLInputElement).value);
     this.openDropdown();
   }
 

@@ -124,6 +124,94 @@ export class LocalApiService {
     });
   }
 
+  async getRecipes(): Promise<unknown[]> {
+    const response = await this.request<{ data: unknown[] }>('/recipes', {
+      method: 'GET',
+      auth: true,
+    });
+    return response.data;
+  }
+
+  async getRecipe(id: string): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>(`/recipes/${id}`, {
+      method: 'GET',
+      auth: true,
+    });
+    return response.data;
+  }
+
+  async createRecipe(payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/recipes', {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async updateRecipe(id: string, payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>(`/recipes/${id}`, {
+      method: 'PUT',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async deleteRecipe(id: string): Promise<void> {
+    await this.request<void>(`/recipes/${id}`, {
+      method: 'DELETE',
+      auth: true,
+    });
+  }
+
+  async getMealPlan(start: string, end: string): Promise<unknown[]> {
+    const response = await this.request<{ data: unknown[] }>(
+      `/meal-plan?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+      {
+        method: 'GET',
+        auth: true,
+      }
+    );
+    return response.data;
+  }
+
+  async getTodayMeals(): Promise<unknown[]> {
+    const response = await this.request<{ data: unknown[] }>('/meal-plan/today', {
+      method: 'GET',
+      auth: true,
+    });
+    return response.data;
+  }
+
+  async upsertMealPlanEntry(payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/meal-plan', {
+      method: 'PUT',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async deleteMealPlanEntry(id: string): Promise<void> {
+    await this.request<void>(`/meal-plan/${id}`, {
+      method: 'DELETE',
+      auth: true,
+    });
+  }
+
+  async duplicateMealPlanWeek(targetWeekStart: string): Promise<{ copiedCount: number }> {
+    const response = await this.request<{ data: { copiedCount: number } }>(
+      '/meal-plan/duplicate-week',
+      {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify({ targetWeekStart }),
+      }
+    );
+    return response.data;
+  }
+
   async getFoodItemHistory(): Promise<unknown[]> {
     const response = await this.request<{ data: unknown[] }>('/food-item-history', {
       method: 'GET',

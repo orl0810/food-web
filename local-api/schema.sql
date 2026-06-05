@@ -71,6 +71,42 @@ where fi.id = (
   limit 1
 );
 
+create table if not exists recipes (
+  id text primary key,
+  user_id text not null references users (id) on delete cascade,
+  title text not null,
+  description text,
+  prep_time_minutes integer,
+  portions integer,
+  tags text not null default '[]',
+  created_at text not null default (datetime('now'))
+);
+
+create index if not exists recipes_user_id_idx on recipes (user_id);
+
+create table if not exists recipe_ingredients (
+  id text primary key,
+  recipe_id text not null references recipes (id) on delete cascade,
+  name text not null,
+  quantity real,
+  unit text
+);
+
+create index if not exists recipe_ingredients_recipe_id_idx on recipe_ingredients (recipe_id);
+
+create table if not exists meal_plan (
+  id text primary key,
+  user_id text not null references users (id) on delete cascade,
+  date text not null,
+  meal_type text not null check (meal_type in ('breakfast', 'lunch', 'dinner', 'snack')),
+  recipe_id text references recipes (id) on delete set null,
+  created_at text not null default (datetime('now')),
+  unique (user_id, date, meal_type)
+);
+
+create index if not exists meal_plan_user_id_idx on meal_plan (user_id);
+create index if not exists meal_plan_user_date_idx on meal_plan (user_id, date);
+
 create table if not exists food_categories (
   id text primary key,
   name text not null unique,

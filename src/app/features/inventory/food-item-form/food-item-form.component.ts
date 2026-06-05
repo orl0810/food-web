@@ -56,9 +56,17 @@ function normalizeNameKey(name: string): string {
               placeholder="Search previously added items..."
               (selected)="applyNameSelection($event)"
             />
-            <p class="mt-1 text-xs text-stone-500">
-              Start typing to reuse a previously added item or pick from the catalog.
-            </p>
+            @if (suggestionsError()) {
+              <p class="mt-1 text-xs text-red-600">
+                Suggestions unavailable — make sure the local API is running (npm run start:api) or check your connection.
+              </p>
+            } @else if (suggestionsLoading()) {
+              <p class="mt-1 text-xs text-stone-500">Loading suggestions...</p>
+            } @else {
+              <p class="mt-1 text-xs text-stone-500">
+                Start typing to reuse a previously added item or pick from the catalog.
+              </p>
+            }
           }
         </div>
 
@@ -198,6 +206,20 @@ export class FoodItemFormComponent {
       this.foodItemHistoryService.getCustomCategories()
     );
   });
+
+  readonly suggestionsLoading = computed(
+    () =>
+      this.foodItemHistoryService.loading() ||
+      this.foodCategoryService.loading() ||
+      this.foodCatalogService.loading()
+  );
+
+  readonly suggestionsError = computed(
+    () =>
+      this.foodCatalogService.error() ||
+      this.foodCategoryService.error() ||
+      this.foodItemHistoryService.error()
+  );
 
   get nameControl() {
     return this.form.controls.name;
