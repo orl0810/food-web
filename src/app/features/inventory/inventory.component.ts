@@ -7,6 +7,9 @@ import {
   STORAGE_LOCATION_LABELS,
 } from '../../core/models/food-item.model';
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
+import { FoodItemHistoryService } from '../../core/services/food-item-history.service';
+import { FoodCategoryService } from '../../core/services/food-category.service';
+import { FoodCatalogService } from '../../core/services/food-catalog.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import {
@@ -133,6 +136,9 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
 })
 export class InventoryComponent implements OnInit {
   readonly inventoryService = inject(FoodInventoryService);
+  readonly foodItemHistoryService = inject(FoodItemHistoryService);
+  readonly foodCategoryService = inject(FoodCategoryService);
+  readonly foodCatalogService = inject(FoodCatalogService);
 
   readonly filters = INVENTORY_FILTERS;
   readonly locationLabels = STORAGE_LOCATION_LABELS;
@@ -149,6 +155,9 @@ export class InventoryComponent implements OnInit {
 
   ngOnInit(): void {
     void this.inventoryService.loadItems();
+    void this.foodItemHistoryService.loadHistory();
+    void this.foodCategoryService.loadCategories();
+    void this.foodCatalogService.loadCatalog();
   }
 
   expirationLabel(item: FoodItem): string {

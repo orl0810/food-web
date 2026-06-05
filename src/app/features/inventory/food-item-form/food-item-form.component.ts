@@ -1,5 +1,7 @@
-import { Component, effect, inject, input, output } from '@angular/core';
+import { Component, computed, effect, inject, input, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FoodCatalogItem } from '../../../core/models/food-catalog-item.model';
+import { FoodItemHistory } from '../../../core/models/food-item-history.model';
 import {
   FoodItem,
   FoodItemInsert,
@@ -7,11 +9,20 @@ import {
   STORAGE_LOCATIONS,
   STORAGE_LOCATION_LABELS,
 } from '../../../core/models/food-item.model';
+import { SearchSelectOption } from '../../../core/models/search-select-option.model';
+import { FoodCatalogService } from '../../../core/services/food-catalog.service';
+import { FoodCategoryService } from '../../../core/services/food-category.service';
+import { FoodItemHistoryService } from '../../../core/services/food-item-history.service';
+import { SearchSelectComponent } from '../../../shared/components/search-select/search-select.component';
+
+function normalizeNameKey(name: string): string {
+  return name.trim().toLowerCase();
+}
 
 @Component({
   selector: 'app-food-item-form',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, SearchSelectComponent],
   template: `
     <form class="space-y-4 rounded-xl border border-stone-200 bg-card p-5 shadow-sm" [formGroup]="form" (ngSubmit)="submit()">
       <div class="flex items-center justify-between gap-4">
@@ -30,23 +41,49 @@ import {
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="sm:col-span-2">
           <label for="name" class="mb-1 block text-sm font-medium text-stone-700">Name *</label>
-          <input
-            id="name"
-            type="text"
-            formControlName="name"
-            class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-          />
+          @if (item()) {
+            <input
+              id="name"
+              type="text"
+              formControlName="name"
+              class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            />
+          } @else {
+            <app-search-select
+              inputId="name"
+              [control]="nameControl"
+              [options]="nameOptions()"
+              placeholder="Search previously added items..."
+              (selected)="applyNameSelection($event)"
+            />
+            <p class="mt-1 text-xs text-stone-500">
+              Start typing to reuse a previously added item or pick from the catalog.
+            </p>
+          }
         </div>
 
         <div>
           <label for="category" class="mb-1 block text-sm font-medium text-stone-700">Category</label>
-          <input
-            id="category"
-            type="text"
-            formControlName="category"
-            class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            placeholder="Dairy, Produce..."
-          />
+          @if (item()) {
+            <input
+              id="category"
+              type="text"
+              formControlName="category"
+              class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              placeholder="Dairy, Produce..."
+            />
+          } @else {
+            <app-search-select
+              inputId="category"
+              [control]="categoryControl"
+              [options]="categoryOptions()"
+              placeholder="Search categories..."
+              (selected)="applyCategorySelection($event)"
+            />
+            <p class="mt-1 text-xs text-stone-500">
+              Pick a default category or type your own.
+            </p>
+          }
         </div>
 
         <div>
@@ -116,6 +153,9 @@ import {
 })
 export class FoodItemFormComponent {
   private readonly fb = inject(FormBuilder);
+  readonly foodItemHistoryService = inject(FoodItemHistoryService);
+  readonly foodCategoryService = inject(FoodCategoryService);
+  readonly foodCatalogService = inject(FoodCatalogService);
 
   readonly item = input<FoodItem | null>(null);
   readonly saved = output<FoodItemInsert>();
@@ -135,6 +175,37 @@ export class FoodItemFormComponent {
     expiration_date: [''],
     location: ['fridge' as StorageLocation, Validators.required],
   });
+
+  readonly nameOptions = computed(() => {
+    this.foodItemHistoryService.history();
+    this.foodCatalogService.catalogItems();
+
+    const historyOptions = this.foodItemHistoryService.getHistoryOptions('');
+    const historyKeys = new Set(historyOptions.map((option) => normalizeNameKey(option.label)));
+    const catalogOptions = this.foodCatalogService
+      .getCatalogOptions('')
+      .filter((option) => !historyKeys.has(normalizeNameKey(option.label)));
+
+    return [...historyOptions, ...catalogOptions];
+  });
+
+  readonly categoryOptions = computed(() => {
+    this.foodItemHistoryService.history();
+    this.foodCategoryService.categories();
+
+    return this.foodCategoryService.getCategoryOptions(
+      '',
+      this.foodItemHistoryService.getCustomCategories()
+    );
+  });
+
+  get nameControl() {
+    return this.form.controls.name;
+  }
+
+  get categoryControl() {
+    return this.form.controls.category;
+  }
 
   constructor() {
     effect(() => {
@@ -161,6 +232,41 @@ export class FoodItemFormComponent {
     });
   }
 
+  applyCategorySelection(option: SearchSelectOption): void {
+    this.form.patchValue({ category: option.label });
+  }
+
+  applyNameSelection(option: SearchSelectOption): void {
+    if (this.isHistoryEntry(option.payload)) {
+      this.applyHistoryEntry(option.payload);
+      return;
+    }
+
+    if (this.isCatalogItem(option.payload)) {
+      this.applyCatalogEntry(option.payload);
+    }
+  }
+
+  applyHistoryEntry(entry: FoodItemHistory): void {
+    this.form.patchValue({
+      name: entry.name,
+      category: entry.category ?? '',
+      unit: entry.unit ?? '',
+      location: entry.location,
+      quantity: entry.default_quantity,
+    });
+  }
+
+  applyCatalogEntry(entry: FoodCatalogItem): void {
+    this.form.patchValue({
+      name: entry.name,
+      category: entry.category_name,
+      unit: entry.default_unit ?? '',
+      location: entry.default_location,
+      quantity: entry.default_quantity,
+    });
+  }
+
   submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -176,5 +282,24 @@ export class FoodItemFormComponent {
       expiration_date: value.expiration_date || null,
       location: value.location!,
     });
+  }
+
+  private isHistoryEntry(payload: unknown): payload is FoodItemHistory {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      'user_id' in payload &&
+      'last_used_at' in payload &&
+      !('category_id' in payload)
+    );
+  }
+
+  private isCatalogItem(payload: unknown): payload is FoodCatalogItem {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      'category_id' in payload &&
+      'category_name' in payload
+    );
   }
 }

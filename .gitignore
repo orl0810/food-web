@@ -40,3 +40,8 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Local SQLite database
+/local-api/data/
+*.sqlite
+*.sqlite3

@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { environment } from '../../../environments/environment';
 import {
   FoodItem,
   FoodItemInsert,
@@ -6,13 +7,17 @@ import {
   InventoryFilter,
 } from '../models/food-item.model';
 import { AuthService } from './auth.service';
+import { FoodItemHistoryService } from './food-item-history.service';
+import { LocalApiService } from './local-api.service';
 import { SupabaseService } from './supabase.service';
 import { isExpired, isExpiringSoon } from '../../shared/utils/expiration.utils';
 
 @Injectable({ providedIn: 'root' })
 export class FoodInventoryService {
   private readonly supabaseService = inject(SupabaseService);
+  private readonly localApiService = inject(LocalApiService);
   private readonly authService = inject(AuthService);
+  private readonly foodItemHistoryService = inject(FoodItemHistoryService);
 
   private readonly itemsSignal = signal<FoodItem[]>([]);
   private readonly loadingSignal = signal(false);
@@ -68,6 +73,10 @@ export class FoodInventoryService {
   }
 
   async loadItems(): Promise<void> {
+    if (environment.useLocalApi) {
+      return this.loadItemsLocal();
+    }
+
     const client = this.supabaseService.getClient();
     if (!client) {
       return;
@@ -92,6 +101,10 @@ export class FoodInventoryService {
   }
 
   async createItem(input: FoodItemInsert): Promise<{ error: string | null }> {
+    if (environment.useLocalApi) {
+      return this.createItemLocal(input);
+    }
+
     const client = this.supabaseService.getClient();
     const userId = this.authService.user()?.id;
 
@@ -119,10 +132,15 @@ export class FoodInventoryService {
     }
 
     this.itemsSignal.update((items) => [...items, data as FoodItem]);
+    await this.foodItemHistoryService.upsertFromFoodItem(input);
     return { error: null };
   }
 
   async updateItem(id: string, input: FoodItemUpdate): Promise<{ error: string | null }> {
+    if (environment.useLocalApi) {
+      return this.updateItemLocal(id, input);
+    }
+
     const client = this.supabaseService.getClient();
     if (!client) {
       return { error: 'Unable to update food items right now.' };
@@ -156,10 +174,22 @@ export class FoodInventoryService {
     this.itemsSignal.update((items) =>
       items.map((item) => (item.id === id ? (data as FoodItem) : item))
     );
+    await this.foodItemHistoryService.upsertFromFoodItem({
+      name: (data as FoodItem).name,
+      category: (data as FoodItem).category,
+      quantity: (data as FoodItem).quantity,
+      unit: (data as FoodItem).unit,
+      expiration_date: (data as FoodItem).expiration_date,
+      location: (data as FoodItem).location,
+    });
     return { error: null };
   }
 
   async deleteItem(id: string): Promise<{ error: string | null }> {
+    if (environment.useLocalApi) {
+      return this.deleteItemLocal(id);
+    }
+
     const client = this.supabaseService.getClient();
     if (!client) {
       return { error: 'Unable to delete food items right now.' };
@@ -176,5 +206,99 @@ export class FoodInventoryService {
 
     this.itemsSignal.update((items) => items.filter((item) => item.id !== id));
     return { error: null };
+  }
+
+  private async loadItemsLocal(): Promise<void> {
+    if (!this.localApiService.isEnabled()) {
+      return;
+    }
+
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const data = await this.localApiService.getFoodItems();
+      this.itemsSignal.set(data as FoodItem[]);
+    } catch (error) {
+      this.errorSignal.set(error instanceof Error ? error.message : 'Failed to load items.');
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  private async createItemLocal(input: FoodItemInsert): Promise<{ error: string | null }> {
+    if (!this.authService.user()) {
+      return { error: 'You must be signed in to add food items.' };
+    }
+
+    this.errorSignal.set(null);
+
+    try {
+      const data = await this.localApiService.createFoodItem({
+        ...input,
+        category: input.category?.trim() || null,
+        unit: input.unit?.trim() || null,
+        expiration_date: input.expiration_date || null,
+      });
+      this.itemsSignal.update((items) => [...items, data as FoodItem]);
+      await this.foodItemHistoryService.upsertFromFoodItem(input);
+      return { error: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create item.';
+      this.errorSignal.set(message);
+      return { error: message };
+    }
+  }
+
+  private async updateItemLocal(
+    id: string,
+    input: FoodItemUpdate
+  ): Promise<{ error: string | null }> {
+    this.errorSignal.set(null);
+
+    const payload: FoodItemUpdate = { ...input };
+    if (payload.category !== undefined) {
+      payload.category = payload.category?.trim() || null;
+    }
+    if (payload.unit !== undefined) {
+      payload.unit = payload.unit?.trim() || null;
+    }
+    if (payload.expiration_date === '') {
+      payload.expiration_date = null;
+    }
+
+    try {
+      const data = await this.localApiService.updateFoodItem(id, payload);
+      this.itemsSignal.update((items) =>
+        items.map((item) => (item.id === id ? (data as FoodItem) : item))
+      );
+      await this.foodItemHistoryService.upsertFromFoodItem({
+        name: (data as FoodItem).name,
+        category: (data as FoodItem).category,
+        quantity: (data as FoodItem).quantity,
+        unit: (data as FoodItem).unit,
+        expiration_date: (data as FoodItem).expiration_date,
+        location: (data as FoodItem).location,
+      });
+      return { error: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update item.';
+      this.errorSignal.set(message);
+      return { error: message };
+    }
+  }
+
+  private async deleteItemLocal(id: string): Promise<{ error: string | null }> {
+    this.errorSignal.set(null);
+
+    try {
+      await this.localApiService.deleteFoodItem(id);
+      this.itemsSignal.update((items) => items.filter((item) => item.id !== id));
+      return { error: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete item.';
+      this.errorSignal.set(message);
+      return { error: message };
+    }
   }
 }

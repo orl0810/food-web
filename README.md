@@ -1,27 +1,67 @@
-# FoodWeb
+# PantryFlow
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 18.1.3.
+Personal meal planner web app — Phase 1 focuses on food inventory and expiration tracking.
 
-## Development server
+## Local development (SQLite)
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+Local dev uses a SQLite database via a small Express API. Production on Vercel uses Supabase.
 
-## Code scaffolding
+### Quick start
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+```bash
+npm install
+npm run dev
+```
 
-## Build
+This starts:
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+- **Local API** at `http://localhost:3001` (SQLite)
+- **Angular app** at `http://localhost:4200`
 
-## Running unit tests
+### Seeded local account
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+- Email: `dev@local.test`
+- Password: `password`
 
-## Running end-to-end tests
+You can also create new accounts from the login page — they are stored only in your local SQLite file.
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+### Run separately
 
-## Further help
+```bash
+# Terminal 1 — SQLite API
+npm run start:api
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+# Terminal 2 — Angular dev server
+npm start
+```
+
+The SQLite database file is created at `local-api/data/pantryflow.sqlite` (gitignored).
+
+## Production (Vercel + Supabase)
+
+Production builds use `environment.prod.ts` with `useLocalApi: false`, so the app talks directly to Supabase.
+
+Every push to `master` triggers a Vercel deployment. Configure these environment variables in the Vercel project if you move Supabase keys out of source:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+
+(Current builds use the values in `environment.prod.ts`.)
+
+### Build
+
+```bash
+npm run build
+```
+
+Output: `dist/food-web/browser` (static SPA for Vercel).
+
+## Project structure
+
+```txt
+local-api/          # Local SQLite + Express API (dev only)
+src/app/
+  core/services/    # Auth, inventory, Supabase, local API
+  features/         # Dashboard, inventory, login
+supabase/           # Production PostgreSQL migrations
+```
