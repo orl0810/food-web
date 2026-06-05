@@ -35,20 +35,22 @@ import { STORAGE_LOCATION_LABELS } from '../../core/models/food-item.model';
           (actionClick)="goToInventory()"
         />
       } @else {
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <app-stat-card label="Total items" [value]="inventoryService.totalCount()" />
-          <app-stat-card
-            label="Expiring soon"
-            [value]="inventoryService.expiringSoonCount()"
-            subtitle="Next 3 days"
-            variant="warning"
-          />
-          <app-stat-card
-            label="Expired"
-            [value]="inventoryService.expiredCount()"
-            variant="danger"
-          />
-          <div class="rounded-xl border border-stone-200 bg-card p-5 shadow-sm">
+        <div class="space-y-4 lg:grid lg:grid-cols-4 lg:gap-4 lg:space-y-0">
+          <div class="grid grid-cols-3 gap-4 lg:col-span-3">
+            <app-stat-card label="Total items" [value]="inventoryService.totalCount()" />
+            <app-stat-card
+              label="Expiring soon"
+              [value]="inventoryService.expiringSoonCount()"
+              subtitle="Next 3 days"
+              variant="warning"
+            />
+            <app-stat-card
+              label="Expired"
+              [value]="inventoryService.expiredCount()"
+              variant="danger"
+            />
+          </div>
+          <div class="h-full rounded-xl border border-stone-200 bg-card p-5 shadow-sm">
             <p class="text-sm font-medium text-muted">By location</p>
             <div class="mt-3 grid grid-cols-3 gap-2 text-center">
               <div>
@@ -80,19 +82,19 @@ import { STORAGE_LOCATION_LABELS } from '../../core/models/food-item.model';
               No items with expiration dates yet. Add dates to see what to use first.
             </p>
           } @else {
-            <div class="space-y-3">
+            <div class="grid grid-cols-3 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               @for (item of inventoryService.useFirstItems(); track item.id) {
-                <article class="rounded-xl border border-stone-200 bg-card p-4 shadow-sm">
-                  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 class="font-medium text-stone-900">{{ item.name }}</h3>
+                <article class="h-full rounded-xl border border-stone-200 bg-card p-4 shadow-sm">
+                  <div class="flex h-full flex-col gap-2">
+                    <div class="min-w-0">
+                      <h3 class="truncate font-medium text-stone-900">{{ item.name }}</h3>
                       <p class="text-sm text-stone-600">
                         {{ locationLabels[item.location] }} · {{ item.quantity }}
                         {{ item.unit || 'units' }}
                       </p>
                     </div>
                     <span
-                      class="self-start rounded-full px-2.5 py-0.5 text-xs font-medium sm:self-auto"
+                      class="self-start rounded-full px-2.5 py-0.5 text-xs font-medium"
                       [class.bg-amber-100]="expirationStatus(item.expiration_date) === 'soon'"
                       [class.text-amber-800]="expirationStatus(item.expiration_date) === 'soon'"
                       [class.bg-stone-100]="expirationStatus(item.expiration_date) === 'ok'"

@@ -80,12 +80,12 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
           (actionClick)="openAddForm()"
         />
       } @else {
-        <div class="space-y-3">
+        <div class="grid grid-cols-3 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           @for (item of filteredItems(); track item.id) {
-            <article class="rounded-xl border border-stone-200 bg-card p-4 shadow-sm">
-              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 class="text-base font-semibold text-stone-900">{{ item.name }}</h2>
+            <article class="h-full rounded-xl border border-stone-200 bg-card p-4 shadow-sm">
+              <div class="flex h-full flex-col gap-3">
+                <div class="min-w-0 flex-1">
+                  <h2 class="truncate text-base font-semibold text-stone-900">{{ item.name }}</h2>
                   <p class="mt-1 text-sm text-stone-600">
                     {{ item.quantity }} {{ item.unit || 'units' }}
                     @if (item.category) {
@@ -113,14 +113,14 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
                 <div class="flex gap-2">
                   <button
                     type="button"
-                    class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50"
+                    class="flex-1 rounded-lg border border-stone-300 px-2 py-1.5 text-xs text-stone-700 hover:bg-stone-50 sm:px-3 sm:text-sm"
                     (click)="openEditForm(item)"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    class="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                    class="flex-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50 sm:px-3 sm:text-sm"
                     (click)="deleteItem(item)"
                   >
                     Delete

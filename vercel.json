@@ -3,7 +3,7 @@
   "outputDirectory": "dist/food-web/browser",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!.*\\.).*)",
       "destination": "/index.html"
     }
   ]

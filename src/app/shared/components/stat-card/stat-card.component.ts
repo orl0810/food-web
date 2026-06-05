@@ -5,9 +5,10 @@ export type StatCardVariant = 'default' | 'success' | 'warning' | 'danger';
 @Component({
   selector: 'app-stat-card',
   standalone: true,
+  host: { class: 'block h-full' },
   template: `
     <div
-      class="rounded-xl border border-stone-200 bg-card p-5 shadow-sm"
+      class="h-full rounded-xl border border-stone-200 bg-card p-5 shadow-sm"
       [class.border-brand-200]="variant() === 'success'"
       [class.border-amber-200]="variant() === 'warning'"
       [class.border-red-200]="variant() === 'danger'"
