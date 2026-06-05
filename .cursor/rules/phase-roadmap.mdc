@@ -1,0 +1,86 @@
+---
+alwaysApply: true
+---
+description: Product roadmap and phase control for PantryFlow
+globs: **/*
+alwaysApply: true
+---
+
+# PantryFlow Roadmap
+
+## Phase 1: Inventory MVP
+
+Goal:
+Help the user know what food they have and what is expiring soon.
+
+Features:
+- Supabase Auth.
+- Food inventory CRUD.
+- Dashboard.
+- Expiring soon view.
+- Expired items view.
+- Location filters.
+
+Status:
+Current active phase.
+
+## Phase 2: Recipes
+
+Goal:
+Save simple personal recipes.
+
+Features:
+- Recipe CRUD.
+- Recipe ingredients.
+- Prep time.
+- Portions.
+- Tags.
+
+Status:
+Do not build yet.
+
+## Phase 3: Meal Plan
+
+Goal:
+Plan meals for the week.
+
+Features:
+- Weekly planner.
+- Assign recipes to lunch/dinner.
+- Today’s meals.
+- Duplicate previous week.
+
+Status:
+Do not build yet.
+
+## Phase 4: Shopping List
+
+Goal:
+Generate a shopping list from the meal plan.
+
+Features:
+- Compare recipe ingredients with inventory.
+- Generate missing items.
+- Mark items as bought.
+- Move bought items to inventory.
+
+Status:
+Do not build yet.
+
+## Phase 5: Smart Suggestions
+
+Goal:
+Suggest meals based on expiring foods and available ingredients.
+
+Features:
+- Use expiring foods first.
+- Suggest quick meals.
+- Suggest cheap meals.
+- Suggest meal prep options.
+
+Status:
+Do not build yet.
+
+## Rule
+
+Only work on the active phase unless the user explicitly asks to move to another phase.

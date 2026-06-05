@@ -1,0 +1,65 @@
+---
+alwaysApply: true
+---
+---
+description: Project context and product direction for PantryFlow meal planner app
+globs: **/*
+alwaysApply: true
+---
+
+# Project Overview
+
+This project is a personal meal planner web app called PantryFlow.
+
+The main goal is to help the user save time and money by:
+- Tracking food already available at home.
+- Avoiding food waste.
+- Planning meals for the week.
+- Generating shopping lists based on planned meals.
+- Prioritizing ingredients that expire soon.
+
+This app is being built first as a personal-use MVP. Do not over-engineer it.
+
+## Product Philosophy
+
+Build the app in small, practical phases.
+
+Phase 1:
+- Authentication with Supabase.
+- Food inventory.
+- Expiration tracking.
+- Dashboard with useful food status.
+
+Phase 2:
+- Recipes.
+- Recipe ingredients.
+- Tags such as quick, cheap, meal-prep, healthy.
+
+Phase 3:
+- Weekly meal planner.
+- Assign recipes to days and meal types.
+
+Phase 4:
+- Shopping list generation.
+- Compare required ingredients with current inventory.
+
+Phase 5:
+- Smart suggestions.
+- Suggest meals using expiring ingredients.
+- Suggest meals based on what is already available.
+
+## Important Rule
+
+Do not build future phases unless explicitly requested.
+
+When working on Phase 1, avoid adding:
+- AI features.
+- Payments.
+- Mobile app logic.
+- Public recipe marketplace.
+- Nutrition tracking.
+- Barcode scanning.
+- Complex user roles.
+- Multi-user family accounts.
+
+Keep the MVP simple and useful.

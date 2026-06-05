@@ -1,0 +1,47 @@
+---
+alwaysApply: true
+---
+---
+description: Angular coding standards for PantryFlow
+globs: src/**/*.ts,src/**/*.html,src/**/*.scss
+alwaysApply: true
+---
+
+# Angular Standards
+
+Use modern Angular patterns.
+
+## General Rules
+
+- Use standalone components.
+- Prefer Angular Signals for local and service state.
+- Prefer Reactive Forms for forms.
+- Avoid unnecessary NgModules.
+- Keep components small and focused.
+- Use typed interfaces for all data models.
+- Avoid using `any` unless absolutely necessary.
+- Use strict TypeScript.
+- Keep business logic out of templates.
+- Keep Supabase/database logic inside services.
+
+## Folder Structure
+
+Use this structure when possible:
+
+```txt
+src/app/
+  core/
+    services/
+    guards/
+    models/
+  features/
+    auth/
+    dashboard/
+    inventory/
+    recipes/
+    meal-plan/
+    shopping-list/
+  shared/
+    components/
+    pipes/
+    utils/

@@ -1,0 +1,33 @@
+---
+alwaysApply: true
+---
+description: Supabase integration standards for PantryFlow
+globs: src/**/*.ts
+alwaysApply: true
+---
+
+# Supabase Standards
+
+This project uses Supabase directly from the Angular frontend.
+
+There is no custom backend for the MVP.
+
+## General Rules
+
+- Keep all Supabase calls inside Angular services.
+- Do not call Supabase directly from components.
+- Always filter data by the authenticated user.
+- Use Row Level Security in Supabase.
+- Do not expose secret keys in the frontend.
+- Only use the public anon key in the Angular app.
+
+## Environment
+
+Supabase config should come from environment files:
+
+```ts
+export const environment = {
+  production: false,
+  supabaseUrl: '',
+  supabaseAnonKey: '',
+};

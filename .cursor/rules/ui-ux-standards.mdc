@@ -1,0 +1,77 @@
+---
+alwaysApply: true
+---
+
+description: UI and UX standards for PantryFlow
+globs: src/**/*.html,src/**/*.scss,src/**/*.ts
+alwaysApply: true
+---
+
+# UI/UX Standards
+
+The app should feel simple, clean, and practical.
+
+This is a personal productivity app, not a complex enterprise dashboard.
+
+## Design Direction
+
+Use a clean food/planning style:
+- Simple cards.
+- Clear sections.
+- Friendly empty states.
+- Mobile-friendly layout.
+- Fast actions.
+
+## Main Navigation
+
+Initial navigation should include:
+
+- Dashboard
+- Inventory
+
+Future navigation:
+- Recipes
+- Meal Plan
+- Shopping List
+
+Do not show future sections unless they are implemented.
+
+## Dashboard
+
+The dashboard should answer these questions quickly:
+
+- What food do I have?
+- What is expiring soon?
+- What has already expired?
+- What should I use first?
+
+Phase 1 dashboard cards:
+
+- Total items.
+- Expiring soon.
+- Expired.
+- Items by location.
+
+## Inventory Page
+
+The inventory page should support:
+
+- Add food.
+- Edit food.
+- Delete food.
+- Filter by location:
+  - All
+  - Fridge
+  - Freezer
+  - Pantry
+  - Expiring soon
+
+## Empty States
+
+Always provide helpful empty states.
+
+Example:
+
+```txt
+No food added yet.
+Start by adding what you already have in your fridge, freezer, or pantry.

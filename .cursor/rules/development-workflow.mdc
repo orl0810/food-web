@@ -1,0 +1,62 @@
+---
+alwaysApply: true
+---
+
+
+# Development Workflow
+
+Work in small steps.
+
+Do not generate a large app all at once.
+
+## Before Coding
+
+Before implementing a feature:
+- Explain what will be created.
+- Mention which files will be added or modified.
+- Keep the implementation focused on the current phase.
+
+## Current Phase
+
+The current phase is Phase 1.
+
+Build only:
+
+- Supabase setup.
+- Authentication.
+- Food inventory CRUD.
+- Dashboard.
+- Expiring food logic.
+
+Do not build:
+- Recipes.
+- Meal planning.
+- Shopping list.
+- Payments.
+- AI features.
+- Mobile app logic.
+
+Unless explicitly requested.
+
+## Code Quality
+
+Follow these rules:
+
+- Prefer readable code over clever code.
+- Use typed models.
+- Keep services separate from UI.
+- Keep components small.
+- Avoid duplicate logic.
+- Create reusable utility functions for date calculations.
+- Add basic loading and error states.
+
+## Date Logic
+
+Create utility functions for food expiration logic.
+
+Examples:
+
+```ts
+isExpired(date: string | null | undefined): boolean
+isExpiringSoon(date: string | null | undefined, days?: number): boolean
+getExpirationLabel(date: string | null | undefined): string
