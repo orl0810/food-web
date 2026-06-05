@@ -15,13 +15,6 @@ export const routes: Routes = [
     canActivate: [guestGuard],
   },
   {
-    path: 'auth/callback',
-    loadComponent: () =>
-      import('./features/auth/callback/auth-callback.component').then(
-        (m) => m.AuthCallbackComponent
-      ),
-  },
-  {
     path: '',
     component: AppShellComponent,
     canActivate: [authGuard],

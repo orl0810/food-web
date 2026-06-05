@@ -2,6 +2,11 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Session, User } from '@supabase/supabase-js';
 import { SupabaseService } from './supabase.service';
 
+export interface AuthResult {
+  error: string | null;
+  needsConfirmation?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly supabaseService = inject(SupabaseService);
@@ -44,38 +49,43 @@ export class AuthService {
     });
   }
 
-  async signInWithMagicLink(email: string): Promise<{ error: string | null }> {
+  async signInWithPassword(email: string, password: string): Promise<AuthResult> {
     const client = this.supabaseService.getClient();
     if (!client) {
       return { error: 'Authentication is only available in the browser.' };
     }
 
-    const redirectTo = `${window.location.origin}/auth/callback`;
-    const { error } = await client.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: redirectTo },
-    });
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
 
-    return { error: error?.message ?? null };
-  }
-
-  async handleAuthCallback(): Promise<{ error: string | null }> {
-    const client = this.supabaseService.getClient();
-    if (!client) {
-      return { error: 'Authentication is only available in the browser.' };
-    }
-
-    const { data, error } = await client.auth.getSession();
     if (error) {
       return { error: error.message };
     }
 
-    if (!data.session) {
-      return { error: 'No active session found. Please request a new magic link.' };
-    }
-
     this.sessionSignal.set(data.session);
     return { error: null };
+  }
+
+  async signUpWithPassword(email: string, password: string): Promise<AuthResult> {
+    const client = this.supabaseService.getClient();
+    if (!client) {
+      return { error: 'Authentication is only available in the browser.' };
+    }
+
+    const { data, error } = await client.auth.signUp({ email, password });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    if (data.session) {
+      this.sessionSignal.set(data.session);
+      return { error: null };
+    }
+
+    return {
+      error: null,
+      needsConfirmation: true,
+    };
   }
 
   async signOut(): Promise<void> {
