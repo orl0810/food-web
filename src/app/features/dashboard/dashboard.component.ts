@@ -100,11 +100,11 @@ import {
               No items with expiration dates yet. Add dates to see what to use first.
             </p>
           } @else {
-            <div class="divide-y divide-stone-200/70 overflow-x-auto">
+            <div class="divide-y divide-stone-200/60">
               @for (item of inventoryService.useFirstItems(); track item.id) {
-                <article class="flex w-max min-w-full items-center gap-3 px-4 py-2 sm:gap-5 sm:px-5">
+                <article class="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-white/40 sm:items-center sm:gap-3 sm:px-5">
                   <div
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-stone-200/80"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-stone-100 ring-1 ring-stone-200/80"
                     aria-hidden="true"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-stone-400">
@@ -112,38 +112,35 @@ import {
                     </svg>
                   </div>
 
-                  <p class="shrink-0 text-sm font-semibold text-stone-900">{{ item.name }}</p>
+                  <div class="min-w-0 flex-1 sm:flex sm:items-center sm:gap-5">
+                    <p class="truncate text-sm font-semibold text-stone-900 sm:w-32 sm:shrink-0 lg:w-40">
+                      {{ item.name }}
+                    </p>
 
-                  <p class="shrink-0 text-sm whitespace-nowrap">
-                    <span class="text-stone-500">Expir: </span>
-                    <span
-                      class="font-medium"
-                      [class.text-red-600]="expirationUrgency(item.expiration_date) === 'today' || expirationUrgency(item.expiration_date) === 'soon'"
-                      [class.text-amber-600]="expirationUrgency(item.expiration_date) === 'tomorrow'"
-                      [class.text-stone-700]="expirationUrgency(item.expiration_date) === 'later'"
-                    >
-                      {{ expirationShortLabel(item.expiration_date) }}
-                    </span>
-                  </p>
-
-                  <p class="shrink-0 text-sm whitespace-nowrap">
-                    <span class="text-stone-500">Location: </span>
-                    <span class="font-medium text-stone-800">{{ locationLabels[item.location] }}</span>
-                  </p>
-
-                  <p class="shrink-0 text-sm whitespace-nowrap">
-                    <span class="text-stone-500">Quantity: </span>
-                    <span class="font-medium text-stone-800">{{ item.quantity }} {{ item.unit || 'units' }}</span>
-                  </p>
+                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-stone-500 sm:mt-0 sm:flex-1">
+                      <span
+                        class="font-medium"
+                        [class.text-red-600]="expirationUrgency(item.expiration_date) === 'today' || expirationUrgency(item.expiration_date) === 'soon'"
+                        [class.text-amber-600]="expirationUrgency(item.expiration_date) === 'tomorrow'"
+                        [class.text-stone-600]="expirationUrgency(item.expiration_date) === 'later'"
+                      >
+                        {{ expirationShortLabel(item.expiration_date) }}
+                      </span>
+                      <span class="text-stone-300" aria-hidden="true">·</span>
+                      <span>{{ locationLabels[item.location] }}</span>
+                      <span class="text-stone-300" aria-hidden="true">·</span>
+                      <span>{{ item.quantity }} {{ item.unit || 'units' }}</span>
+                    </p>
+                  </div>
 
                   <span
-                    class="ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap"
+                    class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium leading-tight sm:self-center"
                     [class.bg-red-50]="expirationUrgency(item.expiration_date) === 'today'"
                     [class.text-red-700]="expirationUrgency(item.expiration_date) === 'today'"
                     [class.bg-amber-50]="expirationUrgency(item.expiration_date) === 'tomorrow' || expirationUrgency(item.expiration_date) === 'soon'"
                     [class.text-amber-700]="expirationUrgency(item.expiration_date) === 'tomorrow' || expirationUrgency(item.expiration_date) === 'soon'"
                     [class.bg-stone-100]="expirationUrgency(item.expiration_date) === 'later'"
-                    [class.text-stone-700]="expirationUrgency(item.expiration_date) === 'later'"
+                    [class.text-stone-600]="expirationUrgency(item.expiration_date) === 'later'"
                   >
                     {{ useFirstActionLabel(item.expiration_date) }}
                   </span>
