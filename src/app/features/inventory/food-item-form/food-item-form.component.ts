@@ -24,7 +24,7 @@ function normalizeNameKey(name: string): string {
   standalone: true,
   imports: [ReactiveFormsModule, SearchSelectComponent],
   template: `
-    <form class="space-y-4 rounded-xl border border-stone-200 bg-card p-5 shadow-sm" [formGroup]="form" (ngSubmit)="submit()">
+    <form class="card space-y-4 p-5" [formGroup]="form" (ngSubmit)="submit()">
       <div class="flex items-center justify-between gap-4">
         <h2 class="text-lg font-semibold text-stone-900">
           {{ item() ? 'Edit food item' : 'Add food item' }}

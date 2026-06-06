@@ -723,6 +723,155 @@ app.delete('/meal-plan/:id', authMiddleware, (req: AuthenticatedRequest, res) =>
   res.status(204).send();
 });
 
+app.get('/shopping-items', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const items = db
+    .prepare(
+      `select id, user_id, name, quantity, unit, is_checked, source, created_at
+       from shopping_items
+       where user_id = ?
+       order by is_checked asc, created_at asc`
+    )
+    .all(req.userId)
+    .map((row) => ({
+      ...(row as Record<string, unknown>),
+      is_checked: Boolean((row as { is_checked: number }).is_checked),
+    }));
+  res.json({ data: items });
+});
+
+app.post('/shopping-items', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const name = String(req.body?.name ?? '').trim();
+  const source = req.body?.source ?? 'manual';
+
+  if (!name) {
+    res.status(400).json({ error: 'Name is required.' });
+    return;
+  }
+
+  if (!['manual', 'meal_plan'].includes(source)) {
+    res.status(400).json({ error: 'Source must be manual or meal_plan.' });
+    return;
+  }
+
+  const id = crypto.randomUUID();
+  const quantity = toNumberOrNull(req.body?.quantity);
+  const unit = req.body?.unit?.trim() || null;
+
+  db.prepare(
+    `insert into shopping_items (id, user_id, name, quantity, unit, source)
+     values (?, ?, ?, ?, ?, ?)`
+  ).run(id, req.userId, name, quantity, unit, source);
+
+  const item = db
+    .prepare(
+      `select id, user_id, name, quantity, unit, is_checked, source, created_at
+       from shopping_items where id = ?`
+    )
+    .get(id) as {
+    id: string;
+    user_id: string;
+    name: string;
+    quantity: number | null;
+    unit: string | null;
+    is_checked: number;
+    source: string;
+    created_at: string;
+  };
+
+  res.status(201).json({
+    data: {
+      ...item,
+      is_checked: Boolean(item.is_checked),
+    },
+  });
+});
+
+app.patch('/shopping-items/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const existing = db
+    .prepare('select id from shopping_items where id = ? and user_id = ?')
+    .get(req.params['id'], req.userId);
+
+  if (!existing) {
+    res.status(404).json({ error: 'Shopping item not found.' });
+    return;
+  }
+
+  const fields: string[] = [];
+  const values: unknown[] = [];
+
+  const updatable = ['name', 'quantity', 'unit', 'is_checked'] as const;
+  for (const field of updatable) {
+    if (req.body?.[field] !== undefined) {
+      let value = req.body[field];
+      if (field === 'name') {
+        value = String(value).trim();
+      }
+      if (field === 'unit') {
+        value = value?.trim() || null;
+      }
+      if (field === 'quantity') {
+        value = toNumberOrNull(value);
+      }
+      if (field === 'is_checked') {
+        value = value ? 1 : 0;
+      }
+      fields.push(`${field} = ?`);
+      values.push(value);
+    }
+  }
+
+  if (fields.length === 0) {
+    res.status(400).json({ error: 'No fields to update.' });
+    return;
+  }
+
+  values.push(req.params['id'], req.userId);
+  db.prepare(
+    `update shopping_items set ${fields.join(', ')} where id = ? and user_id = ?`
+  ).run(...values);
+
+  const item = db
+    .prepare(
+      `select id, user_id, name, quantity, unit, is_checked, source, created_at
+       from shopping_items where id = ?`
+    )
+    .get(req.params['id']) as {
+    id: string;
+    user_id: string;
+    name: string;
+    quantity: number | null;
+    unit: string | null;
+    is_checked: number;
+    source: string;
+    created_at: string;
+  };
+
+  res.json({
+    data: {
+      ...item,
+      is_checked: Boolean(item.is_checked),
+    },
+  });
+});
+
+app.delete('/shopping-items/checked', authMiddleware, (req: AuthenticatedRequest, res) => {
+  db.prepare('delete from shopping_items where user_id = ? and is_checked = 1').run(req.userId);
+  res.status(204).send();
+});
+
+app.delete('/shopping-items/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const result = db
+    .prepare('delete from shopping_items where id = ? and user_id = ?')
+    .run(req.params['id'], req.userId);
+
+  if (result.changes === 0) {
+    res.status(404).json({ error: 'Shopping item not found.' });
+    return;
+  }
+
+  res.status(204).send();
+});
+
 function addDaysIso(date: string, days: number): string {
   const parsed = new Date(`${date}T00:00:00`);
   parsed.setDate(parsed.getDate() + days);

@@ -14,9 +14,9 @@ import { MealPlanService } from '../../../core/services/meal-plan.service';
   standalone: true,
   imports: [RouterLink, NgTemplateOutlet],
   template: `
-    <section class="overflow-hidden rounded-xl border border-stone-200 bg-card shadow-sm">
+    <section class="card overflow-hidden">
       <div class="flex items-center justify-between gap-4 border-b border-stone-100 px-5 py-4">
-        <h2 class="text-base font-semibold text-stone-900">Today&apos;s Meal Plan</h2>
+        <h2 class="section-title">Today&apos;s Meal Plan</h2>
         @if (showEditLink()) {
           <a
             routerLink="/meal-plan"
@@ -96,14 +96,14 @@ import { MealPlanService } from '../../../core/services/meal-plan.service';
           @if (emptySlotMode() === 'navigate') {
             <a
               routerLink="/meal-plan"
-              class="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+              class="btn-primary shrink-0"
             >
               Plan today&apos;s meals
             </a>
           } @else {
             <button
               type="button"
-              class="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+              class="btn-primary shrink-0"
               (click)="planTodayClick.emit()"
             >
               Plan today&apos;s meals

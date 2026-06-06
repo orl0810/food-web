@@ -12,16 +12,13 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
   standalone: true,
   imports: [RouterLink, EmptyStateComponent, LoadingStateComponent],
   template: `
-    <div class="space-y-6">
+    <div class="page">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-stone-900">My Recipes</h1>
-          <p class="mt-1 text-sm text-stone-500">Your saved recipes, ready to plan into your week.</p>
+          <h1 class="page-title">My Recipes</h1>
+          <p class="page-subtitle">Your saved recipes, ready to plan into your week.</p>
         </div>
-        <a
-          routerLink="/recipes/new"
-          class="self-start rounded-xl bg-sage px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-sage-dark sm:self-auto"
-        >
+        <a routerLink="/recipes/new" class="btn-primary self-start sm:self-auto">
           New recipe
         </a>
       </div>
@@ -33,18 +30,16 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
             [value]="search()"
             (input)="onSearch($event)"
             placeholder="Search by title..."
-            class="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-sage focus:ring-2 focus:ring-sage/20"
+            class="input"
           />
 
           @if (recipeService.allTags().length > 0) {
             <div class="flex flex-wrap gap-2">
               <button
                 type="button"
-                class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-                [class.bg-sage]="activeTag() === null"
-                [class.text-white]="activeTag() === null"
-                [class.bg-tan]="activeTag() !== null"
-                [class.text-stone-700]="activeTag() !== null"
+                class="filter-pill"
+                [class.filter-pill-active]="activeTag() === null"
+                [class.filter-pill-inactive]="activeTag() !== null"
                 (click)="activeTag.set(null)"
               >
                 All tags
@@ -52,11 +47,9 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
               @for (tag of recipeService.allTags(); track tag) {
                 <button
                   type="button"
-                  class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-                  [class.bg-sage]="activeTag() === tag"
-                  [class.text-white]="activeTag() === tag"
-                  [class.bg-tan]="activeTag() !== tag"
-                  [class.text-stone-700]="activeTag() !== tag"
+                  class="filter-pill"
+                  [class.filter-pill-active]="activeTag() === tag"
+                  [class.filter-pill-inactive]="activeTag() !== tag"
                   (click)="activeTag.set(tag)"
                 >
                   {{ tag }}
@@ -70,7 +63,7 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
       @if (recipeService.loading()) {
         <app-loading-state message="Loading recipes..." />
       } @else if (recipeService.error()) {
-        <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p class="alert-error">
           {{ recipeService.error() }}
         </p>
       } @else if (recipeService.recipes().length === 0) {
@@ -88,10 +81,10 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
       } @else {
         <div class="flex flex-col gap-4">
           @for (recipe of filteredRecipes(); track recipe.id) {
-            <article class="rounded-2xl border border-stone-200/80 bg-white p-4 shadow-sm">
+            <article class="card p-4">
               <div class="flex gap-3">
                 <div
-                  class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-tan"
+                  class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-brand-50 ring-1 ring-brand-100"
                   aria-hidden="true"
                 >
                   <svg
@@ -100,7 +93,7 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
                     viewBox="0 0 24 24"
                     stroke-width="1.5"
                     stroke="currentColor"
-                    class="h-7 w-7 text-sage"
+                    class="h-7 w-7 text-brand-600"
                   >
                     <path
                       stroke-linecap="round"
@@ -112,11 +105,11 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
                 </div>
 
                 <div class="min-w-0 flex-1">
-                  <h2 class="text-base font-bold text-stone-900">{{ recipe.title }}</h2>
+                  <h2 class="text-base font-semibold text-stone-900">{{ recipe.title }}</h2>
 
                   <div class="mt-1.5 flex flex-wrap items-center gap-2">
                     @if (recipe.prep_time_minutes) {
-                      <span class="inline-flex items-center gap-1 text-xs text-stone-500">
+                      <span class="inline-flex items-center gap-1 text-xs text-stone-600">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
@@ -136,29 +129,23 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
                       </span>
                     }
                     @for (tag of recipe.tags; track tag) {
-                      <span class="rounded-md bg-tan px-2 py-0.5 text-xs font-medium text-stone-700">
-                        {{ tag }}
-                      </span>
+                      <span class="tag">{{ tag }}</span>
                     }
                   </div>
                 </div>
               </div>
 
-              <p class="mt-3 text-sm text-sage">
+              <p class="mt-3 text-sm text-brand-700">
                 {{ availabilityLabel(recipe) }}
               </p>
 
               <div class="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  class="flex-1 rounded-xl bg-sage py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sage-dark"
-                  (click)="planMeal(recipe)"
-                >
+                <button type="button" class="btn-primary flex-1" (click)="planMeal(recipe)">
                   Plan meal
                 </button>
                 <a
                   [routerLink]="['/recipes', recipe.id]"
-                  class="flex-1 rounded-xl border border-sage py-2.5 text-center text-sm font-semibold text-sage transition-colors hover:bg-sage/5"
+                  class="btn-secondary flex-1 text-center"
                 >
                   View
                 </a>

@@ -25,10 +25,10 @@ import {
     RouterLink,
   ],
   template: `
-    <div class="space-y-8">
+    <div class="page">
       <div>
-        <h1 class="text-2xl font-semibold text-stone-900">Dashboard</h1>
-        <p class="mt-1 text-sm text-stone-600">See what you have and what to use first.</p>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">See what you have and what to use first.</p>
       </div>
 
       <app-todays-meal-plan />
@@ -37,7 +37,7 @@ import {
       @if (inventoryService.loading()) {
         <app-loading-state message="Loading dashboard..." />
       } @else if (inventoryService.error()) {
-        <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p class="alert-error">
           {{ inventoryService.error() }}
         </p>
       } @else if (inventoryService.totalCount() === 0) {
@@ -87,13 +87,10 @@ import {
           />
         </div>
 
-        <section class="overflow-hidden rounded-xl border border-stone-200 bg-amber-50/40 shadow-sm">
+        <section class="card-featured overflow-hidden">
           <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
-            <h2 class="text-base font-semibold text-stone-900">Use These First</h2>
-            <a
-              routerLink="/recipes"
-              class="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-600"
-            >
+            <h2 class="section-title">Use These First</h2>
+            <a routerLink="/recipes" class="btn-primary-sm shrink-0">
               Cook with these
             </a>
           </div>

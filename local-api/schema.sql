@@ -107,6 +107,19 @@ create table if not exists meal_plan (
 create index if not exists meal_plan_user_id_idx on meal_plan (user_id);
 create index if not exists meal_plan_user_date_idx on meal_plan (user_id, date);
 
+create table if not exists shopping_items (
+  id text primary key,
+  user_id text not null references users (id) on delete cascade,
+  name text not null,
+  quantity real,
+  unit text,
+  is_checked integer not null default 0,
+  source text not null default 'manual' check (source in ('manual', 'meal_plan')),
+  created_at text not null default (datetime('now'))
+);
+
+create index if not exists shopping_items_user_id_idx on shopping_items (user_id);
+
 create table if not exists food_categories (
   id text primary key,
   name text not null unique,

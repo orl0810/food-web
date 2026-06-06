@@ -16,7 +16,7 @@ import { AuthService } from '../../../core/services/auth.service';
             </a>
             <button
               type="button"
-              class="text-sm text-red-300 hover:text-red-400"
+              class="text-sm text-stone-500 transition-colors hover:text-stone-700"
               (click)="signOut()"
             >
               Log out
@@ -50,6 +50,13 @@ import { AuthService } from '../../../core/services/auth.service';
               class="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
             >
               Meal Plan
+            </a>
+            <a
+              routerLink="/shopping-list"
+              routerLinkActive="bg-brand-50 text-brand-700"
+              class="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
+            >
+              Shopping List
             </a>
           </nav>
         </div>

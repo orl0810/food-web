@@ -9,7 +9,7 @@ import { formatDayLabel } from '../../shared/utils/meal-plan.utils';
   standalone: true,
   imports: [RouterLink],
   template: `
-    <div class="rounded-xl border border-brand-200 bg-brand-50/40 p-4 shadow-sm">
+    <div class="card-featured p-4">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 class="text-sm font-semibold text-stone-900">Choose a recipe</h3>
@@ -32,18 +32,16 @@ import { formatDayLabel } from '../../shared/utils/meal-plan.utils';
           [value]="search()"
           (input)="onSearch($event)"
           placeholder="Search by title..."
-          class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          class="input"
         />
 
         @if (recipeService.allTags().length > 0) {
           <div class="flex flex-wrap gap-2">
             <button
               type="button"
-              class="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-              [class.bg-brand-600]="activeTag() === null"
-              [class.text-white]="activeTag() === null"
-              [class.bg-white]="activeTag() !== null"
-              [class.text-stone-700]="activeTag() !== null"
+              class="filter-pill"
+              [class.filter-pill-active]="activeTag() === null"
+              [class.filter-pill-inactive]="activeTag() !== null"
               (click)="activeTag.set(null)"
             >
               All tags
@@ -51,11 +49,9 @@ import { formatDayLabel } from '../../shared/utils/meal-plan.utils';
             @for (tag of recipeService.allTags(); track tag) {
               <button
                 type="button"
-                class="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-                [class.bg-brand-600]="activeTag() === tag"
-                [class.text-white]="activeTag() === tag"
-                [class.bg-white]="activeTag() !== tag"
-                [class.text-stone-700]="activeTag() !== tag"
+                class="filter-pill"
+                [class.filter-pill-active]="activeTag() === tag"
+                [class.filter-pill-inactive]="activeTag() !== tag"
                 (click)="activeTag.set(tag)"
               >
                 {{ tag }}

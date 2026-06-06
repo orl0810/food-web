@@ -27,9 +27,9 @@ import { SearchSelectComponent } from '../../../shared/components/search-select/
     @if (loading()) {
       <app-loading-state message="Loading recipe..." />
     } @else {
-      <form class="space-y-6" [formGroup]="form" (ngSubmit)="submit()">
+      <form class="page" [formGroup]="form" (ngSubmit)="submit()">
         <div class="flex items-center justify-between gap-4">
-          <h1 class="text-2xl font-semibold text-stone-900">
+          <h1 class="page-title">
             {{ isEdit() ? 'Edit recipe' : 'New recipe' }}
           </h1>
           <a
@@ -40,7 +40,7 @@ import { SearchSelectComponent } from '../../../shared/components/search-select/
           </a>
         </div>
 
-        <section class="space-y-4 rounded-xl border border-stone-200 bg-card p-5 shadow-sm">
+        <section class="card space-y-4 p-5">
           <div>
             <label for="title" class="mb-1 block text-sm font-medium text-stone-700">Title *</label>
             <input
@@ -91,12 +91,12 @@ import { SearchSelectComponent } from '../../../shared/components/search-select/
           </div>
         </section>
 
-        <section class="space-y-3 rounded-xl border border-stone-200 bg-card p-5 shadow-sm">
-          <h2 class="text-lg font-semibold text-stone-900">Tags</h2>
+        <section class="card space-y-3 p-5">
+          <h2 class="section-title">Tags</h2>
           @if (tags().length > 0) {
             <div class="flex flex-wrap gap-2">
               @for (tag of tags(); track tag) {
-                <span class="flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
+                <span class="tag flex items-center gap-1.5 px-2.5 py-1">
                   {{ tag }}
                   <button
                     type="button"
@@ -128,9 +128,9 @@ import { SearchSelectComponent } from '../../../shared/components/search-select/
           </div>
         </section>
 
-        <section class="overflow-hidden rounded-xl border border-stone-200 bg-amber-50/40 shadow-sm">
+        <section class="card-featured overflow-hidden">
           <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
-            <h2 class="text-base font-semibold text-stone-900">Ingredients</h2>
+            <h2 class="section-title">Ingredients</h2>
             @if (ingredients.length > 0) {
               <span class="text-sm text-stone-500">{{ ingredients.length }} added</span>
             }
@@ -297,19 +297,16 @@ import { SearchSelectComponent } from '../../../shared/components/search-select/
         </section>
 
         @if (error()) {
-          <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{{ error() }}</p>
+          <p class="alert-error">{{ error() }}</p>
         }
 
         <div class="flex justify-end gap-3">
-          <a
-            [routerLink]="cancelLink()"
-            class="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-          >
+          <a [routerLink]="cancelLink()" class="btn-secondary">
             Cancel
           </a>
           <button
             type="submit"
-            class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+            class="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
             [disabled]="form.invalid || saving()"
           >
             {{ saving() ? 'Saving...' : isEdit() ? 'Save changes' : 'Create recipe' }}

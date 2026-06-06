@@ -12,6 +12,7 @@ import { FoodInventoryService } from '../../core/services/food-inventory.service
 import { MealPlanService } from '../../core/services/meal-plan.service';
 import { RecipeService } from '../../core/services/recipe.service';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
+import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
 import {
   formatDayShort,
   formatFullDayHeading,
@@ -39,12 +40,12 @@ interface WeekStats {
 @Component({
   selector: 'app-meal-plan',
   standalone: true,
-  imports: [NgTemplateOutlet, RouterLink, LoadingStateComponent, MealPlanRecipePickerComponent],
+  imports: [NgTemplateOutlet, RouterLink, LoadingStateComponent, StatCardComponent, MealPlanRecipePickerComponent],
   template: `
-    <div class="space-y-5">
+    <div class="page">
       <div>
-        <h1 class="text-2xl font-bold text-stone-900">Meal Plan</h1>
-        <p class="mt-1 text-sm text-stone-500">Plan your week and reduce waste.</p>
+        <h1 class="page-title">Meal Plan</h1>
+        <p class="page-subtitle">Plan your week and reduce waste.</p>
       </div>
 
       <!-- Week navigation -->
@@ -93,24 +94,24 @@ interface WeekStats {
           @let mealCount = mealsForDate(date);
           <button
             type="button"
-            class="flex min-w-[3.25rem] flex-col items-center rounded-2xl px-3 py-2.5 transition-colors"
-            [class.bg-sage]="selectedDate() === date"
+            class="flex min-w-[3.25rem] flex-col items-center rounded-xl px-3 py-2.5 transition-colors"
+            [class.bg-brand-600]="selectedDate() === date"
             [class.text-white]="selectedDate() === date"
-            [class.bg-tan]="selectedDate() !== date"
+            [class.bg-stone-100]="selectedDate() !== date"
             [class.text-stone-700]="selectedDate() !== date"
             [class.ring-2]="isTodayDate(date) && selectedDate() !== date"
-            [class.ring-sage]="isTodayDate(date) && selectedDate() !== date"
+            [class.ring-brand-600]="isTodayDate(date) && selectedDate() !== date"
             [class.ring-offset-1]="isTodayDate(date) && selectedDate() !== date"
             (click)="selectDate(date)"
           >
             <span class="text-xs font-medium">{{ day.weekday }}</span>
-            <span class="mt-0.5 text-lg font-bold leading-none">{{ day.day }}</span>
+            <span class="mt-0.5 text-lg font-semibold leading-none">{{ day.day }}</span>
             <span class="mt-1.5 flex h-1.5 items-center justify-center gap-0.5" aria-hidden="true">
               @for (dot of mealCountDots(mealCount); track $index) {
                 <span
                   class="h-1 w-1 rounded-full"
                   [class.bg-white/80]="selectedDate() === date"
-                  [class.bg-sage]="selectedDate() !== date"
+                  [class.bg-brand-600]="selectedDate() !== date"
                 ></span>
               }
             </span>
@@ -121,25 +122,25 @@ interface WeekStats {
 
       @if (!mealPlanService.loading() && !mealPlanService.error()) {
         <!-- Week summary stats -->
-        <div class="grid grid-cols-3 gap-2 sm:gap-3">
-          <div class="rounded-2xl border border-stone-200 bg-cream px-3 py-3 text-center sm:px-4 sm:py-4">
-            <p class="text-2xl font-bold text-brand-600 sm:text-3xl">{{ weekStats().mealsPlanned }}</p>
-            <p class="mt-0.5 text-xs font-medium text-stone-600 sm:text-sm">Meals planned</p>
-          </div>
-          <div class="rounded-2xl border border-stone-200 bg-cream px-3 py-3 text-center sm:px-4 sm:py-4">
-            <p class="text-2xl font-bold text-warning sm:text-3xl">
-              @if (weekStats().ingredientsReadyPercent !== null) {
-                {{ weekStats().ingredientsReadyPercent }}%
-              } @else {
-                —
-              }
-            </p>
-            <p class="mt-0.5 text-xs font-medium text-stone-600 sm:text-sm">Ingredients ready</p>
-          </div>
-          <div class="rounded-2xl border border-stone-200 bg-cream px-3 py-3 text-center sm:px-4 sm:py-4">
-            <p class="text-2xl font-bold text-danger sm:text-3xl">{{ weekStats().itemsNeeded }}</p>
-            <p class="mt-0.5 text-xs font-medium text-stone-600 sm:text-sm">Items needed</p>
-          </div>
+        <div class="grid grid-cols-3 gap-3 sm:gap-4">
+          <app-stat-card
+            label="Meals planned"
+            icon="basket"
+            variant="success"
+            [value]="weekStats().mealsPlanned"
+          />
+          <app-stat-card
+            label="Ingredients ready"
+            icon="clock"
+            variant="warning"
+            [value]="weekStats().ingredientsReadyPercent !== null ? weekStats().ingredientsReadyPercent! + '%' : '—'"
+          />
+          <app-stat-card
+            label="Items needed"
+            icon="warning"
+            variant="danger"
+            [value]="weekStats().itemsNeeded"
+          />
         </div>
       }
 
@@ -155,7 +156,7 @@ interface WeekStats {
       @if (mealPlanService.loading()) {
         <app-loading-state message="Loading meal plan..." />
       } @else if (mealPlanService.error()) {
-        <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p class="alert-error">
           {{ mealPlanService.error() }}
         </p>
       } @else {
@@ -173,12 +174,12 @@ interface WeekStats {
               <section>
                 <div class="mb-3">
                   <h3 class="text-base font-semibold text-stone-900">{{ mealTypeLabel(mealType) }}</h3>
-                  <p class="text-sm text-stone-500">{{ mealTypeTimeRange(mealType) }}</p>
+                  <p class="text-sm text-stone-600">{{ mealTypeTimeRange(mealType) }}</p>
                 </div>
 
                 @if (entryFor(selectedDate(), mealType); as entry) {
                   @let availability = entryAvailability(entry);
-                  <article class="relative overflow-hidden rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+                  <article class="card relative overflow-hidden p-4">
                     @if (availability.variant === 'ready') {
                       <div
                         class="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-brand-600"
@@ -201,7 +202,7 @@ interface WeekStats {
                       <div class="min-w-0 flex-1">
                         <p class="font-semibold text-stone-900">{{ entry.recipe?.title ?? 'Recipe unavailable' }}</p>
                         @if (entry.recipe?.prep_time_minutes) {
-                          <p class="mt-1 flex items-center gap-1 text-sm text-stone-500">
+                          <p class="mt-1 flex items-center gap-1 text-sm text-stone-600">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                             </svg>
@@ -226,14 +227,14 @@ interface WeekStats {
                       @if (entry.recipe_id) {
                         <a
                           [routerLink]="['/recipes', entry.recipe_id]"
-                          class="flex-1 rounded-xl bg-sage px-4 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-sage-dark"
+                          class="btn-primary flex-1 text-center"
                         >
                           View recipe
                         </a>
                       }
                       <button
                         type="button"
-                        class="rounded-xl border border-stone-200 bg-tan px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-100"
+                        class="btn-secondary"
                         [disabled]="removingId() === entry.id"
                         (click)="onRemove(entry.id, entry.recipe?.title ?? 'this meal')"
                       >
@@ -244,7 +245,7 @@ interface WeekStats {
                 } @else {
                   <button
                     type="button"
-                    class="flex w-full items-center gap-3 rounded-2xl border border-dashed border-stone-300 bg-stone-50/60 p-4 text-left transition-colors hover:border-sage hover:bg-brand-50/30"
+                    class="flex w-full items-center gap-3 rounded-xl border border-dashed border-stone-300 bg-stone-50/60 p-4 text-left transition-colors hover:border-brand-300 hover:bg-brand-50/30"
                     (click)="openPicker(selectedDate(), mealType)"
                   >
                     <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-stone-200">

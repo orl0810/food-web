@@ -9,7 +9,7 @@ import { LoadingStateComponent } from '../../../shared/components/loading-state/
   standalone: true,
   imports: [RouterLink, LoadingStateComponent],
   template: `
-    <div class="space-y-6">
+    <div class="page">
       <a routerLink="/recipes" class="inline-flex text-sm text-stone-500 hover:text-stone-700">
         &larr; Back to recipes
       </a>
@@ -17,25 +17,22 @@ import { LoadingStateComponent } from '../../../shared/components/loading-state/
       @if (loading()) {
         <app-loading-state message="Loading recipe..." />
       } @else if (error()) {
-        <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{{ error() }}</p>
+        <p class="alert-error">{{ error() }}</p>
       } @else if (recipe(); as r) {
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 class="text-2xl font-semibold text-stone-900">{{ r.title }}</h1>
+            <h1 class="page-title">{{ r.title }}</h1>
             @if (r.description) {
               <p class="mt-2 max-w-2xl text-sm text-stone-600">{{ r.description }}</p>
             }
           </div>
           <div class="flex gap-2">
-            <a
-              [routerLink]="['/recipes', r.id, 'edit']"
-              class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50"
-            >
+            <a [routerLink]="['/recipes', r.id, 'edit']" class="btn-secondary-sm">
               Edit
             </a>
             <button
               type="button"
-              class="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              class="btn-danger disabled:cursor-not-allowed disabled:opacity-60"
               [disabled]="deleting()"
               (click)="deleteRecipe(r)"
             >
@@ -60,14 +57,12 @@ import { LoadingStateComponent } from '../../../shared/components/loading-state/
         @if (r.tags.length > 0) {
           <div class="flex flex-wrap gap-1.5">
             @for (tag of r.tags; track tag) {
-              <span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
-                {{ tag }}
-              </span>
+              <span class="tag">{{ tag }}</span>
             }
           </div>
         }
 
-        <section class="rounded-xl border border-stone-200 bg-card p-5 shadow-sm">
+        <section class="card p-5">
           <h2 class="text-lg font-semibold text-stone-900">Ingredients</h2>
           @if ((r.ingredients?.length ?? 0) === 0) {
             <p class="mt-2 text-sm text-stone-500">No ingredients added for this recipe.</p>

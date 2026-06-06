@@ -236,6 +236,46 @@ export class LocalApiService {
     return response.data;
   }
 
+  async getShoppingItems(): Promise<unknown[]> {
+    const response = await this.request<{ data: unknown[] }>('/shopping-items', {
+      method: 'GET',
+      auth: true,
+    });
+    return response.data;
+  }
+
+  async createShoppingItem(payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/shopping-items', {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async updateShoppingItem(id: string, payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>(`/shopping-items/${id}`, {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async deleteShoppingItem(id: string): Promise<void> {
+    await this.request<void>(`/shopping-items/${id}`, {
+      method: 'DELETE',
+      auth: true,
+    });
+  }
+
+  async deleteCheckedShoppingItems(): Promise<void> {
+    await this.request<void>('/shopping-items/checked', {
+      method: 'DELETE',
+      auth: true,
+    });
+  }
+
   private async request<T>(
     path: string,
     options: {

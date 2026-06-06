@@ -23,18 +23,14 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
   standalone: true,
   imports: [FoodItemFormComponent, EmptyStateComponent, LoadingStateComponent],
   template: `
-    <div class="space-y-6">
+    <div class="page">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="text-2xl font-semibold text-stone-900">Inventory</h1>
-          <p class="mt-1 text-sm text-stone-600">Track what you have at home.</p>
+          <h1 class="page-title">Inventory</h1>
+          <p class="page-subtitle">Track what you have at home.</p>
         </div>
         @if (!showForm()) {
-          <button
-            type="button"
-            class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
-            (click)="openAddForm()"
-          >
+          <button type="button" class="btn-primary" (click)="openAddForm()">
             Add food
           </button>
         }
@@ -44,11 +40,9 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
         @for (filter of filters; track filter.value) {
           <button
             type="button"
-            class="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-            [class.bg-brand-600]="activeFilter() === filter.value"
-            [class.text-white]="activeFilter() === filter.value"
-            [class.bg-stone-100]="activeFilter() !== filter.value"
-            [class.text-stone-700]="activeFilter() !== filter.value"
+            class="filter-pill"
+            [class.filter-pill-active]="activeFilter() === filter.value"
+            [class.filter-pill-inactive]="activeFilter() !== filter.value"
             (click)="activeFilter.set(filter.value)"
           >
             {{ filter.label }}
@@ -69,7 +63,7 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
       @if (inventoryService.loading()) {
         <app-loading-state message="Loading inventory..." />
       } @else if (inventoryService.error()) {
-        <p class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p class="alert-error">
           {{ inventoryService.error() }}
         </p>
       } @else if (filteredItems().length === 0) {
@@ -82,7 +76,7 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
       } @else {
         <div class="grid grid-cols-3 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           @for (item of filteredItems(); track item.id) {
-            <article class="h-full rounded-xl border border-stone-200 bg-card p-4 shadow-sm">
+            <article class="card h-full p-4">
               <div class="flex h-full flex-col gap-3">
                 <div class="min-w-0 flex-1">
                   <h2 class="truncate text-base font-semibold text-stone-900">{{ item.name }}</h2>
@@ -111,18 +105,10 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
                 </div>
 
                 <div class="flex gap-2">
-                  <button
-                    type="button"
-                    class="flex-1 rounded-lg border border-stone-300 px-2 py-1.5 text-xs text-stone-700 hover:bg-stone-50 sm:px-3 sm:text-sm"
-                    (click)="openEditForm(item)"
-                  >
+                  <button type="button" class="btn-secondary-sm flex-1" (click)="openEditForm(item)">
                     Edit
                   </button>
-                  <button
-                    type="button"
-                    class="flex-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50 sm:px-3 sm:text-sm"
-                    (click)="deleteItem(item)"
-                  >
+                  <button type="button" class="btn-danger flex-1" (click)="deleteItem(item)">
                     Delete
                   </button>
                 </div>

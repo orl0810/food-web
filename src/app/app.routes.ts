@@ -60,6 +60,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/meal-plan/meal-plan.component').then((m) => m.MealPlanComponent),
       },
+      {
+        path: 'shopping-list',
+        loadComponent: () =>
+          import('./features/shopping-list/shopping-list.component').then(
+            (m) => m.ShoppingListComponent
+          ),
+      },
     ],
   },
   {

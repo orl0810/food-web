@@ -6,6 +6,7 @@
   --color-brand-500: #22c55e;
   --color-brand-600: #16a34a;
   --color-brand-700: #15803d;
+  --color-brand-800: #166534;
   --color-surface: #fafaf9;
   --color-card: #ffffff;
   --color-muted: #78716c;
@@ -21,4 +22,78 @@ body {
   @apply bg-surface text-stone-900 antialiased;
   margin: 0;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer components {
+  .page {
+    @apply space-y-8;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold text-stone-900;
+  }
+
+  .page-subtitle {
+    @apply mt-1 text-sm text-stone-600;
+  }
+
+  .card {
+    @apply rounded-xl border border-stone-200 bg-card shadow-sm;
+  }
+
+  .card-featured {
+    @apply rounded-xl border border-stone-200 bg-amber-50/40 shadow-sm;
+  }
+
+  .section-title {
+    @apply text-base font-semibold text-stone-900;
+  }
+
+  .btn-primary {
+    @apply rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary-sm {
+    @apply rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary-sm {
+    @apply rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50;
+  }
+
+  .btn-danger {
+    @apply rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 transition-colors hover:bg-red-50;
+  }
+
+  .filter-pill {
+    @apply rounded-full px-3 py-1.5 text-sm font-medium transition-colors;
+  }
+
+  .filter-pill-active {
+    @apply bg-brand-600 text-white;
+  }
+
+  .filter-pill-inactive {
+    @apply bg-stone-100 text-stone-700;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
+  }
+
+  .tag {
+    @apply rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700;
+  }
+
+  .alert-error {
+    @apply rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700;
+  }
+
+  .alert-info {
+    @apply rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-800;
+  }
 }
