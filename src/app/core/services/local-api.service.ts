@@ -276,6 +276,13 @@ export class LocalApiService {
     });
   }
 
+  async deleteAllShoppingItems(): Promise<void> {
+    await this.request<void>('/shopping-items', {
+      method: 'DELETE',
+      auth: true,
+    });
+  }
+
   private async request<T>(
     path: string,
     options: {

@@ -859,6 +859,11 @@ app.delete('/shopping-items/checked', authMiddleware, (req: AuthenticatedRequest
   res.status(204).send();
 });
 
+app.delete('/shopping-items', authMiddleware, (req: AuthenticatedRequest, res) => {
+  db.prepare('delete from shopping_items where user_id = ?').run(req.userId);
+  res.status(204).send();
+});
+
 app.delete('/shopping-items/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
   const result = db
     .prepare('delete from shopping_items where id = ? and user_id = ?')

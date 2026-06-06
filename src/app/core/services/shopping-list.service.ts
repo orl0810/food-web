@@ -5,10 +5,7 @@ import {
   ShoppingItemInput,
   ShoppingItemUpdate,
 } from '../models/shopping-item.model';
-import {
-  computeMissingIngredients,
-  filterNewShoppingItems,
-} from '../../shared/utils/shopping-list.utils';
+import { computeMissingIngredients } from '../../shared/utils/shopping-list.utils';
 import { AuthService } from './auth.service';
 import { FoodInventoryService } from './food-inventory.service';
 import { LocalApiService } from './local-api.service';
@@ -219,31 +216,67 @@ export class ShoppingListService {
     return { error: null };
   }
 
+  async clearAllItems(): Promise<{ error: string | null }> {
+    if (environment.useLocalApi) {
+      return this.clearAllItemsLocal();
+    }
+
+    const client = this.supabaseService.getClient();
+    const userId = this.authService.user()?.id;
+
+    if (!client || !userId) {
+      return { error: 'You must be signed in to clear shopping items.' };
+    }
+
+    this.errorSignal.set(null);
+
+    const { error } = await client
+      .from('shopping_items')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) {
+      this.errorSignal.set(error.message);
+      return { error: error.message };
+    }
+
+    this.itemsSignal.set([]);
+    return { error: null };
+  }
+
   async generateFromMealPlan(
-    weekStartDate: string
+    startDate: string,
+    endDate: string
   ): Promise<{ addedCount: number; error: string | null }> {
     this.errorSignal.set(null);
 
-    await Promise.all([
+    if (startDate > endDate) {
+      return { addedCount: 0, error: 'Start date must be on or before end date.' };
+    }
+
+    const [entries] = await Promise.all([
+      this.mealPlanService.fetchMealPlanForDateRange(startDate, endDate),
       this.recipeService.loadRecipes(),
       this.foodInventoryService.loadItems(),
-      this.mealPlanService.getMealPlanForWeek(weekStartDate),
     ]);
 
     const missing = computeMissingIngredients(
-      this.mealPlanService.entries(),
+      entries,
       this.recipeService.recipes(),
       this.foodInventoryService.items()
     );
 
-    const toAdd = filterNewShoppingItems(missing, this.itemsSignal());
+    const clearResult = await this.clearAllItems();
+    if (clearResult.error) {
+      return { addedCount: 0, error: clearResult.error };
+    }
 
-    if (toAdd.length === 0) {
+    if (missing.length === 0) {
       return { addedCount: 0, error: null };
     }
 
     let addedCount = 0;
-    for (const ingredient of toAdd) {
+    for (const ingredient of missing) {
       const result = await this.addShoppingItem({
         name: ingredient.name,
         quantity: ingredient.quantity,
@@ -426,6 +459,21 @@ export class ShoppingListService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to clear checked items.';
+      this.errorSignal.set(message);
+      return { error: message };
+    }
+  }
+
+  private async clearAllItemsLocal(): Promise<{ error: string | null }> {
+    this.errorSignal.set(null);
+
+    try {
+      await this.localApiService.deleteAllShoppingItems();
+      this.itemsSignal.set([]);
+      return { error: null };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to clear shopping list.';
       this.errorSignal.set(message);
       return { error: message };
     }

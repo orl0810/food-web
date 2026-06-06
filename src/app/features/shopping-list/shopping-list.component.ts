@@ -11,7 +11,11 @@ import { RecipeService } from '../../core/services/recipe.service';
 import { ShoppingListService } from '../../core/services/shopping-list.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
-import { getMondayOfWeek } from '../../shared/utils/meal-plan.utils';
+import {
+  addDays,
+  formatWeekRangeCompact,
+  getMondayOfWeek,
+} from '../../shared/utils/meal-plan.utils';
 
 @Component({
   selector: 'app-shopping-list',
@@ -23,25 +27,59 @@ import { getMondayOfWeek } from '../../shared/utils/meal-plan.utils';
         <div>
           <h1 class="page-title">Shopping List</h1>
           <p class="page-subtitle">
-            Generate missing ingredients from your meal plan or add items manually.
+            Select a date range, generate missing ingredients from your meal plan, or add items manually.
           </p>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="btn-primary"
-            [disabled]="generating()"
-            (click)="generateFromMealPlan()"
-          >
-            {{ generating() ? 'Generating...' : 'Generate from this week' }}
+        @if (!showForm()) {
+          <button type="button" class="btn-secondary shrink-0" (click)="openAddForm()">
+            Add item
           </button>
-          @if (!showForm()) {
-            <button type="button" class="btn-secondary" (click)="openAddForm()">
-              Add item
-            </button>
-          }
-        </div>
+        }
       </div>
+
+      <section class="card p-4">
+        <h2 class="text-base font-semibold text-stone-900">Generate from meal plan</h2>
+        <p class="mt-1 text-sm text-stone-600">
+          Compares planned meals with your inventory and rebuilds the shopping list.
+        </p>
+        <form class="mt-4" [formGroup]="rangeForm" (ngSubmit)="generateFromMealPlan()">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-stone-700" for="startDate">From</label>
+              <input
+                id="startDate"
+                type="date"
+                formControlName="startDate"
+                class="input mt-1"
+              />
+            </div>
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-stone-700" for="endDate">To</label>
+              <input
+                id="endDate"
+                type="date"
+                formControlName="endDate"
+                class="input mt-1"
+              />
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="btn-secondary" (click)="setThisWeek()">
+                This week
+              </button>
+              <button
+                type="submit"
+                class="btn-primary"
+                [disabled]="generating() || rangeForm.invalid || !isRangeValid()"
+              >
+                {{ generating() ? 'Generating...' : 'Generate shopping list' }}
+              </button>
+            </div>
+          </div>
+          @if (!isRangeValid()) {
+            <p class="mt-3 text-sm text-red-700">Start date must be on or before end date.</p>
+          }
+        </form>
+      </section>
 
       @if (infoMessage()) {
         <p class="alert-info">
@@ -116,8 +154,8 @@ import { getMondayOfWeek } from '../../shared/utils/meal-plan.utils';
       } @else if (shoppingListService.items().length === 0) {
         <app-empty-state
           title="Your shopping list is empty."
-          description="Generate a list from your weekly meal plan or add items manually."
-          actionLabel="Generate from this week"
+          description="Select a date range and generate a list from your meal plan, or add items manually."
+          actionLabel="Generate shopping list"
           (actionClick)="generateFromMealPlan()"
         />
       } @else {
@@ -252,7 +290,13 @@ export class ShoppingListComponent implements OnInit {
     unit: [''],
   });
 
+  readonly rangeForm = this.fb.nonNullable.group({
+    startDate: ['', Validators.required],
+    endDate: ['', Validators.required],
+  });
+
   ngOnInit(): void {
+    this.setThisWeek();
     void Promise.all([
       this.shoppingListService.getShoppingItems(),
       this.recipeService.loadRecipes(),
@@ -339,13 +383,48 @@ export class ShoppingListComponent implements OnInit {
     }
   }
 
+  isRangeValid(): boolean {
+    const { startDate, endDate } = this.rangeForm.getRawValue();
+    return Boolean(startDate && endDate && startDate <= endDate);
+  }
+
+  setThisWeek(): void {
+    const weekStart = getMondayOfWeek(new Date());
+    const weekEnd = addDays(weekStart, 6);
+    this.rangeForm.reset({ startDate: weekStart, endDate: weekEnd });
+  }
+
+  formatRangeLabel(): string {
+    const { startDate, endDate } = this.rangeForm.getRawValue();
+    if (!startDate || !endDate) {
+      return '';
+    }
+    return formatWeekRangeCompact([startDate, endDate]);
+  }
+
   async generateFromMealPlan(): Promise<void> {
+    if (!this.isRangeValid()) {
+      return;
+    }
+
+    if (this.shoppingListService.items().length > 0) {
+      const confirmed = window.confirm(
+        'Generating will replace your entire shopping list with items from the selected date range. Continue?'
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
     this.generating.set(true);
     this.actionError.set(null);
     this.infoMessage.set(null);
 
-    const weekStart = getMondayOfWeek(new Date());
-    const result = await this.shoppingListService.generateFromMealPlan(weekStart);
+    const { startDate, endDate } = this.rangeForm.getRawValue();
+    const result = await this.shoppingListService.generateFromMealPlan(
+      startDate,
+      endDate
+    );
 
     this.generating.set(false);
 
@@ -354,17 +433,21 @@ export class ShoppingListComponent implements OnInit {
       return;
     }
 
+    const rangeLabel = this.formatRangeLabel();
+
     if (result.addedCount === 0) {
       this.infoMessage.set(
-        'No missing ingredients found. You already have everything for this week.'
+        rangeLabel
+          ? `No missing ingredients for ${rangeLabel}.`
+          : 'No missing ingredients found for the selected date range.'
       );
       return;
     }
 
     this.infoMessage.set(
       result.addedCount === 1
-        ? 'Added 1 item to your shopping list.'
-        : `Added ${result.addedCount} items to your shopping list.`
+        ? `Added 1 item for ${rangeLabel}.`
+        : `Added ${result.addedCount} items for ${rangeLabel}.`
     );
   }
 

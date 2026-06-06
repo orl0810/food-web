@@ -113,6 +113,40 @@ export class MealPlanService {
     this.entriesSignal.set(this.normalizeEntries(data));
   }
 
+  async fetchMealPlanForDateRange(
+    startDate: string,
+    endDate: string
+  ): Promise<MealPlanEntry[]> {
+    if (startDate > endDate) {
+      return [];
+    }
+
+    if (environment.useLocalApi) {
+      return this.fetchMealPlanForDateRangeLocal(startDate, endDate);
+    }
+
+    const client = this.supabaseService.getClient();
+    const userId = this.authService.user()?.id;
+
+    if (!client || !userId) {
+      return [];
+    }
+
+    const { data, error } = await client
+      .from('meal_plan')
+      .select(MEAL_PLAN_SELECT)
+      .eq('user_id', userId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true });
+
+    if (error) {
+      return [];
+    }
+
+    return this.normalizeEntries(data);
+  }
+
   async getTodayMeals(): Promise<void> {
     if (environment.useLocalApi) {
       return this.getTodayMealsLocal();
@@ -310,6 +344,22 @@ export class MealPlanService {
 
   getEntryForSlot(date: string, mealType: MealType): MealPlanEntry | undefined {
     return this.weekEntries().get(`${date}|${mealType}`);
+  }
+
+  private async fetchMealPlanForDateRangeLocal(
+    startDate: string,
+    endDate: string
+  ): Promise<MealPlanEntry[]> {
+    if (!this.localApiService.isEnabled()) {
+      return [];
+    }
+
+    try {
+      const data = await this.localApiService.getMealPlan(startDate, endDate);
+      return this.normalizeEntries(data);
+    } catch {
+      return [];
+    }
   }
 
   private async getMealPlanForWeekLocal(startDate: string): Promise<void> {
