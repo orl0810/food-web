@@ -15,7 +15,7 @@ import { AuthService } from './auth.service';
 import { LocalApiService } from './local-api.service';
 import { SupabaseService } from './supabase.service';
 
-const MEAL_PLAN_SELECT = '*, recipe:recipes(id, title, tags, prep_time_minutes)';
+const MEAL_PLAN_SELECT = '*, recipe:recipes(id, title, description, tags, prep_time_minutes)';
 
 @Injectable({ providedIn: 'root' })
 export class MealPlanService {
@@ -461,6 +461,7 @@ export class MealPlanService {
         ? {
             id: recipeData.id,
             title: recipeData.title,
+            description: recipeData.description ?? null,
             tags: recipeData.tags ?? [],
             prep_time_minutes: recipeData.prep_time_minutes ?? null,
           }

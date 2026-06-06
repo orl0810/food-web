@@ -53,6 +53,35 @@ export function formatWeekRange(dates: string[]): string {
   return `${startLabel} – ${endLabel}`;
 }
 
+export function formatWeekRangeCompact(dates: string[]): string {
+  if (dates.length === 0) {
+    return '';
+  }
+
+  const start = parseDateInput(dates[0]);
+  const end = parseDateInput(dates[dates.length - 1]);
+  const startLabel = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const endLabel = end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  return `${startLabel} – ${endLabel}`;
+}
+
+export function formatDayShort(date: string): { weekday: string; day: number } {
+  const parsed = parseDateInput(date);
+  return {
+    weekday: parsed.toLocaleDateString(undefined, { weekday: 'short' }),
+    day: parsed.getDate(),
+  };
+}
+
+export function formatFullDayHeading(date: string): string {
+  return parseDateInput(date).toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 export function formatDayLabel(date: string): string {
   return parseDateInput(date).toLocaleDateString(undefined, {
     weekday: 'short',

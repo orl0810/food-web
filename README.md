@@ -22,6 +22,13 @@ This starts:
 
 - Email: `dev@local.test`
 - Password: `password`
+- User ID: `00000000-0000-4000-8000-000000000001` (stable across fresh DB setups)
+
+Dev auto-login is enabled (`skipLogin: true` in `environment.ts`). The app signs in as the seeded user on startup, so you land on the dashboard without visiting `/login`. A real JWT session is stored in the browser and all API calls are scoped by `user_id`.
+
+The login page remains available as a fallback (local API not running, after sign-out, or set `skipLogin: false`).
+
+If you already have `local-api/data/pantryflow.sqlite` from before the stable user ID was added, delete that file once and restart the API to pick up the fixed dev user ID.
 
 You can also create new accounts from the login page — they are stored only in your local SQLite file.
 

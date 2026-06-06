@@ -163,6 +163,7 @@ function serializeRecipeSummary(row: RecipeRow | undefined) {
   return {
     id: row.id,
     title: row.title,
+    description: row.description,
     tags,
     prep_time_minutes: row.prep_time_minutes,
   };

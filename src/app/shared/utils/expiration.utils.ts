@@ -63,6 +63,75 @@ export function getExpirationLabel(
   return `In ${remaining} days`;
 }
 
+export type ExpirationUrgency = 'today' | 'tomorrow' | 'soon' | 'later';
+
+export function getExpirationUrgency(
+  date: string | null | undefined,
+  today: Date = new Date()
+): ExpirationUrgency {
+  const parsed = parseDate(date);
+  if (!parsed) {
+    return 'later';
+  }
+
+  const remaining = daysUntil(parsed, today);
+  if (remaining === 0) {
+    return 'today';
+  }
+  if (remaining === 1) {
+    return 'tomorrow';
+  }
+  if (remaining <= 3) {
+    return 'soon';
+  }
+  return 'later';
+}
+
+export function getExpirationShortLabel(
+  date: string | null | undefined,
+  today: Date = new Date()
+): string {
+  const parsed = parseDate(date);
+  if (!parsed) {
+    return '—';
+  }
+
+  const remaining = daysUntil(parsed, today);
+  if (remaining === 0) {
+    return 'Today';
+  }
+  if (remaining === 1) {
+    return 'Tomorrow';
+  }
+
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+export function getUseFirstActionLabel(
+  date: string | null | undefined,
+  today: Date = new Date()
+): string {
+  const parsed = parseDate(date);
+  if (!parsed) {
+    return '';
+  }
+
+  const remaining = daysUntil(parsed, today);
+  if (remaining === 0) {
+    return 'Use today';
+  }
+  if (remaining === 1) {
+    return 'Use in 1 day';
+  }
+  if (remaining === 2) {
+    return 'Use in 2 days';
+  }
+  if (remaining <= 3) {
+    return 'Expiring soon';
+  }
+  return `In ${remaining} days`;
+}
+
 export type ExpirationStatus = 'none' | 'ok' | 'soon' | 'expired';
 
 export function getExpirationStatus(

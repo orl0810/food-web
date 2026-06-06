@@ -114,13 +114,23 @@ export class AuthService {
   private async initLocalAuth(): Promise<void> {
     const storedSession = this.localApiService.getStoredSession();
 
-    if (!storedSession) {
+    if (storedSession) {
+      const user = await this.localApiService.getCurrentUser();
+      this.localUserSignal.set(user);
       this.loadingSignal.set(false);
       return;
     }
 
-    const user = await this.localApiService.getCurrentUser();
-    this.localUserSignal.set(user);
+    if (!environment.production && environment.skipLogin && environment.devUser) {
+      try {
+        const { email, password } = environment.devUser;
+        const { user } = await this.localApiService.signIn(email, password);
+        this.localUserSignal.set(user);
+      } catch {
+        // API unavailable — fall back to login page
+      }
+    }
+
     this.loadingSignal.set(false);
   }
 

@@ -9,7 +9,7 @@ export interface MealPlanEntry {
   meal_type: MealType;
   recipe_id: string | null;
   created_at: string;
-  recipe?: Pick<Recipe, 'id' | 'title' | 'tags' | 'prep_time_minutes'>;
+  recipe?: Pick<Recipe, 'id' | 'title' | 'description' | 'tags' | 'prep_time_minutes'>;
 }
 
 export interface MealPlanEntryInput {
@@ -25,4 +25,11 @@ export const MEAL_TYPE_LABELS: Record<MealType, string> = {
   lunch: 'Lunch',
   dinner: 'Dinner',
   snack: 'Snack',
+};
+
+export const MEAL_TYPE_TIME_RANGES: Record<MealType, string> = {
+  breakfast: '7:00 – 9:00 AM',
+  lunch: '12:00 – 2:00 PM',
+  dinner: '6:00 – 8:00 PM',
+  snack: 'Anytime',
 };

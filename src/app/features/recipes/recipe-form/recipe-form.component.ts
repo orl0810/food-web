@@ -128,32 +128,116 @@ import { SearchSelectComponent } from '../../../shared/components/search-select/
           </div>
         </section>
 
-        <section class="space-y-3 rounded-xl border border-stone-200 bg-card p-5 shadow-sm">
-          <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-stone-900">Ingredients</h2>
-            <button
-              type="button"
-              class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50"
-              (click)="addIngredient()"
-            >
-              Add ingredient
-            </button>
+        <section class="overflow-hidden rounded-xl border border-stone-200 bg-amber-50/40 shadow-sm">
+          <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
+            <h2 class="text-base font-semibold text-stone-900">Ingredients</h2>
+            @if (ingredients.length > 0) {
+              <span class="text-sm text-stone-500">{{ ingredients.length }} added</span>
+            }
           </div>
 
           @if (ingredients.length === 0) {
-            <p class="text-sm text-stone-500">No ingredients added yet.</p>
+            <p class="px-4 py-6 text-sm text-stone-600 sm:px-5">No ingredients added yet.</p>
+          } @else {
+            <div class="divide-y divide-stone-200/70 overflow-x-auto" formArrayName="ingredients">
+              @for (ingredient of ingredients.controls; track ingredient; let i = $index) {
+                @if (editingIndex() === i) {
+                  <div class="space-y-3 px-4 py-4 sm:px-5" [formGroupName]="i">
+                    <div class="grid gap-2 sm:grid-cols-12">
+                      <div class="sm:col-span-6">
+                        <app-search-select
+                          [inputId]="'ingredient-name-' + i"
+                          [control]="nameControlAt(i)"
+                          [options]="ingredientOptions()"
+                          placeholder="Name *"
+                          (selected)="applyIngredientSelection(i, $event)"
+                        />
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        formControlName="quantity"
+                        placeholder="Qty"
+                        class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-2"
+                      />
+                      <input
+                        type="text"
+                        formControlName="unit"
+                        placeholder="Unit"
+                        class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-3"
+                      />
+                      <button
+                        type="button"
+                        class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 sm:col-span-1"
+                        aria-label="Done editing ingredient"
+                        (click)="finishEdit(i)"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                } @else {
+                  <article
+                    class="flex w-max min-w-full cursor-pointer items-center gap-3 px-4 py-2 transition-colors hover:bg-white/50 sm:gap-5 sm:px-5"
+                    (click)="startEdit(i)"
+                  >
+                    <div
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-stone-200/80"
+                      aria-hidden="true"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="1.5"
+                        stroke="currentColor"
+                        class="h-4 w-4 text-stone-400"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H5.25A2.25 2.25 0 0 0 3 5.25v13.5A2.25 2.25 0 0 0 5.25 21Z"
+                        />
+                      </svg>
+                    </div>
+
+                    <p class="shrink-0 text-sm font-semibold text-stone-900">
+                      {{ ingredientLabel(i) }}
+                    </p>
+
+                    @if (ingredientQuantityLabel(i)) {
+                      <p class="shrink-0 text-sm whitespace-nowrap">
+                        <span class="text-stone-500">Quantity: </span>
+                        <span class="font-medium text-stone-800">{{ ingredientQuantityLabel(i) }}</span>
+                      </p>
+                    }
+
+                    <button
+                      type="button"
+                      class="ml-auto shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700 transition-colors hover:bg-red-50 hover:text-red-700"
+                      aria-label="Remove ingredient"
+                      (click)="removeIngredient(i); $event.stopPropagation()"
+                    >
+                      Remove
+                    </button>
+                  </article>
+                }
+              }
+            </div>
           }
 
-          <div class="space-y-3" formArrayName="ingredients">
-            @for (ingredient of ingredients.controls; track ingredient; let i = $index) {
-              <div class="grid gap-2 sm:grid-cols-12" [formGroupName]="i">
+          @if (showAddForm()) {
+            <div class="space-y-3 border-t border-stone-200/70 px-4 py-4 sm:px-5" [formGroup]="draftForm">
+              <p class="text-sm font-medium text-stone-700">Add ingredient</p>
+              <div class="grid gap-2 sm:grid-cols-12">
                 <div class="sm:col-span-6">
                   <app-search-select
-                    [inputId]="'ingredient-name-' + i"
-                    [control]="nameControlAt(i)"
+                    inputId="ingredient-draft-name"
+                    [control]="draftNameControl"
                     [options]="ingredientOptions()"
                     placeholder="Name *"
-                    (selected)="applyIngredientSelection(i, $event)"
+                    (selected)="applyDraftSelection($event)"
                   />
                 </div>
                 <input
@@ -162,25 +246,54 @@ import { SearchSelectComponent } from '../../../shared/components/search-select/
                   step="0.01"
                   formControlName="quantity"
                   placeholder="Qty"
-                  class="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-2"
+                  class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-2"
                 />
                 <input
                   type="text"
                   formControlName="unit"
                   placeholder="Unit"
-                  class="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-3"
+                  class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-4"
                 />
+              </div>
+              <div class="flex justify-end gap-2">
                 <button
                   type="button"
-                  class="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 hover:bg-red-50 sm:col-span-1"
-                  aria-label="Remove ingredient"
-                  (click)="removeIngredient(i)"
+                  class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-500 hover:bg-stone-50"
+                  (click)="cancelAddForm()"
                 >
-                  &times;
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                  (click)="commitDraft()"
+                >
+                  Add
                 </button>
               </div>
-            }
-          </div>
+            </div>
+          } @else {
+            <div class="border-t border-stone-200/70 px-4 py-3 sm:px-5">
+              <button
+                type="button"
+                class="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-stone-300 bg-white/60 px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-white"
+                (click)="openAddForm()"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                  class="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Add ingredient
+              </button>
+            </div>
+          }
         </section>
 
         @if (error()) {
@@ -217,6 +330,8 @@ export class RecipeFormComponent implements OnInit {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly tags = signal<string[]>([]);
+  readonly editingIndex = signal<number | null>(null);
+  readonly showAddForm = signal(false);
 
   private recipeId: string | null = null;
 
@@ -232,6 +347,14 @@ export class RecipeFormComponent implements OnInit {
     portions: [null as number | null],
     ingredients: this.fb.array<FormGroup>([]),
   });
+
+  readonly draftForm = this.fb.group({
+    name: ['', Validators.required],
+    quantity: [null as number | null],
+    unit: [''],
+  });
+
+  readonly draftNameControl = this.draftForm.get('name') as FormControl<string | null>;
 
   get ingredients(): FormArray<FormGroup> {
     return this.form.controls.ingredients;
@@ -251,7 +374,6 @@ export class RecipeFormComponent implements OnInit {
     this.recipeId = this.route.snapshot.paramMap.get('id');
 
     if (!this.recipeId) {
-      this.addIngredient();
       return;
     }
 
@@ -273,14 +395,10 @@ export class RecipeFormComponent implements OnInit {
     this.tags.set([...recipe.tags]);
 
     const ingredients = recipe.ingredients ?? [];
-    if (ingredients.length === 0) {
-      this.addIngredient();
-    } else {
-      for (const ingredient of ingredients) {
-        this.ingredients.push(
-          this.buildIngredientGroup(ingredient.name, ingredient.quantity, ingredient.unit)
-        );
-      }
+    for (const ingredient of ingredients) {
+      this.ingredients.push(
+        this.buildIngredientGroup(ingredient.name, ingredient.quantity, ingredient.unit)
+      );
     }
   }
 
@@ -297,12 +415,82 @@ export class RecipeFormComponent implements OnInit {
     }
   }
 
-  addIngredient(): void {
-    this.ingredients.push(this.buildIngredientGroup());
+  applyDraftSelection(option: SearchSelectOption): void {
+    const payload = option.payload as FoodItemHistory | undefined;
+    const currentUnit = (this.draftForm.get('unit')?.value ?? '').trim();
+    if (payload?.unit && !currentUnit) {
+      this.draftForm.patchValue({ unit: payload.unit });
+    }
+  }
+
+  ingredientLabel(index: number): string {
+    return ((this.ingredients.at(index).get('name')?.value as string) ?? '').trim();
+  }
+
+  ingredientQuantityLabel(index: number): string | null {
+    const group = this.ingredients.at(index);
+    const quantity = this.toNumberOrNull(group.get('quantity')?.value as number | null);
+    const unit = ((group.get('unit')?.value as string) ?? '').trim();
+
+    if (quantity === null && !unit) {
+      return null;
+    }
+
+    if (quantity === null) {
+      return unit;
+    }
+
+    return unit ? `${quantity} ${unit}` : `${quantity}`;
+  }
+
+  startEdit(index: number): void {
+    this.showAddForm.set(false);
+    this.editingIndex.set(index);
+  }
+
+  openAddForm(): void {
+    this.editingIndex.set(null);
+    this.showAddForm.set(true);
+  }
+
+  cancelAddForm(): void {
+    this.draftForm.reset({ name: '', quantity: null, unit: '' });
+    this.showAddForm.set(false);
+  }
+
+  finishEdit(index: number): void {
+    const group = this.ingredients.at(index);
+    const name = ((group.get('name')?.value as string) ?? '').trim();
+    if (!name) {
+      group.get('name')?.markAsTouched();
+      return;
+    }
+    this.editingIndex.set(null);
+  }
+
+  commitDraft(): void {
+    const name = ((this.draftForm.get('name')?.value as string) ?? '').trim();
+    if (!name) {
+      this.draftForm.get('name')?.markAsTouched();
+      return;
+    }
+
+    const quantity = this.toNumberOrNull(this.draftForm.get('quantity')?.value as number | null);
+    const unit = ((this.draftForm.get('unit')?.value as string) ?? '').trim() || null;
+
+    this.ingredients.push(this.buildIngredientGroup(name, quantity, unit));
+    this.draftForm.reset({ name: '', quantity: null, unit: '' });
+    this.editingIndex.set(null);
+    this.showAddForm.set(false);
   }
 
   removeIngredient(index: number): void {
     this.ingredients.removeAt(index);
+    if (this.editingIndex() === index) {
+      this.editingIndex.set(null);
+    } else if (this.editingIndex() !== null && this.editingIndex()! > index) {
+      this.editingIndex.update((current) => (current === null ? null : current - 1));
+    }
   }
 
   addTag(value: string): void {
