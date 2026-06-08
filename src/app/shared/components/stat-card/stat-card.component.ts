@@ -17,7 +17,7 @@ const ICON_STYLES: Record<StatCardIcon, { bg: string; text: string }> = {
   standalone: true,
   host: { class: 'block h-full' },
   template: `
-    <div class="flex h-full items-center gap-2.5 rounded-xl border border-stone-200 bg-card p-3 shadow-sm sm:gap-3 sm:p-4">
+    <div class="flex h-full min-h-24 items-center gap-3 rounded-xl border border-stone-200 bg-card p-3 shadow-sm sm:min-h-28 sm:gap-4 sm:p-4">
       @if (icon()) {
         <div
           class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10"
@@ -60,8 +60,8 @@ const ICON_STYLES: Record<StatCardIcon, { bg: string; text: string }> = {
         </div>
       }
 
-      <div class="min-w-0">
-        <p class="truncate text-xs font-medium text-muted sm:text-sm">{{ label() }}</p>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium leading-snug text-muted sm:text-sm">{{ label() }}</p>
         <p class="mt-0.5 leading-tight sm:mt-1">
           <span
             class="text-lg font-semibold sm:text-2xl"

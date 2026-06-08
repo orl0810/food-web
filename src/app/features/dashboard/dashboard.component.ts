@@ -49,7 +49,7 @@ import {
           (actionClick)="goToInventory()"
         />
       } @else {
-        <div class="grid grid-cols-3 gap-3 sm:gap-4">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <app-stat-card
             label="Total Items"
             icon="basket"

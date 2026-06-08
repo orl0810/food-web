@@ -10,6 +10,7 @@ import { FoodInventoryService } from '../../core/services/food-inventory.service
 import { FoodItemHistoryService } from '../../core/services/food-item-history.service';
 import { FoodCategoryService } from '../../core/services/food-category.service';
 import { FoodCatalogService } from '../../core/services/food-catalog.service';
+import { VoiceInventoryDraftItem } from '../../core/models/voice-inventory.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import {
@@ -17,12 +18,18 @@ import {
   getExpirationShortLabel,
   getExpirationStatus,
 } from '../../shared/utils/expiration.utils';
+import { AddInventoryByVoiceComponent } from './add-inventory-by-voice/add-inventory-by-voice.component';
 import { FoodItemFormComponent } from './food-item-form/food-item-form.component';
 
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [FoodItemFormComponent, EmptyStateComponent, LoadingStateComponent],
+  imports: [
+    FoodItemFormComponent,
+    AddInventoryByVoiceComponent,
+    EmptyStateComponent,
+    LoadingStateComponent,
+  ],
   template: `
     <div class="page">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -30,10 +37,19 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
           <h1 class="page-title">Inventory</h1>
           <p class="page-subtitle">Track what you have at home.</p>
         </div>
-        @if (!showForm()) {
-          <button type="button" class="btn-primary" (click)="openAddForm()">
-            Add food
-          </button>
+        @if (!showForm() && !showVoiceForm()) {
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+              (click)="openVoiceForm()"
+            >
+              Add by voice
+            </button>
+            <button type="button" class="btn-primary" (click)="openAddForm()">
+              Add food
+            </button>
+          </div>
         }
       </div>
 
@@ -58,6 +74,15 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
           [error]="formError()"
           (saved)="saveItem($event)"
           (cancelled)="closeForm()"
+        />
+      }
+
+      @if (showVoiceForm()) {
+        <app-add-inventory-by-voice
+          [submitting]="voiceSaving()"
+          [saveError]="voiceError()"
+          (saved)="saveVoiceItems($event)"
+          (cancelled)="closeVoiceForm()"
         />
       }
 
@@ -174,9 +199,12 @@ export class InventoryComponent implements OnInit {
 
   readonly activeFilter = signal<InventoryFilter>('all');
   readonly showForm = signal(false);
+  readonly showVoiceForm = signal(false);
   readonly editingItem = signal<FoodItem | null>(null);
   readonly saving = signal(false);
   readonly formError = signal<string | null>(null);
+  readonly voiceSaving = signal(false);
+  readonly voiceError = signal<string | null>(null);
 
   readonly filteredItems = computed(() =>
     this.inventoryService.filterItems(this.inventoryService.items(), this.activeFilter())
@@ -202,6 +230,7 @@ export class InventoryComponent implements OnInit {
   }
 
   openAddForm(): void {
+    this.closeVoiceForm();
     this.editingItem.set(null);
     this.formError.set(null);
     this.showForm.set(true);
@@ -212,6 +241,7 @@ export class InventoryComponent implements OnInit {
   }
 
   openEditForm(item: FoodItem): void {
+    this.closeVoiceForm();
     this.editingItem.set(item);
     this.formError.set(null);
     this.showForm.set(true);
@@ -221,6 +251,18 @@ export class InventoryComponent implements OnInit {
     this.showForm.set(false);
     this.editingItem.set(null);
     this.formError.set(null);
+  }
+
+  openVoiceForm(): void {
+    this.closeForm();
+    this.voiceError.set(null);
+    this.showVoiceForm.set(true);
+  }
+
+  closeVoiceForm(): void {
+    this.showVoiceForm.set(false);
+    this.voiceError.set(null);
+    this.voiceSaving.set(false);
   }
 
   async saveItem(input: FoodItemInsert): Promise<void> {
@@ -240,6 +282,31 @@ export class InventoryComponent implements OnInit {
     }
 
     this.closeForm();
+  }
+
+  async saveVoiceItems(items: VoiceInventoryDraftItem[]): Promise<void> {
+    this.voiceSaving.set(true);
+    this.voiceError.set(null);
+
+    for (const item of items) {
+      const result = await this.inventoryService.createItem({
+        name: item.name.trim(),
+        category: item.category?.trim() || null,
+        quantity: item.quantity ?? 1,
+        unit: item.unit?.trim() || null,
+        expiration_date: item.expiration_date || null,
+        location: item.location,
+      });
+
+      if (result.error) {
+        this.voiceSaving.set(false);
+        this.voiceError.set(result.error);
+        return;
+      }
+    }
+
+    await this.foodItemHistoryService.loadHistory();
+    this.closeVoiceForm();
   }
 
   async deleteItem(item: FoodItem): Promise<void> {
