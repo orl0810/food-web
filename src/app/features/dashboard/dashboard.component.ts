@@ -1,8 +1,9 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, computed, inject, OnInit } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { STORAGE_LOCATION_LABELS } from '../../core/models/food-item.model';
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { MealPlanService } from '../../core/services/meal-plan.service';
+import { SmartSuggestionService } from '../../core/services/smart-suggestion.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
@@ -149,6 +150,53 @@ import {
             </div>
           }
         </section>
+
+        @if (topOverall().length > 0 || topExpiring().length > 0) {
+          <section class="card-featured overflow-hidden">
+            <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
+              <h2 class="section-title">Smart Suggestions</h2>
+              <a routerLink="/suggestions" class="btn-primary-sm shrink-0">See all</a>
+            </div>
+            <div class="grid gap-0 divide-stone-200/60 sm:grid-cols-2 sm:divide-x">
+              <div class="divide-y divide-stone-200/60">
+                <p class="px-4 pt-3 text-xs font-medium uppercase tracking-wide text-stone-500 sm:px-5">
+                  Top picks
+                </p>
+                @for (suggestion of topOverall(); track suggestion.recipe.id) {
+                  <a
+                    [routerLink]="['/recipes', suggestion.recipe.id]"
+                    class="block px-4 py-3 transition-colors hover:bg-white/40 sm:px-5"
+                  >
+                    <p class="text-sm font-semibold text-stone-900">{{ suggestion.recipe.title }}</p>
+                    @if (suggestion.reasons.length > 0) {
+                      <p class="mt-0.5 text-xs text-stone-500">{{ suggestion.reasons[0] }}</p>
+                    }
+                  </a>
+                } @empty {
+                  <p class="px-4 py-3 text-sm text-stone-500 sm:px-5">No suggestions yet.</p>
+                }
+              </div>
+              <div class="divide-y divide-stone-200/60">
+                <p class="px-4 pt-3 text-xs font-medium uppercase tracking-wide text-stone-500 sm:px-5">
+                  Use expiring foods
+                </p>
+                @for (suggestion of topExpiring(); track suggestion.recipe.id) {
+                  <a
+                    [routerLink]="['/recipes', suggestion.recipe.id]"
+                    class="block px-4 py-3 transition-colors hover:bg-white/40 sm:px-5"
+                  >
+                    <p class="text-sm font-semibold text-stone-900">{{ suggestion.recipe.title }}</p>
+                    @if (suggestion.reasons.length > 0) {
+                      <p class="mt-0.5 text-xs text-stone-500">{{ suggestion.reasons[0] }}</p>
+                    }
+                  </a>
+                } @empty {
+                  <p class="px-4 py-3 text-sm text-stone-500 sm:px-5">Nothing expiring soon.</p>
+                }
+              </div>
+            </div>
+          </section>
+        }
       }
       </div>
     </div>
@@ -157,12 +205,20 @@ import {
 export class DashboardComponent implements OnInit {
   readonly inventoryService = inject(FoodInventoryService);
   readonly mealPlanService = inject(MealPlanService);
+  readonly suggestionService = inject(SmartSuggestionService);
   private readonly router = inject(Router);
   readonly locationLabels = STORAGE_LOCATION_LABELS;
 
+  readonly topOverall = computed(() =>
+    this.suggestionService.getSmartSuggestions().slice(0, 3)
+  );
+  readonly topExpiring = computed(() =>
+    this.suggestionService.getSuggestionsForExpiringFoods().slice(0, 3)
+  );
+
   ngOnInit(): void {
-    void this.inventoryService.loadItems();
     void this.mealPlanService.getTodayMeals();
+    void this.suggestionService.refresh();
   }
 
   expirationShortLabel(date: string | null): string {

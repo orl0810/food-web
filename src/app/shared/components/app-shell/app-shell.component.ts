@@ -47,16 +47,23 @@ import { AuthService } from '../../../core/services/auth.service';
             <a
               routerLink="/meal-plan"
               routerLinkActive="bg-brand-50 text-brand-700"
-              class="col-span-3 rounded-lg px-2 py-2 text-center text-xs font-medium text-stone-700 hover:bg-stone-100 sm:col-span-1 sm:px-3 sm:text-sm"
+              class="col-span-2 rounded-lg px-2 py-2 text-center text-xs font-medium text-stone-700 hover:bg-stone-100 sm:col-span-1 sm:px-3 sm:text-sm"
             >
               Meal Plan
             </a>
             <a
               routerLink="/shopping-list"
               routerLinkActive="bg-brand-50 text-brand-700"
-              class="col-span-3 rounded-lg px-2 py-2 text-center text-xs font-medium text-stone-700 hover:bg-stone-100 sm:col-span-1 sm:px-3 sm:text-sm"
+              class="col-span-2 rounded-lg px-2 py-2 text-center text-xs font-medium text-stone-700 hover:bg-stone-100 sm:col-span-1 sm:px-3 sm:text-sm"
             >
               Shopping List
+            </a>
+            <a
+              routerLink="/suggestions"
+              routerLinkActive="bg-brand-50 text-brand-700"
+              class="col-span-2 rounded-lg px-2 py-2 text-center text-xs font-medium text-stone-700 hover:bg-stone-100 sm:col-span-1 sm:px-3 sm:text-sm"
+            >
+              Suggestions
             </a>
           </nav>
         </div>

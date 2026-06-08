@@ -36,6 +36,14 @@ export function getWeekDates(startDate: string): string[] {
   return dates;
 }
 
+export function getCurrentWeekStartDate(today: string | Date = new Date()): string {
+  return getMondayOfWeek(today);
+}
+
+export function getCurrentWeekEndDate(today: string | Date = new Date()): string {
+  return addDays(getMondayOfWeek(today), 6);
+}
+
 export function formatWeekRange(dates: string[]): string {
   if (dates.length === 0) {
     return '';

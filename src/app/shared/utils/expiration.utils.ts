@@ -16,6 +16,17 @@ function daysUntil(date: Date, today: Date): number {
   return Math.round((startOfDay(date).getTime() - startOfDay(today).getTime()) / MS_PER_DAY);
 }
 
+export function getDaysUntilExpiration(
+  date: string | null | undefined,
+  today: Date = new Date()
+): number | null {
+  const parsed = parseDate(date);
+  if (!parsed) {
+    return null;
+  }
+  return daysUntil(parsed, today);
+}
+
 export function isExpired(
   date: string | null | undefined,
   today: Date = new Date()

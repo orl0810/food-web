@@ -67,6 +67,13 @@ export const routes: Routes = [
             (m) => m.ShoppingListComponent
           ),
       },
+      {
+        path: 'suggestions',
+        loadComponent: () =>
+          import('./features/suggestions/suggestions.component').then(
+            (m) => m.SuggestionsComponent
+          ),
+      },
     ],
   },
   {
