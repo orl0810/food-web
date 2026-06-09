@@ -10,4 +10,5 @@ export interface FoodItemHistory {
   default_quantity: number;
   last_used_at: string;
   created_at: string;
+  times_added: number;
 }

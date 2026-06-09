@@ -30,6 +30,7 @@ export class FoodCatalogService {
         id: `catalog-${item.id}`,
         label: item.name,
         subtitle: this.getCatalogSubtitle(item),
+        icon: item.icon,
         payload: item,
       }));
   }
@@ -54,6 +55,7 @@ export class FoodCatalogService {
         id,
         category_id,
         name,
+        icon,
         default_unit,
         default_location,
         default_quantity,
@@ -73,6 +75,7 @@ export class FoodCatalogService {
       id: string;
       category_id: string;
       name: string;
+      icon: string;
       default_unit: string | null;
       default_location: FoodCatalogItem['default_location'];
       default_quantity: number;
@@ -91,6 +94,7 @@ export class FoodCatalogService {
           category_id: item.category_id,
           category_name: category?.name ?? '',
           name: item.name,
+          icon: item.icon ?? '🍽️',
           default_unit: item.default_unit,
           default_location: item.default_location,
           default_quantity: item.default_quantity,
@@ -118,7 +122,12 @@ export class FoodCatalogService {
 
     try {
       const data = await this.localApiService.getFoodCatalogItems();
-      this.catalogSignal.set(data as FoodCatalogItem[]);
+      this.catalogSignal.set(
+        (data as FoodCatalogItem[]).map((item) => ({
+          ...item,
+          icon: item.icon ?? '🍽️',
+        }))
+      );
     } catch (error) {
       this.errorSignal.set(
         error instanceof Error ? error.message : 'Failed to load food catalog.'

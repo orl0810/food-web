@@ -5,15 +5,23 @@ import { FoodInventoryService } from '../../core/services/food-inventory.service
 import { MealPlanService } from '../../core/services/meal-plan.service';
 import { SmartSuggestionService } from '../../core/services/smart-suggestion.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
 import { TodaysMealPlanComponent } from '../../shared/components/todays-meal-plan/todays-meal-plan.component';
+import { PreparedPortion } from '../../core/models/prepared-portion.model';
+import { PreparedPortionService } from '../../core/services/prepared-portion.service';
 import {
   ExpirationUrgency,
   getExpirationShortLabel,
   getExpirationUrgency,
   getUseFirstActionLabel,
 } from '../../shared/utils/expiration.utils';
+import { getPortionAvailabilityLabel } from '../../shared/utils/prepared-portion.utils';
+import {
+  buildUseFirstPortionPrompts,
+  getBatchCookingInsight,
+} from '../../shared/utils/prepared-portion-suggestions.utils';
 
 @Component({
   selector: 'app-dashboard',
@@ -21,6 +29,7 @@ import {
   imports: [
     StatCardComponent,
     EmptyStateComponent,
+    FoodIconBadgeComponent,
     LoadingStateComponent,
     TodaysMealPlanComponent,
     RouterLink,
@@ -104,14 +113,7 @@ import {
             <div class="divide-y divide-stone-200/60">
               @for (item of inventoryService.useFirstItems(); track item.id) {
                 <article class="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-white/40 sm:items-center sm:gap-3 sm:px-5">
-                  <div
-                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-stone-100 ring-1 ring-stone-200/80"
-                    aria-hidden="true"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-stone-400">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H5.25A2.25 2.25 0 0 0 3 5.25v13.5A2.25 2.25 0 0 0 5.25 21Z" />
-                    </svg>
-                  </div>
+                  <app-food-icon-badge [name]="item.name" [category]="item.category" />
 
                   <div class="min-w-0 flex-1 sm:flex sm:items-center sm:gap-5">
                     <p class="truncate text-sm font-semibold text-stone-900 sm:w-32 sm:shrink-0 lg:w-40">
@@ -151,11 +153,66 @@ import {
           }
         </section>
 
+        @if (preparedPortionService.useFirstPortions().length > 0) {
+          <section class="card-featured overflow-hidden">
+            <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
+              <h2 class="section-title">Ready to Use</h2>
+              <a routerLink="/inventory" class="btn-primary-sm shrink-0">View all</a>
+            </div>
+            <div class="divide-y divide-stone-200/60">
+              @for (portion of preparedPortionService.useFirstPortions(); track portion.id) {
+                <a
+                  routerLink="/inventory"
+                  class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/40 sm:px-5"
+                >
+                  <app-food-icon-badge [name]="portion.name" category="Prepared / Leftovers" />
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-stone-900">{{ portion.name }}</p>
+                    <p class="mt-0.5 text-xs text-stone-500">{{ availabilityLabel(portion) }}</p>
+                  </div>
+                  @if (portion.expires_at) {
+                    <span class="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+                      {{ expirationShortLabel(portion.expires_at) }}
+                    </span>
+                  }
+                </a>
+              }
+            </div>
+          </section>
+        }
+
+        @if (preparedPortionService.expiringSoonPortions().length > 0) {
+          <section class="card overflow-hidden">
+            <div class="border-b border-stone-100 px-4 py-4 sm:px-5">
+              <h2 class="section-title">Expiring Prepared Food</h2>
+            </div>
+            <div class="divide-y divide-stone-100">
+              @for (portion of preparedPortionService.expiringSoonPortions(); track portion.id) {
+                <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                  <div>
+                    <p class="text-sm font-semibold text-stone-900">{{ portion.name }}</p>
+                    <p class="mt-0.5 text-xs text-amber-700">
+                      {{ portion.expires_at ? expirationShortLabel(portion.expires_at) : 'Expiring soon' }}
+                    </p>
+                  </div>
+                  <a routerLink="/meal-plan" class="btn-secondary-sm shrink-0">Add to plan</a>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        @if (batchInsight()) {
+          <p class="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
+            {{ batchInsight() }}
+          </p>
+        }
+
         @if (topOverall().length > 0 || topExpiring().length > 0) {
           <section class="card-featured overflow-hidden">
             <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
               <h2 class="section-title">Smart Suggestions</h2>
-              <a routerLink="/suggestions" class="btn-primary-sm shrink-0">See all</a>
+              <a routerLink="/recipes" class="btn-primary-sm shrink-0">See all</a>
             </div>
             <div class="grid gap-0 divide-stone-200/60 sm:grid-cols-2 sm:divide-x">
               <div class="divide-y divide-stone-200/60">
@@ -205,6 +262,7 @@ import {
 export class DashboardComponent implements OnInit {
   readonly inventoryService = inject(FoodInventoryService);
   readonly mealPlanService = inject(MealPlanService);
+  readonly preparedPortionService = inject(PreparedPortionService);
   readonly suggestionService = inject(SmartSuggestionService);
   private readonly router = inject(Router);
   readonly locationLabels = STORAGE_LOCATION_LABELS;
@@ -216,9 +274,26 @@ export class DashboardComponent implements OnInit {
     this.suggestionService.getSuggestionsForExpiringFoods().slice(0, 3)
   );
 
+  readonly batchInsight = computed(() =>
+    getBatchCookingInsight(
+      this.mealPlanService.entries(),
+      this.preparedPortionService.portions()
+    )
+  );
+
+  readonly portionPrompts = computed(() =>
+    buildUseFirstPortionPrompts(this.preparedPortionService.expiringSoonPortions())
+  );
+
   ngOnInit(): void {
     void this.mealPlanService.getTodayMeals();
+    void this.mealPlanService.getMealPlanForWeek(this.mealPlanService.weekStart());
+    void this.preparedPortionService.loadPortions();
     void this.suggestionService.refresh();
+  }
+
+  availabilityLabel(portion: PreparedPortion): string {
+    return getPortionAvailabilityLabel(portion);
   }
 
   expirationShortLabel(date: string | null): string {

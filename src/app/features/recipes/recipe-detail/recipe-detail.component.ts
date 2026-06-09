@@ -3,11 +3,13 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Recipe } from '../../../core/models/recipe.model';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
+import { FormatTagPipe } from '../../../shared/pipes/format-tag.pipe';
+import { CookRecipeDialogComponent } from '../../inventory/ready-portions/cook-recipe-dialog.component';
 
 @Component({
   selector: 'app-recipe-detail',
   standalone: true,
-  imports: [RouterLink, LoadingStateComponent],
+  imports: [RouterLink, LoadingStateComponent, FormatTagPipe, CookRecipeDialogComponent],
   template: `
     <div class="page">
       <a routerLink="/recipes" class="inline-flex text-sm text-stone-500 hover:text-stone-700">
@@ -26,7 +28,14 @@ import { LoadingStateComponent } from '../../../shared/components/loading-state/
               <p class="mt-2 max-w-2xl text-sm text-stone-600">{{ r.description }}</p>
             }
           </div>
-          <div class="flex gap-2">
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="btn-primary-sm"
+              (click)="showCookDialog.set(true)"
+            >
+              Mark as cooked
+            </button>
             <a [routerLink]="['/recipes', r.id, 'edit']" class="btn-secondary-sm">
               Edit
             </a>
@@ -57,7 +66,7 @@ import { LoadingStateComponent } from '../../../shared/components/loading-state/
         @if (r.tags.length > 0) {
           <div class="flex flex-wrap gap-1.5">
             @for (tag of r.tags; track tag) {
-              <span class="tag">{{ tag }}</span>
+              <span class="tag">{{ tag | formatTag }}</span>
             }
           </div>
         }
@@ -81,6 +90,14 @@ import { LoadingStateComponent } from '../../../shared/components/loading-state/
             </ul>
           }
         </section>
+
+        @if (showCookDialog()) {
+          <app-cook-recipe-dialog
+            [recipe]="r"
+            (saved)="onCooked()"
+            (cancelled)="showCookDialog.set(false)"
+          />
+        }
       }
     </div>
   `,
@@ -94,6 +111,7 @@ export class RecipeDetailComponent implements OnInit {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly deleting = signal(false);
+  readonly showCookDialog = signal(false);
 
   async ngOnInit(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id');
@@ -130,5 +148,9 @@ export class RecipeDetailComponent implements OnInit {
     }
 
     await this.router.navigateByUrl('/recipes');
+  }
+
+  onCooked(): void {
+    this.showCookDialog.set(false);
   }
 }

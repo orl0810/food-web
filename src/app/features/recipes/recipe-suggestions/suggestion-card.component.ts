@@ -1,6 +1,8 @@
-import { Component, computed, input, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { SmartSuggestion } from '../../core/models/smart-suggestion.model';
+import { SmartSuggestion } from '../../../core/models/smart-suggestion.model';
+import { FoodIconService } from '../../../core/services/food-icon.service';
+import { FormatTagPipe } from '../../../shared/pipes/format-tag.pipe';
 
 interface BreakdownMetric {
   label: string;
@@ -10,9 +12,9 @@ interface BreakdownMetric {
 @Component({
   selector: 'app-suggestion-card',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, FormatTagPipe],
   template: `
-    <article class="flex flex-col rounded-xl border border-brand-100 bg-card p-4 shadow-sm">
+    <article class="card flex flex-col p-4">
       <!-- Title + match badge -->
       <div class="flex items-start justify-between gap-3">
         <a
@@ -21,9 +23,7 @@ interface BreakdownMetric {
         >
           {{ suggestion().recipe.title }}
         </a>
-        <span
-          class="shrink-0 rounded-full bg-amber-400 px-2.5 py-1 text-xs font-semibold text-amber-950"
-        >
+        <span class="tag shrink-0">
           {{ suggestion().matchPercentage }}% match
         </span>
       </div>
@@ -71,7 +71,8 @@ interface BreakdownMetric {
 
         <div class="mt-2 flex flex-wrap gap-1.5">
           @for (item of suggestion().expiringIngredientsUsed; track item.inventoryFoodId) {
-            <span class="rounded-md bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
+            <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+              <span aria-hidden="true">{{ resolveIcon(item.inventoryFoodName) }}</span>
               {{ item.inventoryFoodName }}
             </span>
           }
@@ -94,9 +95,7 @@ interface BreakdownMetric {
       @if (suggestion().recipe.tags.length > 0) {
         <div class="mt-3 flex flex-wrap gap-1.5">
           @for (tag of suggestion().recipe.tags; track tag) {
-            <span class="rounded-md bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-800">
-              {{ tag }}
-            </span>
+            <span class="tag">{{ tag | formatTag }}</span>
           }
         </div>
       }
@@ -104,7 +103,7 @@ interface BreakdownMetric {
       <!-- Action -->
       <button
         type="button"
-        class="mt-4 w-full rounded-lg bg-sage px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sage-dark"
+        class="btn-primary mt-4 w-full"
         (click)="addToPlan.emit(suggestion())"
       >
         Add to meal plan
@@ -113,8 +112,14 @@ interface BreakdownMetric {
   `,
 })
 export class SuggestionCardComponent {
+  private readonly foodIconService = inject(FoodIconService);
+
   readonly suggestion = input.required<SmartSuggestion>();
   readonly addToPlan = output<SmartSuggestion>();
+
+  resolveIcon(name: string): string {
+    return this.foodIconService.resolveIcon(name);
+  }
 
   readonly availableCount = computed(
     () => this.suggestion().availableIngredients.length

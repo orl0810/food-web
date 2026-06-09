@@ -5,6 +5,7 @@ import {
   RecipeIngredientInput,
   RecipeInput,
 } from '../models/recipe.model';
+import { normalizeTags } from '../../shared/utils/tag.utils';
 import { AuthService } from './auth.service';
 import { LocalApiService } from './local-api.service';
 import { SupabaseService } from './supabase.service';
@@ -375,7 +376,7 @@ export class RecipeService {
       description: recipeData.description?.trim() || null,
       prep_time_minutes: recipeData.prep_time_minutes ?? null,
       portions: recipeData.portions ?? null,
-      tags: recipeData.tags ?? [],
+      tags: normalizeTags(recipeData.tags ?? []),
     };
   }
 
@@ -390,7 +391,7 @@ export class RecipeService {
     const recipe = row as Recipe;
     return {
       ...recipe,
-      tags: recipe.tags ?? [],
+      tags: normalizeTags(recipe.tags ?? []),
       ingredients: [...(recipe.ingredients ?? [])].sort((a, b) =>
         a.name.localeCompare(b.name)
       ),

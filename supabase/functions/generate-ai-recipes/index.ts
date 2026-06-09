@@ -304,7 +304,7 @@ function normalizeSuggestion(
     prepTimeMinutes,
     portions: Number(input.portions) || 1,
     difficulty: 'easy',
-    tags: normalizeStringArray(input.tags).slice(0, 6),
+    tags: normalizeTags(input.tags).slice(0, 6),
     ingredients,
     steps,
     usedInventoryIngredients: normalizeStringArray(input.usedInventoryIngredients),
@@ -344,6 +344,17 @@ function normalizeStringArray(input: unknown): string[] {
     .filter((item): item is string => typeof item === 'string')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function normalizeTags(input: unknown): string[] {
+  const tags = new Set<string>();
+  for (const tag of normalizeStringArray(input)) {
+    const normalized = tag.toLowerCase();
+    if (normalized) {
+      tags.add(normalized);
+    }
+  }
+  return [...tags];
 }
 
 function isExpired(date: string | null): boolean {

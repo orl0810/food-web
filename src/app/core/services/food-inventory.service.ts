@@ -11,6 +11,7 @@ import { FoodItemHistoryService } from './food-item-history.service';
 import { LocalApiService } from './local-api.service';
 import { SupabaseService } from './supabase.service';
 import { isExpired, isExpiringSoon } from '../../shared/utils/expiration.utils';
+import { formatInventoryName } from '../../shared/utils/name-normalization.utils';
 
 @Injectable({ providedIn: 'root' })
 export class FoodInventoryService {
@@ -101,8 +102,10 @@ export class FoodInventoryService {
   }
 
   async createItem(input: FoodItemInsert): Promise<{ error: string | null }> {
+    const sanitized = this.sanitizeInput(input);
+
     if (environment.useLocalApi) {
-      return this.createItemLocal(input);
+      return this.createItemLocal(sanitized);
     }
 
     const client = this.supabaseService.getClient();
@@ -117,11 +120,11 @@ export class FoodInventoryService {
     const { data, error } = await client
       .from('food_items')
       .insert({
-        ...input,
+        ...sanitized,
         user_id: userId,
-        category: input.category?.trim() || null,
-        unit: input.unit?.trim() || null,
-        expiration_date: input.expiration_date || null,
+        category: sanitized.category?.trim() || null,
+        unit: sanitized.unit?.trim() || null,
+        expiration_date: sanitized.expiration_date || null,
       })
       .select()
       .single();
@@ -132,13 +135,15 @@ export class FoodInventoryService {
     }
 
     this.itemsSignal.update((items) => [...items, data as FoodItem]);
-    await this.foodItemHistoryService.upsertFromFoodItem(input);
+    await this.foodItemHistoryService.upsertFromFoodItem(sanitized);
     return { error: null };
   }
 
   async updateItem(id: string, input: FoodItemUpdate): Promise<{ error: string | null }> {
+    const sanitized = this.sanitizeInput(input);
+
     if (environment.useLocalApi) {
-      return this.updateItemLocal(id, input);
+      return this.updateItemLocal(id, sanitized);
     }
 
     const client = this.supabaseService.getClient();
@@ -148,20 +153,9 @@ export class FoodInventoryService {
 
     this.errorSignal.set(null);
 
-    const payload: FoodItemUpdate = { ...input };
-    if (payload.category !== undefined) {
-      payload.category = payload.category?.trim() || null;
-    }
-    if (payload.unit !== undefined) {
-      payload.unit = payload.unit?.trim() || null;
-    }
-    if (payload.expiration_date === '') {
-      payload.expiration_date = null;
-    }
-
     const { data, error } = await client
       .from('food_items')
-      .update(payload)
+      .update(sanitized)
       .eq('id', id)
       .select()
       .single();
@@ -226,6 +220,23 @@ export class FoodInventoryService {
     }
   }
 
+  private sanitizeInput<T extends FoodItemInsert | FoodItemUpdate>(input: T): T {
+    const sanitized = { ...input };
+    if (sanitized.name !== undefined) {
+      sanitized.name = formatInventoryName(sanitized.name);
+    }
+    if (sanitized.category !== undefined) {
+      sanitized.category = sanitized.category?.trim() || null;
+    }
+    if (sanitized.unit !== undefined) {
+      sanitized.unit = sanitized.unit?.trim() || null;
+    }
+    if (sanitized.expiration_date === '') {
+      sanitized.expiration_date = null;
+    }
+    return sanitized;
+  }
+
   private async createItemLocal(input: FoodItemInsert): Promise<{ error: string | null }> {
     if (!this.authService.user()) {
       return { error: 'You must be signed in to add food items.' };
@@ -257,15 +268,6 @@ export class FoodInventoryService {
     this.errorSignal.set(null);
 
     const payload: FoodItemUpdate = { ...input };
-    if (payload.category !== undefined) {
-      payload.category = payload.category?.trim() || null;
-    }
-    if (payload.unit !== undefined) {
-      payload.unit = payload.unit?.trim() || null;
-    }
-    if (payload.expiration_date === '') {
-      payload.expiration_date = null;
-    }
 
     try {
       const data = await this.localApiService.updateFoodItem(id, payload);

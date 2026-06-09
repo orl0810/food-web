@@ -18,11 +18,13 @@ import { FoodItemHistoryService } from '../../../core/services/food-item-history
 import { RecipeService } from '../../../core/services/recipe.service';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { SearchSelectComponent } from '../../../shared/components/search-select/search-select.component';
+import { FormatTagPipe } from '../../../shared/pipes/format-tag.pipe';
+import { normalizeTag } from '../../../shared/utils/tag.utils';
 
 @Component({
   selector: 'app-recipe-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, LoadingStateComponent, SearchSelectComponent],
+  imports: [ReactiveFormsModule, RouterLink, LoadingStateComponent, SearchSelectComponent, FormatTagPipe],
   template: `
     @if (loading()) {
       <app-loading-state message="Loading recipe..." />
@@ -97,7 +99,7 @@ import { SearchSelectComponent } from '../../../shared/components/search-select/
             <div class="flex flex-wrap gap-2">
               @for (tag of tags(); track tag) {
                 <span class="tag flex items-center gap-1.5 px-2.5 py-1">
-                  {{ tag }}
+                  {{ tag | formatTag }}
                   <button
                     type="button"
                     class="text-brand-500 hover:text-brand-700"
@@ -366,7 +368,7 @@ export class RecipeFormComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    void this.foodItemHistoryService.loadHistory();
+    void this.foodItemHistoryService.loadAllHistory();
 
     this.recipeId = this.route.snapshot.paramMap.get('id');
 
@@ -491,11 +493,11 @@ export class RecipeFormComponent implements OnInit {
   }
 
   addTag(value: string): void {
-    const tag = value.trim();
+    const tag = normalizeTag(value);
     if (!tag) {
       return;
     }
-    if (this.tags().some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+    if (this.tags().includes(tag)) {
       return;
     }
     this.tags.update((tags) => [...tags, tag]);

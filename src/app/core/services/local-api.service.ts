@@ -165,9 +165,9 @@ export class LocalApiService {
     });
   }
 
-  async getMealPlan(start: string, end: string): Promise<unknown[]> {
+  async getMealPlanItems(start: string, end: string): Promise<unknown[]> {
     const response = await this.request<{ data: unknown[] }>(
-      `/meal-plan?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+      `/meal-plan-items?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
       {
         method: 'GET',
         auth: true,
@@ -176,25 +176,25 @@ export class LocalApiService {
     return response.data;
   }
 
-  async getTodayMeals(): Promise<unknown[]> {
-    const response = await this.request<{ data: unknown[] }>('/meal-plan/today', {
+  async getTodayMealPlanItems(): Promise<unknown[]> {
+    const response = await this.request<{ data: unknown[] }>('/meal-plan-items/today', {
       method: 'GET',
       auth: true,
     });
     return response.data;
   }
 
-  async upsertMealPlanEntry(payload: Record<string, unknown>): Promise<unknown> {
-    const response = await this.request<{ data: unknown }>('/meal-plan', {
-      method: 'PUT',
+  async createMealPlanItem(payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/meal-plan-items', {
+      method: 'POST',
       auth: true,
       body: JSON.stringify(payload),
     });
     return response.data;
   }
 
-  async deleteMealPlanEntry(id: string): Promise<void> {
-    await this.request<void>(`/meal-plan/${id}`, {
+  async deleteMealPlanItem(id: string): Promise<void> {
+    await this.request<void>(`/meal-plan-items/${id}`, {
       method: 'DELETE',
       auth: true,
     });
@@ -202,7 +202,7 @@ export class LocalApiService {
 
   async duplicateMealPlanWeek(targetWeekStart: string): Promise<{ copiedCount: number }> {
     const response = await this.request<{ data: { copiedCount: number } }>(
-      '/meal-plan/duplicate-week',
+      '/meal-plan-items/duplicate-week',
       {
         method: 'POST',
         auth: true,
@@ -212,8 +212,75 @@ export class LocalApiService {
     return response.data;
   }
 
-  async getFoodItemHistory(): Promise<unknown[]> {
-    const response = await this.request<{ data: unknown[] }>('/food-item-history', {
+  async getPreparedPortions(): Promise<unknown[]> {
+    const response = await this.request<{ data: unknown[] }>('/prepared-portions', {
+      method: 'GET',
+      auth: true,
+    });
+    return response.data;
+  }
+
+  async createPreparedPortion(payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/prepared-portions', {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async updatePreparedPortion(id: string, payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>(`/prepared-portions/${id}`, {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async deletePreparedPortion(id: string): Promise<void> {
+    await this.request<void>(`/prepared-portions/${id}`, {
+      method: 'DELETE',
+      auth: true,
+    });
+  }
+
+  /** @deprecated Use getMealPlanItems */
+  async getMealPlan(start: string, end: string): Promise<unknown[]> {
+    return this.getMealPlanItems(start, end);
+  }
+
+  /** @deprecated Use getTodayMealPlanItems */
+  async getTodayMeals(): Promise<unknown[]> {
+    return this.getTodayMealPlanItems();
+  }
+
+  /** @deprecated Use createMealPlanItem */
+  async upsertMealPlanEntry(payload: Record<string, unknown>): Promise<unknown> {
+    return this.createMealPlanItem({
+      ...payload,
+      item_type: 'recipe',
+    });
+  }
+
+  /** @deprecated Use deleteMealPlanItem */
+  async deleteMealPlanEntry(id: string): Promise<void> {
+    return this.deleteMealPlanItem(id);
+  }
+
+  async getFoodItemHistory(limit?: number, offset?: number): Promise<unknown[]> {
+    const params = new URLSearchParams();
+    if (limit !== undefined) {
+      params.set('limit', String(limit));
+    }
+    if (offset !== undefined) {
+      params.set('offset', String(offset));
+    }
+
+    const query = params.toString();
+    const path = query ? `/food-item-history?${query}` : '/food-item-history';
+
+    const response = await this.request<{ data: unknown[] }>(path, {
       method: 'GET',
       auth: true,
     });

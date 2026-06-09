@@ -1,4 +1,4 @@
-import { MealPlanEntry } from '../../core/models/meal-plan.model';
+import { MealSlotItem } from '../../core/models/meal-slot-item.model';
 import { Recipe } from '../../core/models/recipe.model';
 import { ShoppingItem } from '../../core/models/shopping-item.model';
 import { NamedItem } from './recipe-availability.utils';
@@ -22,13 +22,13 @@ export function isIngredientInInventory(
 }
 
 export function computeMissingIngredients(
-  entries: MealPlanEntry[],
+  entries: MealSlotItem[],
   recipes: Recipe[],
   inventory: NamedItem[]
 ): MissingIngredient[] {
   const recipeIds = new Set<string>();
   for (const entry of entries) {
-    if (entry.recipe_id) {
+    if (entry.item_type === 'recipe' && entry.recipe_id) {
       recipeIds.add(entry.recipe_id);
     }
   }

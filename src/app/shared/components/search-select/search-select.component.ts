@@ -28,6 +28,7 @@ import { SearchSelectOption } from '../../../core/models/search-select-option.mo
         (focus)="onFocus()"
         (input)="onInput($event)"
         (keydown)="onKeydown($event)"
+        (blur)="blurred.emit()"
         autocomplete="off"
         role="combobox"
         [attr.aria-expanded]="isOpen()"
@@ -48,7 +49,12 @@ import { SearchSelectOption } from '../../../core/models/search-select-option.mo
                 role="option"
                 (mousedown)="$event.preventDefault(); selectOption(option)"
               >
-                <span class="block font-medium text-stone-900">{{ option.label }}</span>
+                <span class="flex items-center gap-2 font-medium text-stone-900">
+                  @if (option.icon) {
+                    <span class="text-base leading-none" aria-hidden="true">{{ option.icon }}</span>
+                  }
+                  <span class="min-w-0 truncate">{{ option.label }}</span>
+                </span>
                 @if (option.subtitle) {
                   <span class="block text-xs text-stone-500">{{ option.subtitle }}</span>
                 }
@@ -71,6 +77,7 @@ export class SearchSelectComponent {
   readonly placeholder = input('Search...');
 
   readonly selected = output<SearchSelectOption>();
+  readonly blurred = output<void>();
 
   readonly query = signal('');
   readonly isOpen = signal(false);

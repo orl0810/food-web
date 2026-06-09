@@ -96,4 +96,49 @@ body {
   .alert-info {
     @apply rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-800;
   }
+
+  .bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .bottom-nav-item {
+    @apply flex flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-stone-500 transition-colors;
+  }
+
+  .bottom-nav-item-active {
+    @apply text-brand-700;
+  }
+
+  .bottom-nav-icon {
+    @apply h-6 w-6;
+  }
+
+  .bottom-nav-label {
+    @apply leading-tight;
+  }
+
+  .ai-sparkle {
+    @apply relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-lg;
+    animation: ai-sparkle-pulse 2.5s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ai-sparkle {
+      animation: none;
+    }
+  }
+}
+
+@keyframes ai-sparkle-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgb(34 197 94 / 0.2);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.06);
+    box-shadow: 0 0 12px 2px rgb(34 197 94 / 0.25);
+  }
 }

@@ -54,7 +54,7 @@ export class SmartSuggestionService {
 
     const ids = new Set<string>();
     for (const entry of entries) {
-      if (entry.recipe_id) {
+      if (entry.item_type === 'recipe' && entry.recipe_id) {
         ids.add(entry.recipe_id);
       }
     }

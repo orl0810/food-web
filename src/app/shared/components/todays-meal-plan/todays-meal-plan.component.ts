@@ -4,10 +4,11 @@ import { RouterLink } from '@angular/router';
 import {
   MEAL_TYPES,
   MEAL_TYPE_LABELS,
-  MealPlanEntry,
   MealType,
 } from '../../../core/models/meal-plan.model';
+import { MealSlotItem } from '../../../core/models/meal-slot-item.model';
 import { MealPlanService } from '../../../core/services/meal-plan.service';
+import { formatMealSlotSummary } from '../../utils/prepared-portion.utils';
 
 @Component({
   selector: 'app-todays-meal-plan',
@@ -32,9 +33,12 @@ import { MealPlanService } from '../../../core/services/meal-plan.service';
 
       <div class="divide-y divide-stone-100">
         @for (mealType of mealTypes; track mealType) {
-          @if (todayMealEntry(mealType); as entry) {
+          @if (todayMealItems(mealType).length > 0) {
+            @let items = todayMealItems(mealType);
+            @let summary = mealSummary(items);
+            @let recipeItem = items.find((i) => i.item_type === 'recipe' && i.recipe_id);
             <a
-              [routerLink]="['/recipes', entry.recipe_id]"
+              [routerLink]="recipeItem ? ['/recipes', recipeItem.recipe_id] : '/meal-plan'"
               class="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-stone-50 sm:gap-4 sm:px-5"
             >
               <div
@@ -44,21 +48,11 @@ import { MealPlanService } from '../../../core/services/meal-plan.service';
 
               <div class="min-w-0 flex-1">
                 <p class="text-xs font-semibold text-brand-700">{{ mealTypeLabel(mealType) }}</p>
-                <p class="mt-0.5 truncate font-semibold text-stone-900">{{ entry.recipe?.title }}</p>
-                @if (entry.recipe?.description) {
-                  <p class="mt-0.5 line-clamp-1 text-sm text-stone-500">{{ entry.recipe?.description }}</p>
+                <p class="mt-0.5 truncate font-semibold text-stone-900">{{ summary }}</p>
+                @if (items.length > 1) {
+                  <p class="mt-0.5 text-sm text-stone-500">{{ items.length }} items</p>
                 }
               </div>
-
-              @if (entry.recipe?.tags?.length) {
-                <div class="hidden shrink-0 flex-wrap justify-end gap-1.5 sm:flex">
-                  @for (tag of entry.recipe!.tags!.slice(0, 3); track tag) {
-                    <span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
-                      {{ tag }}
-                    </span>
-                  }
-                </div>
-              }
 
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5 shrink-0 text-stone-300" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -165,15 +159,19 @@ export class TodaysMealPlanComponent {
   readonly mealTypes = MEAL_TYPES;
 
   readonly hasNoTodayMeals = computed(() =>
-    this.mealTypes.every((mealType) => !this.mealPlanService.todaysMeals().has(mealType))
+    this.mealTypes.every((mealType) => this.todayMealItems(mealType).length === 0)
   );
 
   mealTypeLabel(mealType: MealType): string {
     return MEAL_TYPE_LABELS[mealType];
   }
 
-  todayMealEntry(mealType: MealType): MealPlanEntry | undefined {
-    return this.mealPlanService.todaysMeals().get(mealType);
+  todayMealItems(mealType: MealType): MealSlotItem[] {
+    return this.mealPlanService.todaysMeals().get(mealType) ?? [];
+  }
+
+  mealSummary(items: MealSlotItem[]): string {
+    return formatMealSlotSummary(items) || 'Planned meal';
   }
 
   onEmptySlotClick(mealType: MealType): void {

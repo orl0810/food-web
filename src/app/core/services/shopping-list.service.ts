@@ -1,10 +1,15 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
+import { FoodItem } from '../models/food-item.model';
 import {
   ShoppingItem,
   ShoppingItemInput,
   ShoppingItemUpdate,
 } from '../models/shopping-item.model';
+import {
+  formatInventoryName,
+  normalizeNameKey,
+} from '../../shared/utils/name-normalization.utils';
 import { computeMissingIngredients } from '../../shared/utils/shopping-list.utils';
 import { AuthService } from './auth.service';
 import { FoodInventoryService } from './food-inventory.service';
@@ -66,6 +71,7 @@ export class ShoppingListService {
     }
 
     this.itemsSignal.set(this.normalizeItems(data));
+    await this.processStaleCheckedItems();
   }
 
   async addShoppingItem(
@@ -292,11 +298,49 @@ export class ShoppingListService {
     return { addedCount, error: null };
   }
 
+  async moveShoppingItemToInventory(
+    item: ShoppingItem
+  ): Promise<{ moved: boolean; error: string | null }> {
+    this.errorSignal.set(null);
+
+    const payload = {
+      name: formatInventoryName(item.name),
+      quantity: item.quantity ?? 1,
+      unit: item.unit?.trim() || null,
+      location: 'pantry' as const,
+      category: null,
+      expiration_date: null,
+    };
+
+    const existing = this.findExistingInventoryItemByName(payload.name);
+
+    if (existing) {
+      const result = await this.foodInventoryService.updateItem(existing.id, {
+        quantity: existing.quantity + payload.quantity,
+      });
+      if (result.error) {
+        return { moved: false, error: result.error };
+      }
+    } else {
+      const result = await this.foodInventoryService.createItem(payload);
+      if (result.error) {
+        return { moved: false, error: result.error };
+      }
+    }
+
+    const deleteResult = await this.deleteShoppingItem(item.id);
+    if (deleteResult.error) {
+      return { moved: false, error: deleteResult.error };
+    }
+
+    return { moved: true, error: null };
+  }
+
   async addCheckedItemsToInventory(): Promise<{
     addedCount: number;
     error: string | null;
   }> {
-    const checked = this.checkedItems();
+    const checked = [...this.checkedItems()];
     if (checked.length === 0) {
       return { addedCount: 0, error: null };
     }
@@ -305,30 +349,32 @@ export class ShoppingListService {
 
     let addedCount = 0;
     for (const item of checked) {
-      const result = await this.foodInventoryService.createItem({
-        name: item.name,
-        quantity: item.quantity ?? 1,
-        unit: item.unit,
-        location: 'pantry',
-        category: null,
-        expiration_date: null,
-      });
-
+      const result = await this.moveShoppingItemToInventory(item);
       if (result.error) {
-        return {
-          addedCount,
-          error: result.error,
-        };
+        return { addedCount, error: result.error };
       }
-      addedCount += 1;
-    }
-
-    const clearResult = await this.clearCheckedItems();
-    if (clearResult.error) {
-      return { addedCount, error: clearResult.error };
+      if (result.moved) {
+        addedCount += 1;
+      }
     }
 
     return { addedCount, error: null };
+  }
+
+  private async processStaleCheckedItems(): Promise<void> {
+    if (this.checkedCount() === 0) {
+      return;
+    }
+
+    await this.foodInventoryService.loadItems();
+    await this.addCheckedItemsToInventory();
+  }
+
+  private findExistingInventoryItemByName(name: string): FoodItem | undefined {
+    const nameKey = normalizeNameKey(name);
+    return this.foodInventoryService
+      .items()
+      .find((inventoryItem) => normalizeNameKey(inventoryItem.name) === nameKey);
   }
 
   private normalizeItem(row: unknown): ShoppingItem {
@@ -360,6 +406,7 @@ export class ShoppingListService {
     try {
       const data = await this.localApiService.getShoppingItems();
       this.itemsSignal.set(this.normalizeItems(data));
+      await this.processStaleCheckedItems();
     } catch (error) {
       this.errorSignal.set(
         error instanceof Error ? error.message : 'Failed to load shopping items.'

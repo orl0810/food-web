@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { StorageLocation } from '../models/food-item.model';
+import { formatInventoryName } from '../../shared/utils/name-normalization.utils';
 import {
   VoiceInventoryDraftItem,
   VoiceInventoryParseResult,
@@ -182,7 +183,7 @@ export class InventoryVoiceParserService {
     warnings: string[]
   ): VoiceInventoryDraftItem | null {
     const quantity = this.extractQuantityAndUnit(candidate);
-    const name = this.toTitleCase(quantity.name);
+    const name = formatInventoryName(quantity.name);
     if (!name) {
       return null;
     }
@@ -277,11 +278,4 @@ export class InventoryVoiceParserService {
     return `${year}-${month}-${day}`;
   }
 
-  private toTitleCase(text: string): string {
-    return text
-      .split(' ')
-      .map((word) => (word ? `${word[0].toUpperCase()}${word.slice(1)}` : ''))
-      .join(' ')
-      .trim();
-  }
 }

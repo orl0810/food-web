@@ -84,7 +84,7 @@ export class FoodCategoryService {
 
     const { data, error } = await client
       .from('food_categories')
-      .select('id, name, sort_order')
+      .select('id, name, sort_order, icon')
       .order('sort_order', { ascending: true });
 
     this.loadingSignal.set(false);
@@ -94,7 +94,12 @@ export class FoodCategoryService {
       return;
     }
 
-    this.categoriesSignal.set((data as FoodCategory[]) ?? []);
+    this.categoriesSignal.set(
+      ((data as FoodCategory[]) ?? []).map((category) => ({
+        ...category,
+        icon: category.icon ?? '🍽️',
+      }))
+    );
   }
 
   private async loadCategoriesLocal(): Promise<void> {
@@ -107,7 +112,12 @@ export class FoodCategoryService {
 
     try {
       const data = await this.localApiService.getFoodCategories();
-      this.categoriesSignal.set(data as FoodCategory[]);
+      this.categoriesSignal.set(
+        (data as FoodCategory[]).map((category) => ({
+          ...category,
+          icon: category.icon ?? '🍽️',
+        }))
+      );
     } catch (error) {
       this.errorSignal.set(
         error instanceof Error ? error.message : 'Failed to load food categories.'

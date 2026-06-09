@@ -69,10 +69,8 @@ export const routes: Routes = [
       },
       {
         path: 'suggestions',
-        loadComponent: () =>
-          import('./features/suggestions/suggestions.component').then(
-            (m) => m.SuggestionsComponent
-          ),
+        redirectTo: 'recipes',
+        pathMatch: 'full',
       },
     ],
   },

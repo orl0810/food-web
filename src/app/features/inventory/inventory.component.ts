@@ -1,4 +1,5 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { FoodItemHistory } from '../../core/models/food-item-history.model';
 import {
   FoodItem,
   FoodItemInsert,
@@ -6,20 +7,31 @@ import {
   InventoryFilter,
   STORAGE_LOCATION_LABELS,
 } from '../../core/models/food-item.model';
+import { ReusableInventoryItem } from '../../core/models/reusable-inventory-item.model';
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { FoodItemHistoryService } from '../../core/services/food-item-history.service';
 import { FoodCategoryService } from '../../core/services/food-category.service';
 import { FoodCatalogService } from '../../core/services/food-catalog.service';
 import { VoiceInventoryDraftItem } from '../../core/models/voice-inventory.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import {
   getExpirationLabel,
   getExpirationShortLabel,
   getExpirationStatus,
 } from '../../shared/utils/expiration.utils';
+import {
+  formatInventoryName,
+  normalizeNameKey,
+} from '../../shared/utils/name-normalization.utils';
+import { findHistoryEntryForReusableItem } from '../../shared/utils/reusable-inventory.utils';
 import { AddInventoryByVoiceComponent } from './add-inventory-by-voice/add-inventory-by-voice.component';
 import { FoodItemFormComponent } from './food-item-form/food-item-form.component';
+import { ReusableInventoryItemsComponent } from './reusable-inventory-items/reusable-inventory-items.component';
+import { PreparedPortionsListComponent } from './ready-portions/prepared-portions-list.component';
+import { AddPortionToMealPlanDialogComponent } from './ready-portions/add-portion-to-meal-plan-dialog.component';
+import { PreparedPortion } from '../../core/models/prepared-portion.model';
 
 @Component({
   selector: 'app-inventory',
@@ -27,7 +39,11 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
   imports: [
     FoodItemFormComponent,
     AddInventoryByVoiceComponent,
+    ReusableInventoryItemsComponent,
+    PreparedPortionsListComponent,
+    AddPortionToMealPlanDialogComponent,
     EmptyStateComponent,
+    FoodIconBadgeComponent,
     LoadingStateComponent,
   ],
   template: `
@@ -37,7 +53,31 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
           <h1 class="page-title">Inventory</h1>
           <p class="page-subtitle">Track what you have at home.</p>
         </div>
-        @if (!showForm() && !showVoiceForm()) {
+
+@if (!showForm() && !showVoiceForm() && activeFilter() !== 'ready_portions') {
+        <app-reusable-inventory-items
+          [reusableItems]="reusableItems()"
+          [selectedItem]="selectedReusableItem()"
+          [isLoading]="foodItemHistoryService.loading()"
+          [hasMore]="foodItemHistoryService.hasMore()"
+          [loadingMore]="foodItemHistoryService.loadingMore()"
+          (itemSelected)="onReusableItemSelected($event)"
+          (duplicateItemSelected)="onDuplicateItemSelected($event)"
+          (updateExistingClicked)="onUpdateExistingClicked($event)"
+          (addNewBatchClicked)="onAddNewBatchClicked($event)"
+          (loadMoreRequested)="onLoadMoreReusableItems()"
+        />
+      }
+
+
+
+
+
+
+
+
+
+        @if (!showForm() && !showVoiceForm() && activeFilter() !== 'ready_portions') {
           <div class="flex flex-wrap gap-2">
             <button
               type="button"
@@ -70,11 +110,18 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
       @if (showForm()) {
         <app-food-item-form
           [item]="editingItem()"
+          [prefillFromHistory]="historyPrefill()"
           [submitting]="saving()"
           [error]="formError()"
           (saved)="saveItem($event)"
           (cancelled)="closeForm()"
         />
+      }
+
+      @if (voiceSaveInfo()) {
+        <p class="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-800">
+          {{ voiceSaveInfo() }}
+        </p>
       }
 
       @if (showVoiceForm()) {
@@ -86,7 +133,17 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
         />
       }
 
-      @if (inventoryService.loading()) {
+      @if (portionForMealPlan()) {
+        <app-add-portion-to-meal-plan-dialog
+          [portion]="portionForMealPlan()!"
+          (saved)="onPortionAddedToMealPlan()"
+          (cancelled)="portionForMealPlan.set(null)"
+        />
+      }
+
+      @if (activeFilter() === 'ready_portions') {
+        <app-prepared-portions-list (addToMealPlan)="portionForMealPlan.set($event)" />
+      } @else if (inventoryService.loading()) {
         <app-loading-state message="Loading inventory..." />
       } @else if (inventoryService.error()) {
         <p class="alert-error">
@@ -104,14 +161,7 @@ import { FoodItemFormComponent } from './food-item-form/food-item-form.component
           <div class="divide-y divide-stone-200/60">
             @for (item of filteredItems(); track item.id) {
               <article class="flex flex-wrap items-start gap-x-2.5 gap-y-2 px-4 py-3 transition-colors hover:bg-stone-50/60 sm:flex-nowrap sm:items-center sm:gap-3 sm:px-5">
-                <div
-                  class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-stone-100 ring-1 ring-stone-200/80"
-                  aria-hidden="true"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-stone-400">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H5.25A2.25 2.25 0 0 0 3 5.25v13.5A2.25 2.25 0 0 0 5.25 21Z" />
-                  </svg>
-                </div>
+                <app-food-icon-badge [name]="item.name" [category]="item.category" />
 
                 <div class="min-w-0 flex-1 sm:flex sm:items-center sm:gap-5">
                   <div class="flex items-start justify-between gap-2 sm:contents">
@@ -205,10 +255,27 @@ export class InventoryComponent implements OnInit {
   readonly formError = signal<string | null>(null);
   readonly voiceSaving = signal(false);
   readonly voiceError = signal<string | null>(null);
+  readonly voiceSaveInfo = signal<string | null>(null);
+  readonly selectedReusableItem = signal<ReusableInventoryItem | null>(null);
+  readonly historyPrefill = signal<FoodItemHistory | null>(null);
 
-  readonly filteredItems = computed(() =>
-    this.inventoryService.filterItems(this.inventoryService.items(), this.activeFilter())
-  );
+  readonly portionForMealPlan = signal<PreparedPortion | null>(null);
+
+  readonly filteredItems = computed(() => {
+    if (this.activeFilter() === 'ready_portions') {
+      return [];
+    }
+    return this.inventoryService.filterItems(this.inventoryService.items(), this.activeFilter());
+  });
+
+  readonly reusableItems = computed(() => {
+    this.foodItemHistoryService.history();
+    return this.foodItemHistoryService.getReusableItems(this.inventoryService.items());
+  });
+
+  onPortionAddedToMealPlan(): void {
+    this.portionForMealPlan.set(null);
+  }
 
   ngOnInit(): void {
     void this.inventoryService.loadItems();
@@ -233,9 +300,11 @@ export class InventoryComponent implements OnInit {
     this.closeVoiceForm();
     this.editingItem.set(null);
     this.formError.set(null);
+    this.historyPrefill.set(null);
+    this.selectedReusableItem.set(null);
     this.showForm.set(true);
 
-    void this.foodItemHistoryService.loadHistory();
+    void this.foodItemHistoryService.loadAllHistory();
     void this.foodCategoryService.loadCategories();
     void this.foodCatalogService.loadCatalog();
   }
@@ -244,6 +313,8 @@ export class InventoryComponent implements OnInit {
     this.closeVoiceForm();
     this.editingItem.set(item);
     this.formError.set(null);
+    this.historyPrefill.set(null);
+    this.selectedReusableItem.set(null);
     this.showForm.set(true);
   }
 
@@ -251,11 +322,62 @@ export class InventoryComponent implements OnInit {
     this.showForm.set(false);
     this.editingItem.set(null);
     this.formError.set(null);
+    this.historyPrefill.set(null);
+    this.selectedReusableItem.set(null);
+  }
+
+  onReusableItemSelected(item: ReusableInventoryItem): void {
+    this.openAddFormWithPrefill(item);
+  }
+
+  onDuplicateItemSelected(item: ReusableInventoryItem): void {
+    this.selectedReusableItem.set(item);
+  }
+
+  onUpdateExistingClicked(item: ReusableInventoryItem): void {
+    const inventoryItem = this.inventoryService
+      .items()
+      .find((entry) => entry.id === item.activeInventoryItemId);
+
+    if (!inventoryItem) {
+      return;
+    }
+
+    this.selectedReusableItem.set(null);
+    this.openEditForm(inventoryItem);
+  }
+
+  onAddNewBatchClicked(item: ReusableInventoryItem): void {
+    this.selectedReusableItem.set(null);
+    this.openAddFormWithPrefill(item);
+  }
+
+  private openAddFormWithPrefill(item: ReusableInventoryItem): void {
+    const historyEntry = findHistoryEntryForReusableItem(
+      this.foodItemHistoryService.history(),
+      item
+    );
+
+    this.closeVoiceForm();
+    this.editingItem.set(null);
+    this.formError.set(null);
+    this.historyPrefill.set(historyEntry);
+    this.selectedReusableItem.set(null);
+    this.showForm.set(true);
+
+    void this.foodItemHistoryService.loadAllHistory();
+    void this.foodCategoryService.loadCategories();
+    void this.foodCatalogService.loadCatalog();
+  }
+
+  onLoadMoreReusableItems(): void {
+    void this.foodItemHistoryService.loadMoreHistory();
   }
 
   openVoiceForm(): void {
     this.closeForm();
     this.voiceError.set(null);
+    this.voiceSaveInfo.set(null);
     this.showVoiceForm.set(true);
   }
 
@@ -269,10 +391,31 @@ export class InventoryComponent implements OnInit {
     this.saving.set(true);
     this.formError.set(null);
 
+    const normalizedInput: FoodItemInsert = {
+      ...input,
+      name: formatInventoryName(input.name),
+    };
+
     const editing = this.editingItem();
+    if (!editing) {
+      const existing = this.findExistingItemByName(normalizedInput.name);
+      if (existing) {
+        this.saving.set(false);
+        this.historyPrefill.set(null);
+        this.editingItem.set({
+          ...existing,
+          quantity: normalizedInput.quantity,
+        });
+        this.formError.set(
+          `"${normalizedInput.name}" is already in your inventory. Update the quantity below.`
+        );
+        return;
+      }
+    }
+
     const result = editing
-      ? await this.inventoryService.updateItem(editing.id, input)
-      : await this.inventoryService.createItem(input);
+      ? await this.inventoryService.updateItem(editing.id, normalizedInput)
+      : await this.inventoryService.createItem(normalizedInput);
 
     this.saving.set(false);
 
@@ -288,25 +431,70 @@ export class InventoryComponent implements OnInit {
     this.voiceSaving.set(true);
     this.voiceError.set(null);
 
+    let createdCount = 0;
+    let updatedCount = 0;
+
     for (const item of items) {
-      const result = await this.inventoryService.createItem({
-        name: item.name.trim(),
+      const payload: FoodItemInsert = {
+        name: formatInventoryName(item.name),
         category: item.category?.trim() || null,
         quantity: item.quantity ?? 1,
         unit: item.unit?.trim() || null,
         expiration_date: item.expiration_date || null,
         location: item.location,
-      });
+      };
+
+      const existing = this.findExistingItemByName(payload.name);
+      if (existing) {
+        const result = await this.inventoryService.updateItem(existing.id, {
+          quantity: payload.quantity,
+        });
+
+        if (result.error) {
+          this.voiceSaving.set(false);
+          this.voiceError.set(result.error);
+          return;
+        }
+
+        updatedCount += 1;
+        continue;
+      }
+
+      const result = await this.inventoryService.createItem(payload);
 
       if (result.error) {
         this.voiceSaving.set(false);
         this.voiceError.set(result.error);
         return;
       }
+
+      createdCount += 1;
+    }
+
+    this.voiceSaving.set(false);
+
+    if (updatedCount > 0) {
+      const parts: string[] = [];
+      if (createdCount > 0) {
+        parts.push(
+          `Added ${createdCount} item${createdCount === 1 ? '' : 's'}`
+        );
+      }
+      parts.push(
+        `updated ${updatedCount} existing item${updatedCount === 1 ? '' : 's'}`
+      );
+      this.voiceSaveInfo.set(`${parts.join(' and ')}.`);
     }
 
     await this.foodItemHistoryService.loadHistory();
     this.closeVoiceForm();
+  }
+
+  private findExistingItemByName(name: string): FoodItem | undefined {
+    const nameKey = normalizeNameKey(name);
+    return this.inventoryService.items().find(
+      (item) => normalizeNameKey(item.name) === nameKey
+    );
   }
 
   async deleteItem(item: FoodItem): Promise<void> {

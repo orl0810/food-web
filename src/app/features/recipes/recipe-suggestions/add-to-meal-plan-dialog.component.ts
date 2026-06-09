@@ -3,15 +3,15 @@ import {
   MEAL_TYPE_LABELS,
   MEAL_TYPES,
   MealType,
-} from '../../core/models/meal-plan.model';
-import { Recipe } from '../../core/models/recipe.model';
-import { MealPlanService } from '../../core/services/meal-plan.service';
+} from '../../../core/models/meal-plan.model';
+import { Recipe } from '../../../core/models/recipe.model';
+import { MealPlanService } from '../../../core/services/meal-plan.service';
 import {
   formatDayLabel,
   getCurrentWeekStartDate,
   getWeekDates,
   toISODate,
-} from '../../shared/utils/meal-plan.utils';
+} from '../../../shared/utils/meal-plan.utils';
 
 @Component({
   selector: 'app-add-to-meal-plan-dialog',
@@ -126,11 +126,12 @@ export class AddToMealPlanDialogComponent implements OnInit {
     this.saving.set(true);
     this.error.set(null);
 
-    const { error } = await this.mealPlanService.assignRecipeToMeal(
-      this.selectedDate(),
-      this.selectedMealType(),
-      this.recipe().id
-    );
+    const { error } = await this.mealPlanService.addSlotItem({
+      date: this.selectedDate(),
+      meal_type: this.selectedMealType(),
+      item_type: 'recipe',
+      recipe_id: this.recipe().id,
+    });
 
     this.saving.set(false);
 

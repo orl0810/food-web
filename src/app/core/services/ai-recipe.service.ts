@@ -5,6 +5,7 @@ import {
   AiRecipeSuggestionRequest,
   AiRecipeSuggestionResponse,
 } from '../models/ai-recipe-suggestion.model';
+import { normalizeTags } from '../../shared/utils/tag.utils';
 import { SupabaseService } from './supabase.service';
 
 @Injectable({ providedIn: 'root' })
@@ -94,7 +95,7 @@ export class AiRecipeService {
       prepTimeMinutes: Number(suggestion.prepTimeMinutes),
       portions: Number(suggestion.portions),
       difficulty: 'easy',
-      tags: suggestion.tags ?? [],
+      tags: normalizeTags(suggestion.tags ?? []),
       ingredients: suggestion.ingredients ?? [],
       steps: suggestion.steps ?? [],
       usedInventoryIngredients: suggestion.usedInventoryIngredients ?? [],

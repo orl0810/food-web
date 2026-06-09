@@ -36,7 +36,8 @@ export type InventoryFilter =
   | 'fridge'
   | 'freezer'
   | 'pantry'
-  | 'expiring_soon';
+  | 'expiring_soon'
+  | 'ready_portions';
 
 export const INVENTORY_FILTERS: { value: InventoryFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -44,4 +45,5 @@ export const INVENTORY_FILTERS: { value: InventoryFilter; label: string }[] = [
   { value: 'freezer', label: 'Freezer' },
   { value: 'pantry', label: 'Pantry' },
   { value: 'expiring_soon', label: 'Expiring soon' },
+  { value: 'ready_portions', label: 'Ready Portions' },
 ];

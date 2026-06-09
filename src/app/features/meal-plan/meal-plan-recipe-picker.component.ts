@@ -2,12 +2,14 @@ import { Component, computed, inject, input, OnInit, output, signal } from '@ang
 import { RouterLink } from '@angular/router';
 import { MEAL_TYPE_LABELS, MealType } from '../../core/models/meal-plan.model';
 import { RecipeService } from '../../core/services/recipe.service';
+import { FormatTagPipe } from '../../shared/pipes/format-tag.pipe';
+import { formatTagLabel } from '../../shared/utils/tag.utils';
 import { formatDayLabel } from '../../shared/utils/meal-plan.utils';
 
 @Component({
   selector: 'app-meal-plan-recipe-picker',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, FormatTagPipe],
   template: `
     <div class="card-featured p-4">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -54,7 +56,7 @@ import { formatDayLabel } from '../../shared/utils/meal-plan.utils';
                 [class.filter-pill-inactive]="activeTag() !== tag"
                 (click)="activeTag.set(tag)"
               >
-                {{ tag }}
+                {{ tag | formatTag }}
               </button>
             }
           </div>
@@ -89,7 +91,7 @@ import { formatDayLabel } from '../../shared/utils/meal-plan.utils';
                 <span class="block text-sm font-medium text-stone-900">{{ recipe.title }}</span>
                 @if (recipe.tags.length > 0) {
                   <span class="mt-1 block text-xs text-stone-500">
-                    {{ recipe.tags.join(', ') }}
+                    {{ formatTagsList(recipe.tags) }}
                   </span>
                 }
               </button>
@@ -133,6 +135,10 @@ export class MealPlanRecipePickerComponent implements OnInit {
 
   formatDayLabel(date: string): string {
     return formatDayLabel(date);
+  }
+
+  formatTagsList(tags: string[]): string {
+    return tags.map((tag) => formatTagLabel(tag)).join(', ');
   }
 
   onSearch(event: Event): void {

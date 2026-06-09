@@ -5,22 +5,41 @@ import { FoodInventoryService } from '../../core/services/food-inventory.service
 import { RecipeService } from '../../core/services/recipe.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
+import { FormatTagPipe } from '../../shared/pipes/format-tag.pipe';
 import { countAvailableIngredients } from '../../shared/utils/recipe-availability.utils';
+import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggestions.component';
 
 @Component({
   selector: 'app-recipes',
   standalone: true,
-  imports: [RouterLink, EmptyStateComponent, LoadingStateComponent],
+  imports: [
+    RouterLink,
+    EmptyStateComponent,
+    LoadingStateComponent,
+    FormatTagPipe,
+    RecipeSuggestionsComponent,
+  ],
   template: `
     <div class="page">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="page-title">My Recipes</h1>
-          <p class="page-subtitle">Your saved recipes, ready to plan into your week.</p>
+          <h1 class="page-title">Recipes</h1>
+          <p class="page-subtitle">
+            Smart suggestions based on your inventory, plus your saved recipes.
+          </p>
         </div>
         <a routerLink="/recipes/new" class="btn-primary self-start sm:self-auto">
           New recipe
         </a>
+      </div>
+
+      <app-recipe-suggestions />
+
+      <div>
+        <h2 class="section-title">My Recipes</h2>
+        <p class="mt-1 text-sm text-stone-600">
+          Your saved recipes, ready to plan into your week.
+        </p>
       </div>
 
       @if (recipeService.recipes().length > 0) {
@@ -52,7 +71,7 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
                   [class.filter-pill-inactive]="activeTag() !== tag"
                   (click)="activeTag.set(tag)"
                 >
-                  {{ tag }}
+                  {{ tag | formatTag }}
                 </button>
               }
             </div>
@@ -129,7 +148,7 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
                       </span>
                     }
                     @for (tag of recipe.tags; track tag) {
-                      <span class="tag">{{ tag }}</span>
+                      <span class="tag">{{ tag | formatTag }}</span>
                     }
                   </div>
                 </div>

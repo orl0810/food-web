@@ -12,12 +12,13 @@ import {
 import { SearchSelectOption } from '../../../core/models/search-select-option.model';
 import { FoodCatalogService } from '../../../core/services/food-catalog.service';
 import { FoodCategoryService } from '../../../core/services/food-category.service';
+import { FoodIconService } from '../../../core/services/food-icon.service';
 import { FoodItemHistoryService } from '../../../core/services/food-item-history.service';
 import { SearchSelectComponent } from '../../../shared/components/search-select/search-select.component';
-
-function normalizeNameKey(name: string): string {
-  return name.trim().toLowerCase();
-}
+import {
+  formatInventoryName,
+  normalizeNameKey,
+} from '../../../shared/utils/name-normalization.utils';
 
 @Component({
   selector: 'app-food-item-form',
@@ -47,6 +48,7 @@ function normalizeNameKey(name: string): string {
               type="text"
               formControlName="name"
               class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              (blur)="formatNameField()"
             />
           } @else {
             <app-search-select
@@ -55,6 +57,7 @@ function normalizeNameKey(name: string): string {
               [options]="nameOptions()"
               placeholder="Search previously added items..."
               (selected)="applyNameSelection($event)"
+              (blurred)="formatNameField()"
             />
             @if (suggestionsError()) {
               <p class="mt-1 text-xs text-red-600">
@@ -164,8 +167,10 @@ export class FoodItemFormComponent {
   readonly foodItemHistoryService = inject(FoodItemHistoryService);
   readonly foodCategoryService = inject(FoodCategoryService);
   readonly foodCatalogService = inject(FoodCatalogService);
+  private readonly foodIconService = inject(FoodIconService);
 
   readonly item = input<FoodItem | null>(null);
+  readonly prefillFromHistory = input<FoodItemHistory | null>(null);
   readonly saved = output<FoodItemInsert>();
   readonly cancelled = output<void>();
 
@@ -188,11 +193,23 @@ export class FoodItemFormComponent {
     this.foodItemHistoryService.history();
     this.foodCatalogService.catalogItems();
 
-    const historyOptions = this.foodItemHistoryService.getHistoryOptions('');
+    const historyOptions = this.foodItemHistoryService.getHistoryOptions('').map((option) => ({
+      ...option,
+      icon: this.foodIconService.resolveIcon(
+        option.label,
+        this.isHistoryEntry(option.payload) ? option.payload.category : null
+      ),
+    }));
     const historyKeys = new Set(historyOptions.map((option) => normalizeNameKey(option.label)));
     const catalogOptions = this.foodCatalogService
       .getCatalogOptions('')
-      .filter((option) => !historyKeys.has(normalizeNameKey(option.label)));
+      .filter((option) => !historyKeys.has(normalizeNameKey(option.label)))
+      .map((option) => ({
+        ...option,
+        icon: this.isCatalogItem(option.payload)
+          ? option.payload.icon
+          : this.foodIconService.resolveIcon(option.label),
+      }));
 
     return [...historyOptions, ...catalogOptions];
   });
@@ -232,6 +249,8 @@ export class FoodItemFormComponent {
   constructor() {
     effect(() => {
       const item = this.item();
+      const prefill = this.prefillFromHistory();
+
       if (item) {
         this.form.patchValue({
           name: item.name,
@@ -241,16 +260,23 @@ export class FoodItemFormComponent {
           expiration_date: item.expiration_date ?? '',
           location: item.location,
         });
-      } else {
-        this.form.reset({
-          name: '',
-          category: '',
-          quantity: 1,
-          unit: '',
-          expiration_date: '',
-          location: 'fridge',
-        });
+        return;
       }
+
+      if (prefill) {
+        this.applyHistoryEntry(prefill);
+        this.form.patchValue({ expiration_date: '' });
+        return;
+      }
+
+      this.form.reset({
+        name: '',
+        category: '',
+        quantity: 1,
+        unit: '',
+        expiration_date: '',
+        location: 'fridge',
+      });
     });
   }
 
@@ -281,12 +307,20 @@ export class FoodItemFormComponent {
 
   applyCatalogEntry(entry: FoodCatalogItem): void {
     this.form.patchValue({
-      name: entry.name,
+      name: formatInventoryName(entry.name),
       category: entry.category_name,
       unit: entry.default_unit ?? '',
       location: entry.default_location,
       quantity: entry.default_quantity,
     });
+  }
+
+  formatNameField(): void {
+    const current = this.nameControl.value?.trim();
+    if (!current) {
+      return;
+    }
+    this.nameControl.setValue(formatInventoryName(current));
   }
 
   submit(): void {
@@ -297,7 +331,7 @@ export class FoodItemFormComponent {
 
     const value = this.form.getRawValue();
     this.saved.emit({
-      name: value.name!.trim(),
+      name: formatInventoryName(value.name!),
       category: value.category?.trim() || null,
       quantity: value.quantity!,
       unit: value.unit?.trim() || null,
