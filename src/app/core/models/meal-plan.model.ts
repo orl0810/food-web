@@ -1,6 +1,6 @@
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
-export type { MealSlotItem, MealSlotItemInput, MealSlotItemType, MealPlanEntry } from './meal-slot-item.model';
+export type { MealSlotItem, MealSlotItemInput, MealSlotItemType, MealSlotItemStatus, MealPlanEntry } from './meal-slot-item.model';
 
 export const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 

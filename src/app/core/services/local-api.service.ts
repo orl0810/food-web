@@ -193,6 +193,15 @@ export class LocalApiService {
     return response.data;
   }
 
+  async updateMealPlanItem(id: string, payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>(`/meal-plan-items/${id}`, {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
   async deleteMealPlanItem(id: string): Promise<void> {
     await this.request<void>(`/meal-plan-items/${id}`, {
       method: 'DELETE',

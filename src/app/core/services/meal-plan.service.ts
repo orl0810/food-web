@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { MealType } from '../models/meal-plan.model';
-import { MealSlotItem, MealSlotItemInput } from '../models/meal-slot-item.model';
+import { MealSlotItem, MealSlotItemInput, MealSlotItemStatus } from '../models/meal-slot-item.model';
 import { Recipe } from '../models/recipe.model';
 import { FoodItem } from '../models/food-item.model';
 import { PreparedPortion } from '../models/prepared-portion.model';
@@ -328,6 +328,41 @@ export class MealPlanService {
     return this.removeSlotItem(id);
   }
 
+  async updateSlotItemStatus(
+    id: string,
+    status: MealSlotItemStatus
+  ): Promise<{ error: string | null }> {
+    const completedAt = status === 'planned' ? null : new Date().toISOString();
+
+    if (environment.useLocalApi) {
+      return this.updateSlotItemStatusLocal(id, status, completedAt);
+    }
+
+    const client = this.supabaseService.getClient();
+    const userId = this.authService.user()?.id;
+
+    if (!client || !userId) {
+      return { error: 'You must be signed in to update your meal plan.' };
+    }
+
+    this.errorSignal.set(null);
+
+    const { error } = await client
+      .from('meal_plan_items')
+      .update({ status, completed_at: completedAt })
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (error) {
+      const message = 'Could not update this item. Please try again.';
+      this.errorSignal.set(message);
+      return { error: message };
+    }
+
+    this.patchItemInSignals(id, { status, completed_at: completedAt });
+    return { error: null };
+  }
+
   async duplicatePreviousWeek(
     targetWeekStartDate: string
   ): Promise<{ copiedCount: number; error: string | null }> {
@@ -594,6 +629,37 @@ export class MealPlanService {
     }
   }
 
+  private async updateSlotItemStatusLocal(
+    id: string,
+    status: MealSlotItemStatus,
+    completedAt: string | null
+  ): Promise<{ error: string | null }> {
+    if (!this.localApiService.isEnabled()) {
+      return { error: 'You must be signed in to update your meal plan.' };
+    }
+
+    try {
+      await this.localApiService.updateMealPlanItem(id, {
+        status,
+        completed_at: completedAt,
+      });
+      this.patchItemInSignals(id, { status, completed_at: completedAt });
+      return { error: null };
+    } catch {
+      const message = 'Could not update this item. Please try again.';
+      this.errorSignal.set(message);
+      return { error: message };
+    }
+  }
+
+  private patchItemInSignals(id: string, patch: Partial<MealSlotItem>): void {
+    const apply = (items: MealSlotItem[]): MealSlotItem[] =>
+      items.map((item) => (item.id === id ? { ...item, ...patch } : item));
+
+    this.itemsSignal.update(apply);
+    this.todayItemsSignal.update(apply);
+  }
+
   private addItemToSignals(item: MealSlotItem): void {
     this.itemsSignal.update((items) => [...items, item]);
 
@@ -639,6 +705,8 @@ export class MealPlanService {
       portions_used: Number(item.portions_used ?? 1),
       quantity: item.quantity !== null && item.quantity !== undefined ? Number(item.quantity) : null,
       sort_order: Number(item.sort_order ?? 0),
+      status: item.status ?? 'planned',
+      completed_at: item.completed_at ?? null,
       recipe: recipeData
         ? {
             id: recipeData.id,

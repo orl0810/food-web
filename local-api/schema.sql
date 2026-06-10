@@ -130,6 +130,8 @@ create table if not exists meal_plan_items (
   portions_used integer not null default 1 check (portions_used > 0),
   notes text,
   sort_order integer not null default 0,
+  status text not null default 'planned' check (status in ('planned', 'prepared', 'eaten', 'skipped')),
+  completed_at text,
   created_at text not null default (datetime('now'))
 );
 

@@ -63,6 +63,17 @@ if (tableExists('meal_plan') && !tableExists('meal_plan_items')) {
   `);
 }
 
+// Add meal plan item status columns on existing databases.
+if (tableExists('meal_plan_items') && !tableHasColumn('meal_plan_items', 'status')) {
+  db.exec(
+    "alter table meal_plan_items add column status text not null default 'planned' check (status in ('planned', 'prepared', 'eaten', 'skipped'))"
+  );
+}
+
+if (tableExists('meal_plan_items') && !tableHasColumn('meal_plan_items', 'completed_at')) {
+  db.exec('alter table meal_plan_items add column completed_at text');
+}
+
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
 

@@ -5,6 +5,8 @@ import { Recipe } from './recipe.model';
 
 export type MealSlotItemType = 'recipe' | 'prepared_portion' | 'inventory_item' | 'custom';
 
+export type MealSlotItemStatus = 'planned' | 'prepared' | 'eaten' | 'skipped';
+
 export interface MealSlotItem {
   id: string;
   user_id: string;
@@ -20,6 +22,8 @@ export interface MealSlotItem {
   portions_used: number;
   notes: string | null;
   sort_order: number;
+  status: MealSlotItemStatus;
+  completed_at: string | null;
   created_at: string;
   recipe?: Pick<Recipe, 'id' | 'title' | 'description' | 'tags' | 'prep_time_minutes'>;
   prepared_portion?: Pick<PreparedPortion, 'id' | 'name' | 'available_portions' | 'expires_at' | 'storage_location'>;

@@ -1,9 +1,16 @@
-import { Component, computed, inject, OnInit } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { STORAGE_LOCATION_LABELS } from '../../core/models/food-item.model';
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { MealPlanService } from '../../core/services/meal-plan.service';
 import { SmartSuggestionService } from '../../core/services/smart-suggestion.service';
+import { CompleteActionDialogComponent } from './components/complete-action-dialog/complete-action-dialog.component';
+import { DashboardSmartActionCardComponent } from './components/dashboard-smart-action-card/dashboard-smart-action-card.component';
+import {
+  ActionCompletionPayload,
+  DashboardAction,
+} from './models/dashboard-action.model';
+import { DashboardFacadeService } from './services/dashboard-facade.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
@@ -32,6 +39,8 @@ import {
     FoodIconBadgeComponent,
     LoadingStateComponent,
     TodaysMealPlanComponent,
+    DashboardSmartActionCardComponent,
+    CompleteActionDialogComponent,
     RouterLink,
   ],
   template: `
@@ -40,6 +49,26 @@ import {
         <h1 class="page-title">Dashboard</h1>
         <p class="page-subtitle">See what you have and what to use first.</p>
       </div>
+
+      <app-dashboard-smart-action-card
+        class="block"
+        [action]="facade.currentSmartAction()"
+        [busy]="facade.completing()"
+        [successMessage]="facade.successMessage()"
+        (primaryClick)="onSmartActionPrimary($event)"
+        (dismissClick)="onSmartActionDismiss()"
+      />
+
+      @if (dialogAction(); as pendingAction) {
+        <app-complete-action-dialog
+          [action]="pendingAction"
+          [draft]="dialogDraft()!"
+          [busy]="facade.completing()"
+          [error]="facade.error()"
+          (confirmed)="onDialogConfirmed($event)"
+          (cancelled)="closeDialog()"
+        />
+      }
 
       <app-todays-meal-plan />
 
@@ -264,8 +293,12 @@ export class DashboardComponent implements OnInit {
   readonly mealPlanService = inject(MealPlanService);
   readonly preparedPortionService = inject(PreparedPortionService);
   readonly suggestionService = inject(SmartSuggestionService);
+  readonly facade = inject(DashboardFacadeService);
   private readonly router = inject(Router);
   readonly locationLabels = STORAGE_LOCATION_LABELS;
+
+  readonly dialogAction = signal<DashboardAction | null>(null);
+  readonly dialogDraft = signal<ActionCompletionPayload | null>(null);
 
   readonly topOverall = computed(() =>
     this.suggestionService.getSmartSuggestions().slice(0, 3)
@@ -286,10 +319,41 @@ export class DashboardComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    void this.mealPlanService.getTodayMeals();
-    void this.mealPlanService.getMealPlanForWeek(this.mealPlanService.weekStart());
-    void this.preparedPortionService.loadPortions();
-    void this.suggestionService.refresh();
+    void this.facade.loadDashboardData();
+  }
+
+  onSmartActionPrimary(action: DashboardAction): void {
+    if (action.primaryKind === 'navigate' && action.primaryRoute) {
+      void this.router.navigateByUrl(action.primaryRoute);
+      return;
+    }
+
+    this.dialogDraft.set(this.facade.buildCompletionDraft(action));
+    this.dialogAction.set(action);
+  }
+
+  onSmartActionDismiss(): void {
+    const action = this.facade.currentSmartAction();
+    if (action) {
+      this.facade.dismiss(action);
+    }
+  }
+
+  async onDialogConfirmed(payload: ActionCompletionPayload): Promise<void> {
+    const action = this.dialogAction();
+    if (!action) {
+      return;
+    }
+
+    const { error } = await this.facade.completeAction(action, payload);
+    if (!error) {
+      this.closeDialog();
+    }
+  }
+
+  closeDialog(): void {
+    this.dialogAction.set(null);
+    this.dialogDraft.set(null);
   }
 
   availabilityLabel(portion: PreparedPortion): string {

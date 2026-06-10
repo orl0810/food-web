@@ -164,6 +164,8 @@ interface MealPlanItemRow {
   portions_used: number;
   notes: string | null;
   sort_order: number;
+  status: string;
+  completed_at: string | null;
   created_at: string;
 }
 
@@ -249,7 +251,8 @@ function getMealPlanItemRow(id: string, userId: string): MealPlanItemRow | undef
   return db
     .prepare(
       `select id, user_id, date, meal_type, item_type, recipe_id, prepared_portion_id,
-              inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order, created_at
+              inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order,
+              status, completed_at, created_at
        from meal_plan_items
        where id = ? and user_id = ?`
     )
@@ -789,7 +792,8 @@ app.get('/meal-plan-items/today', authMiddleware, (req: AuthenticatedRequest, re
   const rows = db
     .prepare(
       `select id, user_id, date, meal_type, item_type, recipe_id, prepared_portion_id,
-              inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order, created_at
+              inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order,
+              status, completed_at, created_at
        from meal_plan_items
        where user_id = ? and date = ?
        order by meal_type asc, sort_order asc`
@@ -811,7 +815,8 @@ app.get('/meal-plan-items', authMiddleware, (req: AuthenticatedRequest, res) => 
   const rows = db
     .prepare(
       `select id, user_id, date, meal_type, item_type, recipe_id, prepared_portion_id,
-              inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order, created_at
+              inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order,
+              status, completed_at, created_at
        from meal_plan_items
        where user_id = ? and date >= ? and date <= ?
        order by date asc, meal_type asc, sort_order asc`
@@ -937,6 +942,52 @@ app.post('/meal-plan-items/duplicate-week', authMiddleware, (req: AuthenticatedR
   }
 
   res.json({ data: { copiedCount } });
+});
+
+const VALID_SLOT_ITEM_STATUSES = new Set(['planned', 'prepared', 'eaten', 'skipped']);
+
+app.patch('/meal-plan-items/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const existing = getMealPlanItemRow(req.params['id']!, req.userId!);
+  if (!existing) {
+    res.status(404).json({ error: 'Meal plan item not found.' });
+    return;
+  }
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  if (req.body?.status !== undefined) {
+    const status = String(req.body.status);
+    if (!VALID_SLOT_ITEM_STATUSES.has(status)) {
+      res.status(400).json({ error: 'Invalid status.' });
+      return;
+    }
+    updates.push('status = ?');
+    values.push(status);
+  }
+
+  if (req.body?.completed_at !== undefined) {
+    updates.push('completed_at = ?');
+    values.push(req.body.completed_at ?? null);
+  }
+
+  if (req.body?.notes !== undefined) {
+    updates.push('notes = ?');
+    values.push(req.body.notes?.trim?.() || null);
+  }
+
+  if (updates.length === 0) {
+    res.json({ data: serializeMealPlanItem(existing) });
+    return;
+  }
+
+  values.push(req.params['id'], req.userId);
+  db.prepare(
+    `update meal_plan_items set ${updates.join(', ')} where id = ? and user_id = ?`
+  ).run(...values);
+
+  const row = getMealPlanItemRow(req.params['id']!, req.userId!);
+  res.json({ data: serializeMealPlanItem(row!) });
 });
 
 app.delete('/meal-plan-items/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
