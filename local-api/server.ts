@@ -1172,6 +1172,14 @@ interface UserFoodProfileRow {
   household_size: number;
   default_portions_per_recipe: number;
   expiring_items_reminder_enabled: number;
+  onboarding_status: string;
+  onboarding_current_step: string | null;
+  onboarding_goals: string;
+  onboarding_cooking_effort: string | null;
+  onboarding_planning_days: number | null;
+  onboarding_draft_state: string | null;
+  onboarding_first_smart_action: string | null;
+  onboarding_completed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1321,10 +1329,105 @@ function mapProfileResponse(userId: string, email?: string) {
       defaultPortionsPerRecipe: profile.default_portions_per_recipe,
       expiringItemsReminderEnabled: Boolean(profile.expiring_items_reminder_enabled),
     },
+    onboardingStatus: profile.onboarding_status ?? 'pending',
+    onboardingFirstSmartAction: profile.onboarding_first_smart_action
+      ? JSON.parse(profile.onboarding_first_smart_action)
+      : null,
     createdAt: profile.created_at,
     updatedAt: profile.updated_at,
   };
 }
+
+function mapOnboardingStatus(userId: string, email?: string) {
+  const profile = ensureUserFoodProfile(userId, email);
+  return {
+    status: profile.onboarding_status ?? 'pending',
+    currentStep: profile.onboarding_current_step,
+    draft: profile.onboarding_draft_state
+      ? (JSON.parse(profile.onboarding_draft_state) as Record<string, unknown>)
+      : null,
+    firstSmartAction: profile.onboarding_first_smart_action
+      ? JSON.parse(profile.onboarding_first_smart_action)
+      : null,
+  };
+}
+
+app.get('/onboarding/status', authMiddleware, (req: AuthenticatedRequest, res) => {
+  res.json({ data: mapOnboardingStatus(req.userId!, req.userEmail) });
+});
+
+app.patch('/onboarding', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const userId = req.userId!;
+  ensureUserFoodProfile(userId, req.userEmail);
+  const body = req.body as Record<string, unknown>;
+
+  const profile = db
+    .prepare('select onboarding_draft_state from user_food_profiles where user_id = ?')
+    .get(userId) as { onboarding_draft_state: string | null } | undefined;
+
+  const existingDraft = profile?.onboarding_draft_state
+    ? (JSON.parse(profile.onboarding_draft_state) as Record<string, unknown>)
+    : {};
+
+  const draftPatch = { ...existingDraft };
+  const draftKeys = [
+    'currentStep',
+    'status',
+    'goals',
+    'dietaryPreferences',
+    'dislikedIngredients',
+    'allergies',
+    'cookingEffort',
+    'selectedMealSlots',
+    'planningDays',
+    'availableInventoryItems',
+    'generatedPlan',
+  ];
+  for (const key of draftKeys) {
+    if (body[key] !== undefined) {
+      draftPatch[key] = body[key];
+    }
+  }
+
+  const fields: string[] = ["updated_at = datetime('now')"];
+  const values: unknown[] = [];
+
+  if (typeof body['status'] === 'string') {
+    fields.push('onboarding_status = ?');
+    values.push(body['status']);
+  }
+  if (typeof body['currentStep'] === 'string') {
+    fields.push('onboarding_current_step = ?');
+    values.push(body['currentStep']);
+  }
+  if (body['goals'] !== undefined) {
+    fields.push('onboarding_goals = ?');
+    values.push(JSON.stringify(body['goals']));
+  }
+  if (typeof body['cookingEffort'] === 'string') {
+    fields.push('onboarding_cooking_effort = ?');
+    values.push(body['cookingEffort']);
+  }
+  if (body['planningDays'] !== undefined) {
+    fields.push('onboarding_planning_days = ?');
+    values.push(body['planningDays']);
+  }
+  if (body['firstSmartAction'] !== undefined) {
+    fields.push('onboarding_first_smart_action = ?');
+    values.push(body['firstSmartAction'] ? JSON.stringify(body['firstSmartAction']) : null);
+    if (body['status'] === 'completed' || body['firstSmartAction']) {
+      fields.push("onboarding_completed_at = datetime('now')");
+    }
+  }
+
+  fields.push('onboarding_draft_state = ?');
+  values.push(JSON.stringify(draftPatch));
+
+  values.push(userId);
+  db.prepare(`update user_food_profiles set ${fields.join(', ')} where user_id = ?`).run(...values);
+
+  res.json({ data: mapOnboardingStatus(userId, req.userEmail) });
+});
 
 app.get('/user-food-profile', authMiddleware, (req: AuthenticatedRequest, res) => {
   res.json({ data: mapProfileResponse(req.userId!, req.userEmail) });

@@ -163,6 +163,14 @@ create table if not exists user_food_profiles (
   household_size integer not null default 2 check (household_size between 1 and 20),
   default_portions_per_recipe integer not null default 4 check (default_portions_per_recipe between 1 and 20),
   expiring_items_reminder_enabled integer not null default 1,
+  onboarding_status text not null default 'pending' check (onboarding_status in ('pending', 'in_progress', 'completed', 'skipped')),
+  onboarding_current_step text,
+  onboarding_goals text not null default '[]',
+  onboarding_cooking_effort text,
+  onboarding_planning_days integer,
+  onboarding_draft_state text,
+  onboarding_first_smart_action text,
+  onboarding_completed_at text,
   created_at text not null default (datetime('now')),
   updated_at text not null default (datetime('now'))
 );

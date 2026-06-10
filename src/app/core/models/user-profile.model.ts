@@ -53,6 +53,16 @@ export interface MealPlanningUserSettings {
   expiringItemsReminderEnabled: boolean;
 }
 
+export type OnboardingStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
+
+export interface OnboardingSmartAction {
+  title: string;
+  description: string;
+  ctaLabel?: string;
+  route?: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
 export interface UserFoodProfile {
   id: string;
   userId: string;
@@ -64,6 +74,8 @@ export interface UserFoodProfile {
   dislikedIngredients: UserIngredientPreference[];
   allergies: UserAllergy[];
   mealPlanningSettings: MealPlanningUserSettings;
+  onboardingStatus?: OnboardingStatus;
+  onboardingFirstSmartAction?: OnboardingSmartAction | null;
   createdAt: string;
   updatedAt: string;
 }

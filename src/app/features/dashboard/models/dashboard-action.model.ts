@@ -14,7 +14,9 @@ export type DashboardActionType =
   | 'no_meal_planned_today'
   | 'meal_plan_incomplete'
   | 'prepared_food_expiring'
-  | 'weekly_plan_progress';
+  | 'weekly_plan_progress'
+  | 'onboarding_starter_action'
+  | 'create_first_meal_plan';
 
 export type DashboardActionPriority = 'low' | 'medium' | 'high' | 'urgent';
 

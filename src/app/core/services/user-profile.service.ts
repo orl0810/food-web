@@ -47,6 +47,8 @@ interface ProfileRow {
   household_size: number;
   default_portions_per_recipe: number;
   expiring_items_reminder_enabled: boolean;
+  onboarding_status?: string;
+  onboarding_first_smart_action?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -614,6 +616,8 @@ export class UserProfileService {
         defaultPortionsPerRecipe: Number(settings?.['defaultPortionsPerRecipe'] ?? 4),
         expiringItemsReminderEnabled: Boolean(settings?.['expiringItemsReminderEnabled'] ?? true),
       },
+      onboardingStatus: raw['onboardingStatus'] as UserFoodProfile['onboardingStatus'],
+      onboardingFirstSmartAction: (raw['onboardingFirstSmartAction'] as UserFoodProfile['onboardingFirstSmartAction']) ?? null,
       createdAt: String(raw['createdAt']),
       updatedAt: String(raw['updatedAt']),
     };
@@ -664,6 +668,10 @@ export class UserProfileService {
         defaultPortionsPerRecipe: row.default_portions_per_recipe,
         expiringItemsReminderEnabled: Boolean(row.expiring_items_reminder_enabled),
       },
+      onboardingStatus: (row.onboarding_status as UserFoodProfile['onboardingStatus']) ?? 'pending',
+      onboardingFirstSmartAction: row.onboarding_first_smart_action
+        ? (row.onboarding_first_smart_action as unknown as UserFoodProfile['onboardingFirstSmartAction'])
+        : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

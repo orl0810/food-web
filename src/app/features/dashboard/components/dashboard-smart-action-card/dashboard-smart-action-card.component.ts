@@ -25,6 +25,8 @@ const TYPE_ICONS: Record<DashboardActionType, string> = {
   meal_plan_incomplete: '📋',
   prepared_food_expiring: '⏰',
   weekly_plan_progress: '📈',
+  onboarding_starter_action: '✨',
+  create_first_meal_plan: '📋',
 };
 
 @Component({

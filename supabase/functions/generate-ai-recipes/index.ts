@@ -3,12 +3,22 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
+interface AiOnboardingContext {
+  dietaryPreferences: string[];
+  allergies: string[];
+  dislikedIngredients: string[];
+  goals: string[];
+  cookingEffort: string;
+  extraInventory?: string[];
+}
+
 interface AiRecipeSuggestionRequest {
   mealType: MealType;
   maxPrepTimeMinutes: number;
   prioritizeExpiringIngredients: boolean;
   includeMissingIngredients: boolean;
   numberOfSuggestions: number;
+  onboardingContext?: AiOnboardingContext;
 }
 
 interface FoodItemForPrompt {
@@ -96,12 +106,27 @@ serve(async (req) => {
       return jsonResponse({ error: 'Could not load your inventory right now.' }, 500);
     }
 
-    const inventory = selectInventoryItems(
+    let inventory = selectInventoryItems(
       normalizeInventory(data),
       request.prioritizeExpiringIngredients
     );
 
-    if (inventory.length === 0) {
+    const extraNames = request.onboardingContext?.extraInventory ?? [];
+    for (const name of extraNames) {
+      if (!name?.trim()) continue;
+      if (inventory.some((item) => item.name.toLowerCase() === name.toLowerCase())) continue;
+      inventory.push({
+        name: name.trim(),
+        category: null,
+        quantity: 1,
+        unit: null,
+        expiration_date: null,
+        location: 'pantry',
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    if (inventory.length === 0 && !request.onboardingContext) {
       return jsonResponse({ suggestions: [] });
     }
 
@@ -149,12 +174,29 @@ function cleanRequest(input: unknown): AiRecipeSuggestionRequest {
   const maxPrepTimeMinutes = clampNumber(body.maxPrepTimeMinutes, 15, 60, 30);
   const numberOfSuggestions = clampNumber(body.numberOfSuggestions, 1, maxSuggestions, 3);
 
+  const onboardingContext = cleanOnboardingContext(body.onboardingContext);
+
   return {
     mealType,
     maxPrepTimeMinutes,
     prioritizeExpiringIngredients: Boolean(body.prioritizeExpiringIngredients),
     includeMissingIngredients: Boolean(body.includeMissingIngredients),
     numberOfSuggestions,
+    onboardingContext,
+  };
+}
+
+function cleanOnboardingContext(input: unknown): AiOnboardingContext | undefined {
+  if (!isRecord(input)) {
+    return undefined;
+  }
+  return {
+    dietaryPreferences: normalizeStringArray(input.dietaryPreferences),
+    allergies: normalizeStringArray(input.allergies),
+    dislikedIngredients: normalizeStringArray(input.dislikedIngredients),
+    goals: normalizeStringArray(input.goals),
+    cookingEffort: toNonEmptyString(input.cookingEffort) ?? 'two_cooking_sessions',
+    extraInventory: normalizeStringArray(input.extraInventory),
   };
 }
 
@@ -215,6 +257,11 @@ function buildUserPrompt(
     ? 'Prefer recipes that use ingredients expiring soon.'
     : 'Use available ingredients naturally without over-prioritizing expiration dates.';
 
+  const allergyRule =
+    request.onboardingContext?.allergies?.length
+      ? `STRICT: Never include these allergens: ${request.onboardingContext.allergies.join(', ')}.`
+      : null;
+
   return JSON.stringify({
     task: 'Generate easy recipe suggestions from this inventory.',
     preferences: {
@@ -224,14 +271,19 @@ function buildUserPrompt(
       numberOfSuggestions: request.numberOfSuggestions,
       includeMissingIngredients: request.includeMissingIngredients,
       prioritizeExpiringIngredients: request.prioritizeExpiringIngredients,
+      onboarding: request.onboardingContext ?? null,
     },
     rules: [
       missingRule,
       expiringRule,
+      allergyRule,
+      request.onboardingContext?.dislikedIngredients?.length
+        ? `Avoid these disliked ingredients when possible: ${request.onboardingContext.dislikedIngredients.join(', ')}.`
+        : null,
       'Every recipe must fit within maxPrepTimeMinutes.',
       'Prefer available inventory ingredients over unrelated ingredients.',
       'Keep steps short and clear.',
-    ],
+    ].filter(Boolean),
     inventory,
     outputFormat: {
       suggestions: [

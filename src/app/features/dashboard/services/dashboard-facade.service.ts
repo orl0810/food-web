@@ -13,6 +13,7 @@ import {
   InventoryDeduction,
 } from '../models/dashboard-action.model';
 import { DashboardActionEngineService } from './dashboard-action-engine.service';
+import { UserProfileFacadeService } from '../../user-profile/services/user-profile-facade.service';
 import { toISODate } from '../../../shared/utils/meal-plan.utils';
 
 const DISMISSED_STORAGE_KEY = 'pantryflow.smartAction.dismissed';
@@ -33,6 +34,7 @@ export class DashboardFacadeService {
   private readonly recipeService = inject(RecipeService);
   private readonly shoppingListService = inject(ShoppingListService);
   private readonly suggestionService = inject(SmartSuggestionService);
+  private readonly profileFacade = inject(UserProfileFacadeService);
 
   private readonly dismissedIdsSignal = signal<string[]>(this.loadDismissedIds());
   private readonly completingSignal = signal(false);
@@ -47,6 +49,51 @@ export class DashboardFacadeService {
   /** The single best action for the user right now, or null when all set. */
   readonly currentSmartAction = computed<DashboardAction | null>(() => {
     const dismissed = new Set(this.dismissedIdsSignal());
+    const todayISO = toISODate();
+    const profile = this.profileFacade.profile();
+
+    if (profile?.onboardingFirstSmartAction && profile.onboardingStatus === 'completed') {
+      const stored = profile.onboardingFirstSmartAction;
+      const starterAction: DashboardAction = {
+        id: `onboarding_starter_action:stored:${todayISO}`,
+        type: 'onboarding_starter_action',
+        priority:
+          stored.priority === 'high'
+            ? 'high'
+            : stored.priority === 'medium'
+              ? 'medium'
+              : 'low',
+        title: stored.title,
+        message: stored.description,
+        chips: ['meal-plan'],
+        primaryLabel: stored.ctaLabel ?? 'View meal plan',
+        primaryKind: 'navigate',
+        primaryRoute: stored.route ?? '/meal-plan',
+      };
+      if (!dismissed.has(starterAction.id)) {
+        return starterAction;
+      }
+    }
+
+    const weekItems = this.mealPlanService.weekSlotItems();
+    const hasPlannedMeals = [...weekItems.values()].some((items) => items.length > 0);
+    if (profile?.onboardingStatus === 'skipped' && !hasPlannedMeals) {
+      const skipAction: DashboardAction = {
+        id: `create_first_meal_plan:${todayISO}`,
+        type: 'create_first_meal_plan',
+        priority: 'low',
+        title: 'Create your first meal plan',
+        message: 'Start quick planning to get a useful weekly plan in minutes.',
+        chips: ['meal-plan'],
+        primaryLabel: 'Start quick planning',
+        primaryKind: 'navigate',
+        primaryRoute: '/onboarding?restart=true',
+      };
+      if (!dismissed.has(skipAction.id)) {
+        return skipAction;
+      }
+    }
+
     return (
       this.actionEngine.actions().find((action) => !dismissed.has(action.id)) ?? null
     );
@@ -59,6 +106,7 @@ export class DashboardFacadeService {
       this.preparedPortionService.loadPortions(),
       this.suggestionService.refresh(),
       this.shoppingListService.getShoppingItems(),
+      this.profileFacade.loadAll(),
     ]);
   }
 

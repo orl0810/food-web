@@ -422,6 +422,32 @@ export class LocalApiService {
     return response.data;
   }
 
+  async getOnboardingStatus(): Promise<{
+    status: string;
+    currentStep: string | null;
+    draft: unknown;
+    firstSmartAction: unknown;
+  }> {
+    const response = await this.request<{
+      data: {
+        status: string;
+        currentStep: string | null;
+        draft: unknown;
+        firstSmartAction: unknown;
+      };
+    }>('/onboarding/status', { method: 'GET', auth: true });
+    return response.data;
+  }
+
+  async patchOnboarding(patch: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/onboarding', {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify(patch),
+    });
+    return response.data;
+  }
+
   private async request<T>(
     path: string,
     options: {

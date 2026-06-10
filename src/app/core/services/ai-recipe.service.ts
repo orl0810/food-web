@@ -69,13 +69,17 @@ export class AiRecipeService {
   }
 
   private cleanRequest(request: AiRecipeSuggestionRequest): AiRecipeSuggestionRequest {
-    return {
+    const cleaned: AiRecipeSuggestionRequest = {
       mealType: request.mealType,
       maxPrepTimeMinutes: Number(request.maxPrepTimeMinutes),
       prioritizeExpiringIngredients: Boolean(request.prioritizeExpiringIngredients),
       includeMissingIngredients: Boolean(request.includeMissingIngredients),
       numberOfSuggestions: Math.min(Math.max(Number(request.numberOfSuggestions) || 3, 1), 5),
     };
+    if (request.onboardingContext) {
+      cleaned.onboardingContext = request.onboardingContext;
+    }
+    return cleaned;
   }
 
   private normalizeResponse(data: AiRecipeSuggestionResponse | null): AiRecipeSuggestionResponse {

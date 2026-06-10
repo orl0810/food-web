@@ -1,6 +1,20 @@
 import { MealType } from './meal-plan.model';
+import { DietaryPreference } from './user-profile.model';
+import {
+  CookingEffortPreference,
+  UserMealPlanningGoal,
+} from '../../features/onboarding/models/onboarding.model';
 
 export type AiRecipeDifficulty = 'easy';
+
+export interface AiOnboardingContext {
+  dietaryPreferences: DietaryPreference[];
+  allergies: string[];
+  dislikedIngredients: string[];
+  goals: UserMealPlanningGoal[];
+  cookingEffort: CookingEffortPreference;
+  extraInventory?: string[];
+}
 
 export interface AiRecipeSuggestionRequest {
   mealType: MealType;
@@ -8,6 +22,7 @@ export interface AiRecipeSuggestionRequest {
   prioritizeExpiringIngredients: boolean;
   includeMissingIngredients: boolean;
   numberOfSuggestions: number;
+  onboardingContext?: AiOnboardingContext;
 }
 
 export interface AiRecipeIngredient {

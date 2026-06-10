@@ -74,6 +74,19 @@ if (tableExists('meal_plan_items') && !tableHasColumn('meal_plan_items', 'comple
   db.exec('alter table meal_plan_items add column completed_at text');
 }
 
+if (tableExists('user_food_profiles') && !tableHasColumn('user_food_profiles', 'onboarding_status')) {
+  db.exec(`
+    alter table user_food_profiles add column onboarding_status text not null default 'pending';
+    alter table user_food_profiles add column onboarding_current_step text;
+    alter table user_food_profiles add column onboarding_goals text not null default '[]';
+    alter table user_food_profiles add column onboarding_cooking_effort text;
+    alter table user_food_profiles add column onboarding_planning_days integer;
+    alter table user_food_profiles add column onboarding_draft_state text;
+    alter table user_food_profiles add column onboarding_first_smart_action text;
+    alter table user_food_profiles add column onboarding_completed_at text;
+  `);
+}
+
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
 

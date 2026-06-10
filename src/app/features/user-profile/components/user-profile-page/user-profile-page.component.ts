@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { OnboardingService } from '../../../../core/services/onboarding.service';
 import { LoadingStateComponent } from '../../../../shared/components/loading-state/loading-state.component';
 import { UserProfileFacadeService } from '../../services/user-profile-facade.service';
 import { ProfileSummaryCardComponent } from '../profile-summary-card/profile-summary-card.component';
@@ -70,6 +71,9 @@ type ProfileSection = 'summary' | 'preferences' | 'progress' | 'settings';
           </div>
 
           <section class="card flex flex-wrap gap-3 p-5">
+            <button type="button" class="btn-primary-sm" (click)="restartOnboarding()">
+              Create a new starter plan
+            </button>
             <button type="button" class="btn-secondary-sm" (click)="exportProfile()">
               Export preferences
             </button>
@@ -84,7 +88,9 @@ type ProfileSection = 'summary' | 'preferences' | 'progress' | 'settings';
 })
 export class UserProfilePageComponent implements OnInit {
   readonly facade = inject(UserProfileFacadeService);
+  private readonly onboardingService = inject(OnboardingService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly activeSection = signal<ProfileSection>('summary');
 
@@ -119,5 +125,14 @@ export class UserProfilePageComponent implements OnInit {
     }
     await this.facade.resetPreferences();
     await this.facade.loadAll();
+  }
+
+  async restartOnboarding(): Promise<void> {
+    const proceed = confirm(
+      'Start a new starter meal plan? Your current week\'s plan will not be removed automatically.'
+    );
+    if (!proceed) return;
+    await this.onboardingService.restart();
+    await this.router.navigateByUrl('/onboarding?restart=true');
   }
 }

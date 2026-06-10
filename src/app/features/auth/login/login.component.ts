@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { OnboardingService } from '../../../core/services/onboarding.service';
 
 type AuthMode = 'sign_in' | 'sign_up';
 
@@ -109,6 +110,7 @@ type AuthMode = 'sign_in' | 'sign_up';
 })
 export class LoginComponent {
   private readonly authService = inject(AuthService);
+  private readonly onboardingService = inject(OnboardingService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
 
@@ -158,6 +160,11 @@ export class LoginComponent {
       return;
     }
 
-    await this.router.navigateByUrl('/dashboard');
+    const status = await this.onboardingService.getStatus();
+    const target =
+      status.status === 'pending' || status.status === 'in_progress'
+        ? '/onboarding'
+        : '/dashboard';
+    await this.router.navigateByUrl(target);
   }
 }
