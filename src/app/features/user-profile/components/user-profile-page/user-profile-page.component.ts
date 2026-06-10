@@ -54,7 +54,7 @@ type ProfileSection = 'summary' | 'preferences' | 'progress' | 'settings';
             <app-profile-summary-card />
           </div>
 
-          <div id="section-preferences" class="space-y-4">
+          <div id="section-preferences" class="flex flex-col gap-6">
             <app-dietary-preferences-section />
             <app-favorite-ingredients-section />
             <app-disliked-ingredients-section />
