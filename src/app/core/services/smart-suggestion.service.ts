@@ -10,6 +10,11 @@ import {
   getCurrentWeekStartDate,
 } from '../../shared/utils/meal-plan.utils';
 import { buildSuggestion } from '../../shared/utils/suggestion-scoring.utils';
+import {
+  applyProfileScoring,
+  recipeContainsAllergen,
+} from '../../shared/utils/user-profile-suggestion.utils';
+import { UserProfileFacadeService } from '../../features/user-profile/services/user-profile-facade.service';
 import { FoodInventoryService } from './food-inventory.service';
 import { MealPlanService } from './meal-plan.service';
 import { RecipeService } from './recipe.service';
@@ -23,6 +28,7 @@ export class SmartSuggestionService {
   private readonly foodInventoryService = inject(FoodInventoryService);
   private readonly recipeService = inject(RecipeService);
   private readonly mealPlanService = inject(MealPlanService);
+  private readonly profileFacade = inject(UserProfileFacadeService);
 
   private readonly plannedRecipeIdsSignal = signal<Set<string>>(new Set());
 
@@ -32,10 +38,31 @@ export class SmartSuggestionService {
     const recipes = this.recipeService.recipes();
     const inventory = this.foodInventoryService.items();
     const planned = this.plannedRecipeIdsSignal();
+    const profile = this.profileFacade.getProfileForSuggestions();
 
-    return this.sortSuggestionsByScore(
-      recipes.map((recipe) => buildSuggestion(recipe, inventory, planned))
-    );
+    const suggestions = recipes
+      .map((recipe) => buildSuggestion(recipe, inventory, planned))
+      .filter((suggestion) => {
+        if (!profile?.allergies.length) {
+          return true;
+        }
+        return !recipeContainsAllergen(suggestion.recipe, profile.allergies);
+      })
+      .map((suggestion) => {
+        if (!profile) {
+          return suggestion;
+        }
+        return {
+          ...suggestion,
+          score: applyProfileScoring(suggestion.score, suggestion.recipe, {
+            favorites: profile.favoriteIngredients,
+            disliked: profile.dislikedIngredients,
+            dietaryPreferences: profile.dietaryPreferences,
+          }),
+        };
+      });
+
+    return this.sortSuggestionsByScore(suggestions);
   });
 
   async refresh(): Promise<void> {
@@ -43,6 +70,7 @@ export class SmartSuggestionService {
       this.foodInventoryService.loadItems(),
       this.recipeService.loadRecipes(),
       this.loadPlannedRecipeIds(),
+      this.profileFacade.loadAll(),
     ]);
   }
 

@@ -11,6 +11,7 @@ import {
   DashboardAction,
 } from './models/dashboard-action.model';
 import { DashboardFacadeService } from './services/dashboard-facade.service';
+import { UserProfileFacadeService } from '../user-profile/services/user-profile-facade.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
@@ -71,6 +72,32 @@ import {
       }
 
       <app-todays-meal-plan />
+
+      @if (profileFacade.stats()) {
+        <section class="mt-8">
+          <div class="mb-3 flex items-center justify-between gap-4">
+            <h2 class="section-title">Your progress</h2>
+            <a routerLink="/profile" [queryParams]="{ section: 'progress' }" class="btn-primary-sm shrink-0">
+              View profile
+            </a>
+          </div>
+          <div class="grid grid-cols-2 gap-3 sm:gap-4">
+            <app-stat-card
+              label="Weekly completion"
+              icon="clock"
+              variant="success"
+              [value]="(profileFacade.stats()?.weeklyCompletionPercentage ?? 0) + '%'"
+            />
+            <app-stat-card
+              label="Planning streak"
+              icon="basket"
+              variant="warning"
+              [value]="profileFacade.stats()?.completedWeeksStreak ?? 0"
+              unit=" weeks"
+            />
+          </div>
+        </section>
+      }
 
       <div class="mt-8 space-y-8">
       @if (inventoryService.loading()) {
@@ -294,6 +321,7 @@ export class DashboardComponent implements OnInit {
   readonly preparedPortionService = inject(PreparedPortionService);
   readonly suggestionService = inject(SmartSuggestionService);
   readonly facade = inject(DashboardFacadeService);
+  readonly profileFacade = inject(UserProfileFacadeService);
   private readonly router = inject(Router);
   readonly locationLabels = STORAGE_LOCATION_LABELS;
 

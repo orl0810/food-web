@@ -27,7 +27,7 @@ export interface MealSlotItem {
   created_at: string;
   recipe?: Pick<Recipe, 'id' | 'title' | 'description' | 'tags' | 'prep_time_minutes'>;
   prepared_portion?: Pick<PreparedPortion, 'id' | 'name' | 'available_portions' | 'expires_at' | 'storage_location'>;
-  inventory_item?: Pick<FoodItem, 'id' | 'name' | 'quantity' | 'unit' | 'location'>;
+  inventory_item?: Pick<FoodItem, 'id' | 'name' | 'quantity' | 'unit' | 'location' | 'expiration_date'>;
 }
 
 export interface MealSlotItemInput {

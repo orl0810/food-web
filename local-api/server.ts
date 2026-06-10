@@ -1157,6 +1157,451 @@ app.delete('/shopping-items/:id', authMiddleware, (req: AuthenticatedRequest, re
   res.status(204).send();
 });
 
+// --- User Food Profile ---
+
+interface UserFoodProfileRow {
+  id: string;
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  default_meals_per_day: number;
+  enabled_meal_slots: string;
+  preferred_cooking_days: string | null;
+  preferred_shopping_day: string | null;
+  preferred_units: string;
+  household_size: number;
+  default_portions_per_recipe: number;
+  expiring_items_reminder_enabled: number;
+  created_at: string;
+  updated_at: string;
+}
+
+function parseJsonArray<T>(value: string | null, fallback: T[]): T[] {
+  if (!value) {
+    return fallback;
+  }
+  try {
+    const parsed = JSON.parse(value) as T[];
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function defaultDisplayName(email?: string): string {
+  if (!email) {
+    return 'Chef';
+  }
+  const local = email.split('@')[0]?.trim();
+  if (!local) {
+    return 'Chef';
+  }
+  return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
+function ensureUserFoodProfile(userId: string, email?: string): UserFoodProfileRow {
+  const existing = db
+    .prepare('select * from user_food_profiles where user_id = ?')
+    .get(userId) as UserFoodProfileRow | undefined;
+
+  if (existing) {
+    return existing;
+  }
+
+  const id = crypto.randomUUID();
+  const displayName = defaultDisplayName(email);
+  db.prepare(
+    `insert into user_food_profiles (
+       id, user_id, display_name, default_meals_per_day, enabled_meal_slots,
+       preferred_units, household_size, default_portions_per_recipe,
+       expiring_items_reminder_enabled
+     ) values (?, ?, ?, 3, ?, 'metric', 2, 4, 1)`
+  ).run(id, userId, displayName, JSON.stringify(['breakfast', 'lunch', 'dinner']));
+
+  db.prepare(
+    'insert into user_dietary_preferences (id, user_id, preference) values (?, ?, ?)'
+  ).run(crypto.randomUUID(), userId, 'none');
+
+  return db
+    .prepare('select * from user_food_profiles where user_id = ?')
+    .get(userId) as UserFoodProfileRow;
+}
+
+function mapProfileResponse(userId: string, email?: string) {
+  const profile = ensureUserFoodProfile(userId, email);
+
+  const dietaryPreferences = (
+    db
+      .prepare('select preference from user_dietary_preferences where user_id = ? order by preference')
+      .all(userId) as { preference: string }[]
+  ).map((row) => row.preference);
+
+  const ingredientRows = db
+    .prepare(
+      `select id, ingredient_name, normalized_name, category, preference_type, source, usage_count, last_used_at
+       from user_ingredient_preferences where user_id = ? order by ingredient_name`
+    )
+    .all(userId) as {
+    id: string;
+    ingredient_name: string;
+    normalized_name: string;
+    category: string | null;
+    preference_type: string;
+    source: string;
+    usage_count: number | null;
+    last_used_at: string | null;
+  }[];
+
+  const allergies = (
+    db
+      .prepare(
+        `select id, name, normalized_name, severity, notes, strict_exclusion
+         from user_allergies where user_id = ? order by name`
+      )
+      .all(userId) as {
+      id: string;
+      name: string;
+      normalized_name: string;
+      severity: string | null;
+      notes: string | null;
+      strict_exclusion: number;
+    }[]
+  ).map((row) => ({
+    id: row.id,
+    name: row.name,
+    normalizedName: row.normalized_name,
+    severity: row.severity,
+    notes: row.notes,
+    strictExclusion: true as const,
+  }));
+
+  const favorites = ingredientRows
+    .filter((row) => row.preference_type === 'favorite')
+    .map((row) => ({
+      id: row.id,
+      ingredientName: row.ingredient_name,
+      normalizedName: row.normalized_name,
+      category: row.category,
+      source: row.source,
+      usageCount: row.usage_count,
+      lastUsedAt: row.last_used_at,
+    }));
+
+  const disliked = ingredientRows
+    .filter((row) => row.preference_type === 'disliked')
+    .map((row) => ({
+      id: row.id,
+      ingredientName: row.ingredient_name,
+      normalizedName: row.normalized_name,
+      category: row.category,
+      source: row.source,
+      usageCount: row.usage_count,
+      lastUsedAt: row.last_used_at,
+    }));
+
+  return {
+    id: profile.id,
+    userId: profile.user_id,
+    displayName: profile.display_name,
+    email: email ?? undefined,
+    avatarUrl: profile.avatar_url,
+    dietaryPreferences,
+    favoriteIngredients: favorites,
+    dislikedIngredients: disliked,
+    allergies,
+    mealPlanningSettings: {
+      defaultMealsPerDay: profile.default_meals_per_day,
+      enabledMealSlots: parseJsonArray(profile.enabled_meal_slots, ['breakfast', 'lunch', 'dinner']),
+      preferredCookingDays: parseJsonArray<string | null>(profile.preferred_cooking_days, []).filter(
+        Boolean
+      ) as string[],
+      preferredShoppingDay: profile.preferred_shopping_day,
+      preferredUnits: profile.preferred_units,
+      householdSize: profile.household_size,
+      defaultPortionsPerRecipe: profile.default_portions_per_recipe,
+      expiringItemsReminderEnabled: Boolean(profile.expiring_items_reminder_enabled),
+    },
+    createdAt: profile.created_at,
+    updatedAt: profile.updated_at,
+  };
+}
+
+app.get('/user-food-profile', authMiddleware, (req: AuthenticatedRequest, res) => {
+  res.json({ data: mapProfileResponse(req.userId!, req.userEmail) });
+});
+
+app.put('/user-food-profile', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const userId = req.userId!;
+  ensureUserFoodProfile(userId, req.userEmail);
+
+  const body = req.body as Record<string, unknown>;
+  const settings = (body['mealPlanningSettings'] ?? {}) as Record<string, unknown>;
+
+  const displayName =
+    typeof body['displayName'] === 'string' ? body['displayName'].trim() : undefined;
+  const avatarUrl =
+    body['avatarUrl'] === null || typeof body['avatarUrl'] === 'string'
+      ? (body['avatarUrl'] as string | null)
+      : undefined;
+
+  const fields: string[] = ["updated_at = datetime('now')"];
+  const values: unknown[] = [];
+
+  if (displayName !== undefined) {
+    fields.push('display_name = ?');
+    values.push(displayName || defaultDisplayName(req.userEmail));
+  }
+  if (avatarUrl !== undefined) {
+    fields.push('avatar_url = ?');
+    values.push(avatarUrl);
+  }
+  if (settings['defaultMealsPerDay'] !== undefined) {
+    fields.push('default_meals_per_day = ?');
+    values.push(Math.max(1, Math.min(6, Number(settings['defaultMealsPerDay']) || 3)));
+  }
+  if (settings['enabledMealSlots'] !== undefined) {
+    fields.push('enabled_meal_slots = ?');
+    values.push(JSON.stringify(settings['enabledMealSlots']));
+  }
+  if (settings['preferredCookingDays'] !== undefined) {
+    fields.push('preferred_cooking_days = ?');
+    values.push(JSON.stringify(settings['preferredCookingDays']));
+  }
+  if (settings['preferredShoppingDay'] !== undefined) {
+    fields.push('preferred_shopping_day = ?');
+    values.push(settings['preferredShoppingDay'] || null);
+  }
+  if (settings['preferredUnits'] !== undefined) {
+    fields.push('preferred_units = ?');
+    values.push(settings['preferredUnits'] === 'imperial' ? 'imperial' : 'metric');
+  }
+  if (settings['householdSize'] !== undefined) {
+    fields.push('household_size = ?');
+    values.push(Math.max(1, Math.min(20, Number(settings['householdSize']) || 2)));
+  }
+  if (settings['defaultPortionsPerRecipe'] !== undefined) {
+    fields.push('default_portions_per_recipe = ?');
+    values.push(Math.max(1, Math.min(20, Number(settings['defaultPortionsPerRecipe']) || 4)));
+  }
+  if (settings['expiringItemsReminderEnabled'] !== undefined) {
+    fields.push('expiring_items_reminder_enabled = ?');
+    values.push(settings['expiringItemsReminderEnabled'] ? 1 : 0);
+  }
+
+  values.push(userId);
+  db.prepare(`update user_food_profiles set ${fields.join(', ')} where user_id = ?`).run(...values);
+
+  res.json({ data: mapProfileResponse(userId, req.userEmail) });
+});
+
+app.patch('/user-food-profile/dietary-preferences', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const userId = req.userId!;
+  ensureUserFoodProfile(userId, req.userEmail);
+
+  const preferences = Array.isArray(req.body?.preferences)
+    ? (req.body.preferences as string[]).filter(Boolean)
+    : [];
+
+  const normalized = preferences.length > 0 ? preferences : ['none'];
+
+  db.prepare('delete from user_dietary_preferences where user_id = ?').run(userId);
+  const insert = db.prepare(
+    'insert into user_dietary_preferences (id, user_id, preference) values (?, ?, ?)'
+  );
+  for (const preference of normalized) {
+    insert.run(crypto.randomUUID(), userId, preference);
+  }
+
+  db.prepare("update user_food_profiles set updated_at = datetime('now') where user_id = ?").run(userId);
+  res.json({ data: mapProfileResponse(userId, req.userEmail) });
+});
+
+app.patch('/user-food-profile/ingredients', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const userId = req.userId!;
+  ensureUserFoodProfile(userId, req.userEmail);
+
+  const action = req.body?.action as string;
+  const preferenceType = req.body?.preferenceType as string;
+  const ingredient = req.body?.ingredient as Record<string, unknown> | undefined;
+  const ingredientId = req.body?.id as string | undefined;
+
+  if (!['favorite', 'disliked'].includes(preferenceType)) {
+    res.status(400).json({ error: 'Invalid preference type.' });
+    return;
+  }
+
+  if (action === 'add') {
+    const name = String(ingredient?.ingredientName ?? '').trim();
+    if (!name) {
+      res.status(400).json({ error: 'Ingredient name is required.' });
+      return;
+    }
+    const normalizedName = normalizeNameKey(name);
+    const formattedName = formatInventoryName(name);
+
+    const conflict = db
+      .prepare(
+        `select preference_type from user_ingredient_preferences
+         where user_id = ? and normalized_name = ? and preference_type != ?`
+      )
+      .get(userId, normalizedName, preferenceType) as { preference_type: string } | undefined;
+
+    if (conflict) {
+      res.status(409).json({ error: 'Ingredient conflicts with an existing preference list.' });
+      return;
+    }
+
+    const allergyConflict = db
+      .prepare('select id from user_allergies where user_id = ? and normalized_name = ?')
+      .get(userId, normalizedName);
+    if (allergyConflict) {
+      res.status(409).json({ error: 'Ingredient is listed as an allergy.' });
+      return;
+    }
+
+    db.prepare(
+      `insert into user_ingredient_preferences (
+         id, user_id, ingredient_name, normalized_name, category, preference_type, source, usage_count
+       ) values (?, ?, ?, ?, ?, ?, ?, ?)
+       on conflict(user_id, normalized_name, preference_type) do nothing`
+    ).run(
+      crypto.randomUUID(),
+      userId,
+      formattedName,
+      normalizedName,
+      (ingredient?.category as string | null) ?? null,
+      preferenceType,
+      (ingredient?.source as string) ?? 'manual',
+      (ingredient?.usageCount as number | null) ?? null
+    );
+  } else if (action === 'remove') {
+    if (!ingredientId) {
+      res.status(400).json({ error: 'Ingredient id is required.' });
+      return;
+    }
+    db.prepare(
+      'delete from user_ingredient_preferences where id = ? and user_id = ? and preference_type = ?'
+    ).run(ingredientId, userId, preferenceType);
+  } else {
+    res.status(400).json({ error: 'Invalid action.' });
+    return;
+  }
+
+  db.prepare("update user_food_profiles set updated_at = datetime('now') where user_id = ?").run(userId);
+  res.json({ data: mapProfileResponse(userId, req.userEmail) });
+});
+
+app.patch('/user-food-profile/allergies', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const userId = req.userId!;
+  ensureUserFoodProfile(userId, req.userEmail);
+
+  const action = req.body?.action as string;
+  const allergy = req.body?.allergy as Record<string, unknown> | undefined;
+  const allergyId = req.body?.id as string | undefined;
+
+  if (action === 'add') {
+    const name = String(allergy?.name ?? '').trim();
+    if (!name) {
+      res.status(400).json({ error: 'Allergy name is required.' });
+      return;
+    }
+    const normalizedName = normalizeNameKey(name);
+    const formattedName = formatInventoryName(name);
+    const notes =
+      typeof allergy?.notes === 'string' ? allergy.notes.trim().slice(0, 500) || null : null;
+
+    db.prepare(
+      'delete from user_ingredient_preferences where user_id = ? and normalized_name = ?'
+    ).run(userId, normalizedName);
+
+    db.prepare(
+      `insert into user_allergies (id, user_id, name, normalized_name, severity, notes, strict_exclusion)
+       values (?, ?, ?, ?, ?, ?, 1)
+       on conflict(user_id, normalized_name) do nothing`
+    ).run(
+      crypto.randomUUID(),
+      userId,
+      formattedName,
+      normalizedName,
+      (allergy?.severity as string | null) ?? null,
+      notes
+    );
+  } else if (action === 'remove') {
+    if (!allergyId) {
+      res.status(400).json({ error: 'Allergy id is required.' });
+      return;
+    }
+    db.prepare('delete from user_allergies where id = ? and user_id = ?').run(allergyId, userId);
+  } else {
+    res.status(400).json({ error: 'Invalid action.' });
+    return;
+  }
+
+  db.prepare("update user_food_profiles set updated_at = datetime('now') where user_id = ?").run(userId);
+  res.json({ data: mapProfileResponse(userId, req.userEmail) });
+});
+
+app.get('/user-food-profile/suggested-ingredients', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const userId = req.userId!;
+  const limit = Math.min(20, Math.max(1, Number(req.query['limit'] ?? 10)));
+
+  const rows = db
+    .prepare(
+      `select name, name_key, category, times_added, last_used_at
+       from food_item_history
+       where user_id = ?
+       order by times_added desc, last_used_at desc
+       limit ?`
+    )
+    .all(userId, limit) as {
+    name: string;
+    name_key: string;
+    category: string | null;
+    times_added: number;
+    last_used_at: string;
+  }[];
+
+  res.json({
+    data: rows.map((row) => ({
+      name: row.name,
+      normalizedName: row.name_key,
+      category: row.category,
+      usageCount: row.times_added,
+      lastUsedAt: row.last_used_at,
+    })),
+  });
+});
+
+app.post('/user-food-profile/reset', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const userId = req.userId!;
+  db.prepare('delete from user_dietary_preferences where user_id = ?').run(userId);
+  db.prepare('delete from user_ingredient_preferences where user_id = ?').run(userId);
+  db.prepare('delete from user_allergies where user_id = ?').run(userId);
+
+  db.prepare(
+    `update user_food_profiles set
+       display_name = ?,
+       avatar_url = null,
+       default_meals_per_day = 3,
+       enabled_meal_slots = ?,
+       preferred_cooking_days = null,
+       preferred_shopping_day = null,
+       preferred_units = 'metric',
+       household_size = 2,
+       default_portions_per_recipe = 4,
+       expiring_items_reminder_enabled = 1,
+       updated_at = datetime('now')
+     where user_id = ?`
+  ).run(defaultDisplayName(req.userEmail), JSON.stringify(['breakfast', 'lunch', 'dinner']), userId);
+
+  ensureUserFoodProfile(userId, req.userEmail);
+  db.prepare(
+    'insert into user_dietary_preferences (id, user_id, preference) values (?, ?, ?)'
+  ).run(crypto.randomUUID(), userId, 'none');
+
+  res.json({ data: mapProfileResponse(userId, req.userEmail) });
+});
+
 function addDaysIso(date: string, days: number): string {
   const parsed = new Date(`${date}T00:00:00`);
   parsed.setDate(parsed.getDate() + days);

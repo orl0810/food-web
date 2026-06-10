@@ -68,6 +68,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'profile',
+        loadComponent: () =>
+          import('./features/user-profile/components/user-profile-page/user-profile-page.component').then(
+            (m) => m.UserProfilePageComponent
+          ),
+      },
+      {
         path: 'suggestions',
         redirectTo: 'recipes',
         pathMatch: 'full',

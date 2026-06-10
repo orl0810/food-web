@@ -150,6 +150,66 @@ create table if not exists shopping_items (
 
 create index if not exists shopping_items_user_id_idx on shopping_items (user_id);
 
+create table if not exists user_food_profiles (
+  id text primary key,
+  user_id text not null unique references users (id) on delete cascade,
+  display_name text not null default '',
+  avatar_url text,
+  default_meals_per_day integer not null default 3 check (default_meals_per_day between 1 and 6),
+  enabled_meal_slots text not null default '["breakfast","lunch","dinner"]',
+  preferred_cooking_days text,
+  preferred_shopping_day text,
+  preferred_units text not null default 'metric' check (preferred_units in ('metric', 'imperial')),
+  household_size integer not null default 2 check (household_size between 1 and 20),
+  default_portions_per_recipe integer not null default 4 check (default_portions_per_recipe between 1 and 20),
+  expiring_items_reminder_enabled integer not null default 1,
+  created_at text not null default (datetime('now')),
+  updated_at text not null default (datetime('now'))
+);
+
+create index if not exists user_food_profiles_user_id_idx on user_food_profiles (user_id);
+
+create table if not exists user_dietary_preferences (
+  id text primary key,
+  user_id text not null references users (id) on delete cascade,
+  preference text not null check (preference in (
+    'none', 'vegetarian', 'vegan', 'pescatarian', 'flexitarian',
+    'high_protein', 'low_carb', 'gluten_free', 'dairy_free',
+    'mediterranean', 'budget_friendly', 'quick_meals', 'meal_prep_focused'
+  )),
+  unique (user_id, preference)
+);
+
+create index if not exists user_dietary_preferences_user_id_idx on user_dietary_preferences (user_id);
+
+create table if not exists user_ingredient_preferences (
+  id text primary key,
+  user_id text not null references users (id) on delete cascade,
+  ingredient_name text not null,
+  normalized_name text not null,
+  category text,
+  preference_type text not null check (preference_type in ('favorite', 'disliked')),
+  source text not null default 'manual' check (source in ('manual', 'auto_detected')),
+  usage_count integer,
+  last_used_at text,
+  unique (user_id, normalized_name, preference_type)
+);
+
+create index if not exists user_ingredient_preferences_user_id_idx on user_ingredient_preferences (user_id);
+
+create table if not exists user_allergies (
+  id text primary key,
+  user_id text not null references users (id) on delete cascade,
+  name text not null,
+  normalized_name text not null,
+  severity text check (severity in ('low', 'medium', 'high')),
+  notes text,
+  strict_exclusion integer not null default 1,
+  unique (user_id, normalized_name)
+);
+
+create index if not exists user_allergies_user_id_idx on user_allergies (user_id);
+
 create table if not exists food_categories (
   id text primary key,
   name text not null unique,

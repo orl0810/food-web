@@ -22,7 +22,7 @@ const MEAL_PLAN_ITEM_SELECT = `
   *,
   recipe:recipes(id, title, description, tags, prep_time_minutes),
   prepared_portion:prepared_portions(id, name, available_portions, expires_at, storage_location),
-  inventory_item:food_items(id, name, quantity, unit, location)
+  inventory_item:food_items(id, name, quantity, unit, location, expiration_date),
 `;
 
 @Injectable({ providedIn: 'root' })
@@ -732,6 +732,7 @@ export class MealPlanService {
             quantity: Number(inventoryData.quantity),
             unit: inventoryData.unit ?? null,
             location: inventoryData.location,
+            expiration_date: inventoryData.expiration_date ?? null,
           }
         : undefined,
     };

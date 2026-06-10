@@ -359,6 +359,69 @@ export class LocalApiService {
     });
   }
 
+  async getUserFoodProfile(): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/user-food-profile', {
+      method: 'GET',
+      auth: true,
+    });
+    return response.data;
+  }
+
+  async updateUserFoodProfile(payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/user-food-profile', {
+      method: 'PUT',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async updateUserDietaryPreferences(preferences: string[]): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/user-food-profile/dietary-preferences', {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify({ preferences }),
+    });
+    return response.data;
+  }
+
+  async patchUserIngredientPreference(payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/user-food-profile/ingredients', {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async patchUserAllergy(payload: Record<string, unknown>): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/user-food-profile/allergies', {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async getSuggestedIngredients(limit = 10): Promise<unknown[]> {
+    const response = await this.request<{ data: unknown[] }>(
+      `/user-food-profile/suggested-ingredients?limit=${limit}`,
+      {
+        method: 'GET',
+        auth: true,
+      }
+    );
+    return response.data;
+  }
+
+  async resetUserFoodProfile(): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/user-food-profile/reset', {
+      method: 'POST',
+      auth: true,
+    });
+    return response.data;
+  }
+
   private async request<T>(
     path: string,
     options: {
