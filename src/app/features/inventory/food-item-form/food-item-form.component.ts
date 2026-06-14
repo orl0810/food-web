@@ -47,7 +47,7 @@ import {
               id="name"
               type="text"
               formControlName="name"
-              class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              class="input"
               (blur)="formatNameField()"
             />
           } @else {
@@ -80,7 +80,7 @@ import {
               id="category"
               type="text"
               formControlName="category"
-              class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              class="input"
               placeholder="Dairy, Produce..."
             />
           } @else {
@@ -102,7 +102,7 @@ import {
           <select
             id="location"
             formControlName="location"
-            class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            class="input"
           >
             @for (location of locations; track location) {
               <option [value]="location">{{ locationLabels[location] }}</option>
@@ -118,7 +118,7 @@ import {
             min="0.01"
             step="0.01"
             formControlName="quantity"
-            class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            class="input"
           />
         </div>
 
@@ -128,7 +128,7 @@ import {
             id="unit"
             type="text"
             formControlName="unit"
-            class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            class="input"
             placeholder="kg, pcs, L"
           />
         </div>
@@ -141,7 +141,7 @@ import {
             id="expiration_date"
             type="date"
             formControlName="expiration_date"
-            class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            class="input"
           />
         </div>
       </div>

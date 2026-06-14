@@ -93,7 +93,7 @@ type VoiceStep = 'transcript' | 'review';
             <textarea
               id="voice-transcript"
               rows="5"
-              class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              class="input"
               [ngModel]="voiceInput.transcript()"
               (ngModelChange)="updateTranscript($event)"
               placeholder="Start speaking and describe the food you want to add."
@@ -252,7 +252,7 @@ type VoiceStep = 'transcript' | 'review';
                               Name *
                               <input
                                 type="text"
-                                class="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                                class="input mt-1 bg-white"
                                 [(ngModel)]="draft.name"
                               />
                             </label>
@@ -262,7 +262,7 @@ type VoiceStep = 'transcript' | 'review';
                             Category
                             <input
                               type="text"
-                              class="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                              class="input mt-1 bg-white"
                               [(ngModel)]="draft.category"
                               placeholder="Dairy, Produce..."
                             />
@@ -271,7 +271,7 @@ type VoiceStep = 'transcript' | 'review';
                           <label class="block text-sm font-medium text-stone-700">
                             Location *
                             <select
-                              class="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                              class="input mt-1 bg-white"
                               [(ngModel)]="draft.location"
                             >
                               @for (location of locations; track location) {
@@ -286,7 +286,7 @@ type VoiceStep = 'transcript' | 'review';
                               type="number"
                               min="0.01"
                               step="0.01"
-                              class="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                              class="input mt-1 bg-white"
                               [(ngModel)]="draft.quantity"
                             />
                           </label>
@@ -295,7 +295,7 @@ type VoiceStep = 'transcript' | 'review';
                             Unit
                             <input
                               type="text"
-                              class="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                              class="input mt-1 bg-white"
                               [(ngModel)]="draft.unit"
                               placeholder="kg, cans, pcs"
                             />
@@ -305,7 +305,7 @@ type VoiceStep = 'transcript' | 'review';
                             Expiration date
                             <input
                               type="date"
-                              class="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                              class="input mt-1 bg-white"
                               [(ngModel)]="draft.expiration_date"
                             />
                           </label>

@@ -49,7 +49,7 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
               id="title"
               type="text"
               formControlName="title"
-              class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              class="input"
               placeholder="e.g. Tomato pasta"
             />
           </div>
@@ -60,7 +60,7 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
               id="description"
               rows="3"
               formControlName="description"
-              class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              class="input"
               placeholder="A short note about this recipe..."
             ></textarea>
           </div>
@@ -76,7 +76,7 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
                 min="0"
                 step="1"
                 formControlName="prep_time_minutes"
-                class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                class="input"
               />
             </div>
             <div>
@@ -87,7 +87,7 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
                 min="0"
                 step="1"
                 formControlName="portions"
-                class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                class="input"
               />
             </div>
           </div>
@@ -117,7 +117,7 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
               #tagInput
               type="text"
               placeholder="e.g. quick, cheap, healthy"
-              class="flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              class="input flex-1"
               (keydown.enter)="addTag(tagInput.value); tagInput.value = ''; $event.preventDefault()"
             />
             <button
@@ -161,13 +161,13 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
                         step="0.01"
                         formControlName="quantity"
                         placeholder="Qty"
-                        class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-2"
+                        class="input bg-white sm:col-span-2"
                       />
                       <input
                         type="text"
                         formControlName="unit"
                         placeholder="Unit"
-                        class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-3"
+                        class="input bg-white sm:col-span-3"
                       />
                       <button
                         type="button"
@@ -248,13 +248,13 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
                   step="0.01"
                   formControlName="quantity"
                   placeholder="Qty"
-                  class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-2"
+                  class="input bg-white sm:col-span-2"
                 />
                 <input
                   type="text"
                   formControlName="unit"
                   placeholder="Unit"
-                  class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:col-span-4"
+                  class="input bg-white sm:col-span-4"
                 />
               </div>
               <div class="flex justify-end gap-2">

@@ -18,10 +18,21 @@
   --color-cream: #fff9f1;
 }
 
+html {
+  scroll-padding-top: 4.5rem;
+  scroll-padding-bottom: 5rem;
+}
+
 body {
   @apply bg-surface text-stone-900 antialiased;
   margin: 0;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+input,
+select,
+textarea {
+  font-size: max(16px, 1em);
 }
 
 @layer components {
@@ -82,7 +93,8 @@ body {
   }
 
   .input {
-    @apply w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
+    @apply w-full rounded-lg border border-stone-300 px-3 py-2 text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
+    scroll-margin-top: 0.5rem;
   }
 
   .tag {

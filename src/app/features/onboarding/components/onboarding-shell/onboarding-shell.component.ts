@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, effect, inject, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { LoadingStateComponent } from '../../../../shared/components/loading-state/loading-state.component';
 import { OnboardingFacadeService } from '../../services/onboarding-facade.service';
@@ -121,6 +121,13 @@ import { OnboardingWelcomeStepComponent } from '../onboarding-welcome-step/onboa
 export class OnboardingShellComponent implements OnInit {
   readonly facade = inject(OnboardingFacadeService);
   private readonly route = inject(ActivatedRoute);
+
+  constructor() {
+    effect(() => {
+      this.facade.currentStep();
+      window.scrollTo(0, 0);
+    });
+  }
 
   ngOnInit(): void {
     const restart = this.route.snapshot.queryParamMap.get('restart') === 'true';
