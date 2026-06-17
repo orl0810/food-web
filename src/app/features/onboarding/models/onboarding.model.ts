@@ -65,7 +65,7 @@ export interface GeneratedOnboardingMealPlan {
   cookingSessions: GeneratedCookingSession[];
   summary: GeneratedMealPlanSummary;
   firstSmartAction?: DashboardSmartAction;
-  /** Recipes to create on confirm (AI/starter, not yet in DB). */
+  /** Recipes to create on confirm (AI/mock, not yet in DB). */
   pendingRecipes?: PendingOnboardingRecipe[];
 }
 
@@ -78,7 +78,7 @@ export interface PendingOnboardingRecipe {
   tags: string[];
   ingredients: { name: string; quantity: number | null; unit: string | null }[];
   steps: string[];
-  source: 'ai' | 'starter';
+  source: 'ai' | 'mock';
 }
 
 export interface GeneratedMealPlanDay {

@@ -14,7 +14,14 @@ export class SupabaseService {
     }
 
     if (!this.client) {
-      this.client = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
+      this.client = createClient(environment.supabaseUrl, environment.supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: 'pkce',
+        },
+      });
     }
 
     return this.client;

@@ -918,6 +918,10 @@ app.post('/meal-plan-items/duplicate-week', authMiddleware, (req: AuthenticatedR
     const targetDate = addDaysIso(row.date, 7);
     const key = `${targetDate}|${row.meal_type}`;
 
+    if (targetDate < todayIso()) {
+      continue;
+    }
+
     if (occupied.has(key)) {
       continue;
     }
@@ -1711,6 +1715,14 @@ function addDaysIso(date: string, days: number): string {
   const year = parsed.getFullYear();
   const month = String(parsed.getMonth() + 1).padStart(2, '0');
   const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function todayIso(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 

@@ -478,6 +478,14 @@ export class UserProfileService {
     });
   }
 
+  async ensureProfileForUser(userId: string): Promise<void> {
+    if (environment.useLocalApi) {
+      await this.localApiService.getUserFoodProfile();
+      return;
+    }
+    await this.ensureProfileRow(userId);
+  }
+
   private async ensureProfileRow(userId: string): Promise<void> {
     const client = this.requireClient();
     const { data } = await client.from('user_food_profiles').select('id').eq('user_id', userId).maybeSingle();

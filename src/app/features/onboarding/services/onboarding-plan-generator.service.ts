@@ -6,11 +6,11 @@ import { Recipe } from '../../../core/models/recipe.model';
 import { AiRecipeService } from '../../../core/services/ai-recipe.service';
 import { RecipeService } from '../../../core/services/recipe.service';
 import {
-  addDays,
-  getCurrentWeekStartDate,
-  getWeekDates,
+  getUpcomingDates,
+  toISODate,
 } from '../../../shared/utils/meal-plan.utils';
-import { getStarterRecipesForMealType } from '../../../shared/utils/onboarding-starter-recipes.utils';
+import { generateMockOnboardingRecipes } from '../../../shared/utils/onboarding-mock-recipes.utils';
+import { recipeViolatesOnboardingConstraints } from '../../../shared/utils/onboarding-recipe-constraints.utils';
 import { buildSuggestion } from '../../../shared/utils/suggestion-scoring.utils';
 import {
   applyProfileScoring,
@@ -44,8 +44,8 @@ export class OnboardingPlanGeneratorService {
   async generate(state: OnboardingState): Promise<GeneratedOnboardingMealPlan> {
     await this.recipeService.loadRecipes();
     const existingRecipes = this.recipeService.recipes();
-    const weekStart = getCurrentWeekStartDate();
-    const weekDates = getWeekDates(weekStart).slice(0, state.planningDays);
+    const today = toISODate();
+    const weekDates = getUpcomingDates(state.planningDays, today);
     const mealSlots = state.selectedMealSlots;
     const slotsPerDay = mealSlots.length;
     const totalSlots = weekDates.length * slotsPerDay;
@@ -159,7 +159,7 @@ export class OnboardingPlanGeneratorService {
     };
 
     return {
-      weekStartDate: weekStart,
+      weekStartDate: today,
       days,
       shoppingListItems,
       preparedPortionSuggestions,
@@ -234,14 +234,9 @@ export class OnboardingPlanGeneratorService {
       const existingForSlot = scoredExisting.length;
       if (existingForSlot < needed) {
         const gap = needed - existingForSlot;
-        const aiRecipes = await this.fetchAiRecipes(state, mealType, gap);
-        const pending =
-          aiRecipes.length > 0
-            ? aiRecipes.map((s, i) => this.aiToPending(s, mealType, i))
-            : getStarterRecipesForMealType(mealType, gap, pool.length);
-
-        for (const p of pending) {
-          pool.push({ recipe: p, score: 50, isPending: true, mealType });
+        const pending = await this.generatePendingRecipes(state, mealType, gap, pool.length);
+        for (const recipe of pending) {
+          pool.push({ recipe, score: 50, isPending: true, mealType });
         }
       }
     }
@@ -249,9 +244,9 @@ export class OnboardingPlanGeneratorService {
     if (pool.length === 0) {
       for (const slot of mealSlots) {
         const mealType = mealSlotToMealType(slot);
-        const starters = getStarterRecipesForMealType(mealType, 2, 0);
-        for (const s of starters) {
-          pool.push({ recipe: s, score: 40, isPending: true, mealType });
+        const pending = await this.generatePendingRecipes(state, mealType, 2, 0);
+        for (const recipe of pending) {
+          pool.push({ recipe, score: 40, isPending: true, mealType });
         }
       }
     }
@@ -259,15 +254,57 @@ export class OnboardingPlanGeneratorService {
     return pool;
   }
 
+  private async generatePendingRecipes(
+    state: OnboardingState,
+    mealType: MealType,
+    count: number,
+    startIndex: number
+  ): Promise<PendingOnboardingRecipe[]> {
+    let recipes: PendingOnboardingRecipe[];
+
+    if (environment.useLocalApi) {
+      recipes = generateMockOnboardingRecipes(state, mealType, count, startIndex);
+    } else {
+      const suggestions = await this.fetchAiRecipes(state, mealType, count);
+      recipes = suggestions.map((suggestion, index) =>
+        this.suggestionToPending(suggestion, mealType, startIndex + index)
+      );
+    }
+
+    const valid = recipes.filter(
+      (recipe) => !recipeViolatesOnboardingConstraints(recipe.ingredients, state)
+    );
+
+    if (valid.length < count && !environment.useLocalApi) {
+      const retrySuggestions = await this.fetchAiRecipes(state, mealType, count);
+      const retryRecipes = retrySuggestions
+        .map((suggestion, index) =>
+          this.suggestionToPending(suggestion, mealType, startIndex + valid.length + index)
+        )
+        .filter((recipe) => !recipeViolatesOnboardingConstraints(recipe.ingredients, state));
+
+      for (const recipe of retryRecipes) {
+        if (valid.length >= count) break;
+        if (!valid.some((existing) => existing.title === recipe.title)) {
+          valid.push(recipe);
+        }
+      }
+    }
+
+    if (valid.length === 0) {
+      throw new Error(
+        'Could not generate recipes that match your preferences. Please try again.'
+      );
+    }
+
+    return valid.slice(0, count);
+  }
+
   private async fetchAiRecipes(
     state: OnboardingState,
     mealType: MealType,
     count: number
   ): Promise<AiRecipeSuggestion[]> {
-    if (environment.useLocalApi) {
-      return [];
-    }
-
     const maxPrep =
       state.goals.includes('save_time') || state.dietaryPreferences.includes('quick_meals')
         ? 25
@@ -289,17 +326,17 @@ export class OnboardingPlanGeneratorService {
       },
     });
 
+    if (response.suggestions.length === 0 && this.aiRecipeService.error()) {
+      throw new Error(this.aiRecipeService.error() ?? 'Could not generate recipes right now.');
+    }
+
     return response.suggestions.filter(
-      (s) =>
-        !state.allergies.some((a) =>
-          (s.ingredients ?? []).some((ing) =>
-            normalizeNameKey(ing.name).includes(normalizeNameKey(a))
-          )
-        )
+      (suggestion) =>
+        !recipeViolatesOnboardingConstraints(suggestion.ingredients ?? [], state)
     );
   }
 
-  private aiToPending(
+  private suggestionToPending(
     suggestion: AiRecipeSuggestion,
     mealType: MealType,
     index: number

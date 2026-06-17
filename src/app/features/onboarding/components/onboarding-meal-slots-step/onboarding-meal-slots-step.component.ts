@@ -31,6 +31,7 @@ import { OnboardingFacadeService } from '../../services/onboarding-facade.servic
 
         <div>
           <p class="text-sm font-medium text-stone-700">How many days do you want to plan?</p>
+          <p class="mt-1 text-xs text-stone-500">Plans the next days starting today.</p>
           <div class="mt-2 flex flex-wrap gap-2">
             @for (days of dayOptions; track days) {
               <button

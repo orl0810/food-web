@@ -8,8 +8,7 @@ import {
 import { MealPlanService } from '../../../core/services/meal-plan.service';
 import {
   formatDayLabel,
-  getCurrentWeekStartDate,
-  getWeekDates,
+  getUpcomingDates,
   toISODate,
 } from '../../../shared/utils/meal-plan.utils';
 import { isPortionExpired } from '../../../shared/utils/prepared-portion.utils';
@@ -112,7 +111,7 @@ export class AddPortionToMealPlanDialogComponent implements OnInit {
   readonly cancelled = output<void>();
 
   readonly mealTypes = MEAL_TYPES;
-  readonly weekDates = getWeekDates(getCurrentWeekStartDate());
+  readonly weekDates = getUpcomingDates(7);
 
   readonly selectedDate = signal(toISODate());
   readonly selectedMealType = signal<MealType>('lunch');
@@ -124,12 +123,7 @@ export class AddPortionToMealPlanDialogComponent implements OnInit {
   readonly expiredWarning = () => isPortionExpired(this.portion());
 
   ngOnInit(): void {
-    const today = toISODate();
-    if (this.weekDates.includes(today)) {
-      this.selectedDate.set(today);
-    } else {
-      this.selectedDate.set(this.weekDates[0]);
-    }
+    this.selectedDate.set(toISODate());
   }
 
   onPortionsInput(event: Event): void {

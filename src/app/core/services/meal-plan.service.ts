@@ -9,6 +9,7 @@ import {
   addDays,
   getMondayOfWeek,
   getWeekDates,
+  isPastDate,
   toISODate,
 } from '../../shared/utils/meal-plan.utils';
 import { isPortionExpired } from '../../shared/utils/prepared-portion.utils';
@@ -210,6 +211,13 @@ export class MealPlanService {
   async addSlotItem(
     input: MealSlotItemInput
   ): Promise<{ item: MealSlotItem | null; error: string | null }> {
+    if (isPastDate(input.date)) {
+      return {
+        item: null,
+        error: 'You can only plan meals for today and upcoming days.',
+      };
+    }
+
     if (input.item_type === 'prepared_portion' && input.prepared_portion_id) {
       const portion = this.preparedPortionService.getPortionById(input.prepared_portion_id);
       if (portion && isPortionExpired(portion) && !input.allow_expired) {
@@ -422,6 +430,10 @@ export class MealPlanService {
     for (const source of sourceItems ?? []) {
       const targetDate = addDays(source.date as string, 7);
       const slotKey = `${targetDate}|${source.meal_type}`;
+
+      if (isPastDate(targetDate)) {
+        continue;
+      }
 
       if (occupiedSlots.has(slotKey)) {
         continue;

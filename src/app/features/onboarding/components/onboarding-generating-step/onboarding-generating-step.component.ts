@@ -36,7 +36,7 @@ export class OnboardingGeneratingStepComponent implements OnInit, OnDestroy {
 
   readonly subtitle = computed(() =>
     environment.useLocalApi
-      ? 'Using starter recipes (AI available in Supabase mode).'
+      ? 'Generating recipes from your preferences (dev mock).'
       : 'Optimizing meals, leftovers, and shopping list with AI.'
   );
 

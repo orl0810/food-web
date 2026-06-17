@@ -27,7 +27,7 @@ import {
 } from '../../shared/utils/name-normalization.utils';
 import { findHistoryEntryForReusableItem } from '../../shared/utils/reusable-inventory.utils';
 import { AddInventoryByVoiceComponent } from './add-inventory-by-voice/add-inventory-by-voice.component';
-import { FoodItemFormComponent } from './food-item-form/food-item-form.component';
+import { FoodItemFormDialogComponent } from './food-item-form/food-item-form-dialog.component';
 import { ReusableInventoryItemsComponent } from './reusable-inventory-items/reusable-inventory-items.component';
 import { PreparedPortionsListComponent } from './ready-portions/prepared-portions-list.component';
 import { AddPortionToMealPlanDialogComponent } from './ready-portions/add-portion-to-meal-plan-dialog.component';
@@ -37,7 +37,7 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
   selector: 'app-inventory',
   standalone: true,
   imports: [
-    FoodItemFormComponent,
+    FoodItemFormDialogComponent,
     AddInventoryByVoiceComponent,
     ReusableInventoryItemsComponent,
     PreparedPortionsListComponent,
@@ -54,7 +54,7 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
           <p class="page-subtitle">Track what you have at home.</p>
         </div>
 
-@if (!showForm() && !showVoiceForm() && activeFilter() !== 'ready_portions') {
+@if (!showVoiceForm() && activeFilter() !== 'ready_portions') {
         <app-reusable-inventory-items
           [reusableItems]="reusableItems()"
           [selectedItem]="selectedReusableItem()"
@@ -77,7 +77,7 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
 
 
 
-        @if (!showForm() && !showVoiceForm() && activeFilter() !== 'ready_portions') {
+        @if (!showVoiceForm() && activeFilter() !== 'ready_portions') {
           <div class="flex flex-wrap gap-2">
             <button
               type="button"
@@ -106,17 +106,6 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
           </button>
         }
       </div>
-
-      @if (showForm()) {
-        <app-food-item-form
-          [item]="editingItem()"
-          [prefillFromHistory]="historyPrefill()"
-          [submitting]="saving()"
-          [error]="formError()"
-          (saved)="saveItem($event)"
-          (cancelled)="closeForm()"
-        />
-      }
 
       @if (voiceSaveInfo()) {
         <p class="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-800">
@@ -153,7 +142,7 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
         <app-empty-state
           title="No food items here"
           description="No food added yet. Start by adding what you already have in your fridge, freezer, or pantry."
-          [actionLabel]="showForm() ? '' : 'Add food'"
+          actionLabel="Add food"
           (actionClick)="openAddForm()"
         />
       } @else {
@@ -234,6 +223,17 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
             }
           </div>
         </section>
+      }
+
+      @if (showForm()) {
+        <app-food-item-form-dialog
+          [item]="editingItem()"
+          [prefillFromHistory]="historyPrefill()"
+          [submitting]="saving()"
+          [error]="formError()"
+          (saved)="saveItem($event)"
+          (cancelled)="closeForm()"
+        />
       }
     </div>
   `,

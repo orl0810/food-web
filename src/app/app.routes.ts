@@ -10,10 +10,31 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
-    path: 'login',
+    path: 'auth/login',
     loadComponent: () =>
-      import('./features/auth/login/login.component').then((m) => m.LoginComponent),
+      import('./features/auth/components/login-page/login-page.component').then(
+        (m) => m.LoginPageComponent
+      ),
     canActivate: [guestGuard],
+  },
+  {
+    path: 'auth/callback',
+    loadComponent: () =>
+      import('./features/auth/components/auth-callback-page/auth-callback-page.component').then(
+        (m) => m.AuthCallbackPageComponent
+      ),
+  },
+  {
+    path: 'auth/reset-password',
+    loadComponent: () =>
+      import('./features/auth/components/reset-password-page/reset-password-page.component').then(
+        (m) => m.ResetPasswordPageComponent
+      ),
+  },
+  {
+    path: 'login',
+    redirectTo: 'auth/login',
+    pathMatch: 'full',
   },
   {
     path: 'onboarding',

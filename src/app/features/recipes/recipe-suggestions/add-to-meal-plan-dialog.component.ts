@@ -8,8 +8,7 @@ import { Recipe } from '../../../core/models/recipe.model';
 import { MealPlanService } from '../../../core/services/meal-plan.service';
 import {
   formatDayLabel,
-  getCurrentWeekStartDate,
-  getWeekDates,
+  getUpcomingDates,
   toISODate,
 } from '../../../shared/utils/meal-plan.utils';
 
@@ -18,11 +17,11 @@ import {
   standalone: true,
   template: `
     <div
-      class="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/40 p-4 sm:items-center"
+      class="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-stone-900/40 p-4"
       (click)="cancelled.emit()"
     >
       <div
-        class="card w-full max-w-md p-5"
+        class="card my-auto w-full max-w-md p-5"
         (click)="$event.stopPropagation()"
       >
         <h2 class="text-base font-semibold text-stone-900">Add to meal plan</h2>
@@ -98,7 +97,7 @@ export class AddToMealPlanDialogComponent implements OnInit {
   readonly cancelled = output<void>();
 
   readonly mealTypes = MEAL_TYPES;
-  readonly weekDates = getWeekDates(getCurrentWeekStartDate());
+  readonly weekDates = getUpcomingDates(7);
 
   readonly selectedDate = signal(toISODate());
   readonly selectedMealType = signal<MealType>('dinner');
@@ -106,12 +105,7 @@ export class AddToMealPlanDialogComponent implements OnInit {
   readonly error = signal<string | null>(null);
 
   ngOnInit(): void {
-    const today = toISODate();
-    if (this.weekDates.includes(today)) {
-      this.selectedDate.set(today);
-    } else {
-      this.selectedDate.set(this.weekDates[0]);
-    }
+    this.selectedDate.set(toISODate());
   }
 
   dayLabel(date: string): string {

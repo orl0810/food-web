@@ -55,22 +55,25 @@ import {
         }
       </ul>
 
-      <button
-        type="button"
-        class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-2 text-sm font-medium text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-50/30"
-        (click)="addItem.emit()"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        Add another item
-      </button>
+      @if (canAdd()) {
+        <button
+          type="button"
+          class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-2 text-sm font-medium text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-50/30"
+          (click)="addItem.emit()"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          Add another item
+        </button>
+      }
     </article>
   `,
 })
 export class MealSlotItemsComponent {
   readonly items = input.required<MealSlotItem[]>();
   readonly removingId = input<string | null>(null);
+  readonly canAdd = input(true);
 
   readonly addItem = output<void>();
   readonly removeItem = output<MealSlotItem>();

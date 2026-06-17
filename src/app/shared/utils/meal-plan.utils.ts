@@ -102,6 +102,18 @@ export function isToday(date: string): boolean {
   return date === toISODate(new Date());
 }
 
+export function isPastDate(date: string, today: Date = new Date()): boolean {
+  return date < toISODate(today);
+}
+
+export function getUpcomingDates(count: number, startDate: string = toISODate()): string[] {
+  const dates: string[] = [];
+  for (let index = 0; index < count; index++) {
+    dates.push(addDays(startDate, index));
+  }
+  return dates;
+}
+
 export function daysBetween(startDate: string, endDate: string): number {
   const start = parseDateInput(startDate).getTime();
   const end = parseDateInput(endDate).getTime();

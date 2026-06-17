@@ -15,6 +15,7 @@ import {
   formatDayShort,
   formatFullDayHeading,
   formatWeekRangeCompact,
+  isPastDate,
   isToday,
   toISODate,
 } from '../../shared/utils/meal-plan.utils';
@@ -101,6 +102,7 @@ interface WeekStats {
             [class.ring-2]="isTodayDate(date) && selectedDate() !== date"
             [class.ring-brand-600]="isTodayDate(date) && selectedDate() !== date"
             [class.ring-offset-1]="isTodayDate(date) && selectedDate() !== date"
+            [class.opacity-60]="isPastDate(date)"
             (click)="selectDate(date)"
           >
             <span class="text-[10px] font-medium sm:text-xs">{{ day.weekday }}</span>
@@ -182,9 +184,24 @@ interface WeekStats {
                   <app-meal-slot-items
                     [items]="itemsFor(selectedDate(), mealType)"
                     [removingId]="removingId()"
+                    [canAdd]="canAddToSelectedDate()"
                     (addItem)="openPicker(selectedDate(), mealType)"
                     (removeItem)="onRemoveItem($event)"
                   />
+                } @else if (isPastDate(selectedDate())) {
+                  <div
+                    class="flex w-full items-center gap-3 rounded-xl border border-dashed border-stone-200 bg-stone-50/40 p-4 text-left"
+                  >
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-stone-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6 text-stone-300">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p class="text-sm font-medium text-stone-500">No items planned</p>
+                      <p class="text-sm text-stone-400">Past meals can't be changed</p>
+                    </div>
+                  </div>
                 } @else {
                   <button
                     type="button"
@@ -315,6 +332,12 @@ export class MealPlanComponent implements OnInit {
     return isToday(date);
   }
 
+  isPastDate = isPastDate;
+
+  canAddToSelectedDate(): boolean {
+    return !isPastDate(this.selectedDate());
+  }
+
   isCurrentWeek(): boolean {
     const today = toISODate(new Date());
     return this.mealPlanService.weekDates().includes(today);
@@ -325,6 +348,9 @@ export class MealPlanComponent implements OnInit {
   }
 
   openPicker(date: string, mealType: MealType): void {
+    if (isPastDate(date)) {
+      return;
+    }
     this.selectedSlot.set({ date, mealType });
   }
 
@@ -400,6 +426,12 @@ export class MealPlanComponent implements OnInit {
     }
 
     const today = toISODate(new Date());
-    this.selectedDate.set(weekDates.includes(today) ? today : weekDates[0]);
+    if (weekDates.includes(today)) {
+      this.selectedDate.set(today);
+      return;
+    }
+
+    const firstUpcoming = weekDates.find((date) => !isPastDate(date));
+    this.selectedDate.set(firstUpcoming ?? weekDates[0]);
   }
 }

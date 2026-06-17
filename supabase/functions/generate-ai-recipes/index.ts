@@ -243,7 +243,56 @@ function buildSystemPrompt(): string {
     'Recipes must be easy, realistic, safe, and suitable for a normal home kitchen.',
     'Avoid allergies, medical claims, dangerous instructions, and overly fancy techniques.',
     'Use basic pantry staples only when needed: salt, pepper, oil, water, and basic spices.',
+    'Strictly follow dietary preferences and allergies from onboarding context.',
+    'Include matching dietary tags on each recipe (e.g. vegetarian, vegan, gluten-free).',
   ].join(' ');
+}
+
+function buildDietaryPreferenceRules(preferences: string[]): string[] {
+  const rules: string[] = [];
+  const active = preferences.filter((preference) => preference !== 'none' && preference !== 'flexitarian');
+
+  for (const preference of active) {
+    switch (preference) {
+      case 'vegetarian':
+        rules.push('STRICT: Vegetarian — no meat, poultry, or fish.');
+        break;
+      case 'vegan':
+        rules.push('STRICT: Vegan — no animal products (meat, fish, dairy, eggs, honey).');
+        break;
+      case 'pescatarian':
+        rules.push('STRICT: Pescatarian — no meat or poultry; fish and seafood are allowed.');
+        break;
+      case 'gluten_free':
+        rules.push('STRICT: Gluten-free — no wheat, bread, pasta, couscous, or gluten-containing grains.');
+        break;
+      case 'dairy_free':
+        rules.push('STRICT: Dairy-free — no milk, cheese, yogurt, butter, or cream.');
+        break;
+      case 'low_carb':
+        rules.push('Prefer low-carb ingredients; minimize rice, pasta, bread, and potatoes.');
+        break;
+      case 'high_protein':
+        rules.push('Prefer high-protein ingredients such as legumes, eggs, fish, or lean meat.');
+        break;
+      case 'mediterranean':
+        rules.push('Prefer Mediterranean-style meals with olive oil, vegetables, legumes, and fish.');
+        break;
+      case 'budget_friendly':
+        rules.push('Prefer budget-friendly pantry staples and simple ingredients.');
+        break;
+      case 'quick_meals':
+        rules.push('Keep recipes quick and simple within maxPrepTimeMinutes.');
+        break;
+      case 'meal_prep_focused':
+        rules.push('Prefer recipes suitable for batch cooking and meal prep.');
+        break;
+      default:
+        break;
+    }
+  }
+
+  return rules;
 }
 
 function buildUserPrompt(
@@ -262,6 +311,10 @@ function buildUserPrompt(
       ? `STRICT: Never include these allergens: ${request.onboardingContext.allergies.join(', ')}.`
       : null;
 
+  const dietaryRules = buildDietaryPreferenceRules(
+    request.onboardingContext?.dietaryPreferences ?? []
+  );
+
   return JSON.stringify({
     task: 'Generate easy recipe suggestions from this inventory.',
     preferences: {
@@ -277,12 +330,14 @@ function buildUserPrompt(
       missingRule,
       expiringRule,
       allergyRule,
+      ...dietaryRules,
       request.onboardingContext?.dislikedIngredients?.length
         ? `Avoid these disliked ingredients when possible: ${request.onboardingContext.dislikedIngredients.join(', ')}.`
         : null,
       'Every recipe must fit within maxPrepTimeMinutes.',
       'Prefer available inventory ingredients over unrelated ingredients.',
       'Keep steps short and clear.',
+      'Add tags that reflect dietary preferences (e.g. vegetarian, vegan, gluten-free).',
     ].filter(Boolean),
     inventory,
     outputFormat: {
