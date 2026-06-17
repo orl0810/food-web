@@ -7,6 +7,7 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { FormatTagPipe } from '../../shared/pipes/format-tag.pipe';
 import { countAvailableIngredients } from '../../shared/utils/recipe-availability.utils';
+import { StarRatingComponent } from '../../shared/components/star-rating/star-rating.component';
 import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggestions.component';
 
 @Component({
@@ -17,6 +18,7 @@ import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggesti
     EmptyStateComponent,
     LoadingStateComponent,
     FormatTagPipe,
+    StarRatingComponent,
     RecipeSuggestionsComponent,
   ],
   template: `
@@ -126,6 +128,13 @@ import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggesti
                 <div class="min-w-0 flex-1">
                   <h2 class="text-base font-semibold text-stone-900">{{ recipe.title }}</h2>
 
+                  <app-star-rating
+                    class="mt-1"
+                    [rating]="recipe.rating"
+                    size="sm"
+                    (ratingChange)="onRatingChange(recipe.id, $event)"
+                  />
+
                   <div class="mt-1.5 flex flex-wrap items-center gap-2">
                     @if (recipe.prep_time_minutes) {
                       <span class="inline-flex items-center gap-1 text-xs text-stone-600">
@@ -220,6 +229,10 @@ export class RecipesComponent implements OnInit {
 
   planMeal(recipe: Recipe): void {
     void this.router.navigate(['/meal-plan'], { queryParams: { recipe: recipe.id } });
+  }
+
+  async onRatingChange(recipeId: string, rating: number | null): Promise<void> {
+    await this.recipeService.updateRecipeRating(recipeId, rating);
   }
 
   goToNew(): void {

@@ -3,13 +3,14 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Recipe } from '../../../core/models/recipe.model';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
+import { StarRatingComponent } from '../../../shared/components/star-rating/star-rating.component';
 import { FormatTagPipe } from '../../../shared/pipes/format-tag.pipe';
 import { CookRecipeDialogComponent } from '../../inventory/ready-portions/cook-recipe-dialog.component';
 
 @Component({
   selector: 'app-recipe-detail',
   standalone: true,
-  imports: [RouterLink, LoadingStateComponent, FormatTagPipe, CookRecipeDialogComponent],
+  imports: [RouterLink, LoadingStateComponent, StarRatingComponent, FormatTagPipe, CookRecipeDialogComponent],
   template: `
     <div class="page">
       <a routerLink="/recipes" class="inline-flex text-sm text-stone-500 hover:text-stone-700">
@@ -27,6 +28,19 @@ import { CookRecipeDialogComponent } from '../../inventory/ready-portions/cook-r
             @if (r.description) {
               <p class="mt-2 max-w-2xl text-sm text-stone-600">{{ r.description }}</p>
             }
+
+            <div class="mt-3">
+              <p class="text-sm font-medium text-stone-700">Your rating</p>
+              <app-star-rating
+                class="mt-1"
+                [rating]="r.rating"
+                size="md"
+                (ratingChange)="onRatingChange($event)"
+              />
+              @if (ratingError()) {
+                <p class="mt-1 text-sm text-red-600">{{ ratingError() }}</p>
+              }
+            </div>
           </div>
           <div class="flex flex-wrap gap-2">
             <button
@@ -112,6 +126,7 @@ export class RecipeDetailComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly deleting = signal(false);
   readonly showCookDialog = signal(false);
+  readonly ratingError = signal<string | null>(null);
 
   async ngOnInit(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id');
@@ -130,6 +145,22 @@ export class RecipeDetailComponent implements OnInit {
     }
 
     this.recipe.set(recipe);
+  }
+
+  async onRatingChange(rating: number | null): Promise<void> {
+    const current = this.recipe();
+    if (!current) {
+      return;
+    }
+
+    this.ratingError.set(null);
+    this.recipe.set({ ...current, rating });
+
+    const { error } = await this.recipeService.updateRecipeRating(current.id, rating);
+    if (error) {
+      this.recipe.set(current);
+      this.ratingError.set(error);
+    }
   }
 
   async deleteRecipe(recipe: Recipe): Promise<void> {

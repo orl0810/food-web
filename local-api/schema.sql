@@ -80,6 +80,7 @@ create table if not exists recipes (
   prep_time_minutes integer,
   portions integer,
   tags text not null default '[]',
+  rating integer check (rating is null or (rating >= 1 and rating <= 5)),
   created_at text not null default (datetime('now'))
 );
 

@@ -214,6 +214,43 @@ export class RecipeService {
     return { error: null };
   }
 
+  async updateRecipeRating(
+    id: string,
+    rating: number | null
+  ): Promise<{ error: string | null }> {
+    if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+      return { error: 'Rating must be between 1 and 5 stars.' };
+    }
+
+    const previousRecipes = this.recipesSignal();
+    this.applyRatingToSignal(id, rating);
+
+    if (environment.useLocalApi) {
+      return this.updateRecipeRatingLocal(id, rating, previousRecipes);
+    }
+
+    const client = this.supabaseService.getClient();
+    const userId = this.authService.user()?.id;
+
+    if (!client || !userId) {
+      this.recipesSignal.set(previousRecipes);
+      return { error: 'You must be signed in to rate recipes.' };
+    }
+
+    const { error } = await client
+      .from('recipes')
+      .update({ rating })
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (error) {
+      this.recipesSignal.set(previousRecipes);
+      return { error: 'Could not save your rating. Please try again.' };
+    }
+
+    return { error: null };
+  }
+
   private async loadRecipesLocal(): Promise<void> {
     if (!this.localApiService.isEnabled()) {
       return;
@@ -316,6 +353,31 @@ export class RecipeService {
     }
   }
 
+  private async updateRecipeRatingLocal(
+    id: string,
+    rating: number | null,
+    previousRecipes: Recipe[]
+  ): Promise<{ error: string | null }> {
+    if (!this.localApiService.isEnabled()) {
+      this.recipesSignal.set(previousRecipes);
+      return { error: 'You must be signed in to rate recipes.' };
+    }
+
+    try {
+      await this.localApiService.updateRecipeRating(id, rating);
+      return { error: null };
+    } catch {
+      this.recipesSignal.set(previousRecipes);
+      return { error: 'Could not save your rating. Please try again.' };
+    }
+  }
+
+  private applyRatingToSignal(id: string, rating: number | null): void {
+    this.recipesSignal.update((recipes) =>
+      recipes.map((recipe) => (recipe.id === id ? { ...recipe, rating } : recipe))
+    );
+  }
+
   private async replaceIngredients(
     recipeId: string,
     ingredients: RecipeIngredientInput[]
@@ -392,9 +454,21 @@ export class RecipeService {
     return {
       ...recipe,
       tags: normalizeTags(recipe.tags ?? []),
+      rating: this.normalizeRating(recipe.rating),
       ingredients: [...(recipe.ingredients ?? [])].sort((a, b) =>
         a.name.localeCompare(b.name)
       ),
     };
+  }
+
+  private normalizeRating(value: unknown): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    const num = Number(value);
+    if (!Number.isInteger(num) || num < 1 || num > 5) {
+      return null;
+    }
+    return num;
   }
 }

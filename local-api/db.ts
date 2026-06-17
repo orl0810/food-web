@@ -74,6 +74,10 @@ if (tableExists('meal_plan_items') && !tableHasColumn('meal_plan_items', 'comple
   db.exec('alter table meal_plan_items add column completed_at text');
 }
 
+if (tableExists('recipes') && !tableHasColumn('recipes', 'rating')) {
+  db.exec('alter table recipes add column rating integer check (rating is null or (rating >= 1 and rating <= 5))');
+}
+
 if (tableExists('user_food_profiles') && !tableHasColumn('user_food_profiles', 'onboarding_status')) {
   db.exec(`
     alter table user_food_profiles add column onboarding_status text not null default 'pending';

@@ -165,6 +165,15 @@ export class LocalApiService {
     });
   }
 
+  async updateRecipeRating(id: string, rating: number | null): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>(`/recipes/${id}/rating`, {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify({ rating }),
+    });
+    return response.data;
+  }
+
   async getMealPlanItems(start: string, end: string): Promise<unknown[]> {
     const response = await this.request<{ data: unknown[] }>(
       `/meal-plan-items?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,

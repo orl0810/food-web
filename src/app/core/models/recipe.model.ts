@@ -14,6 +14,7 @@ export interface Recipe {
   prep_time_minutes: number | null;
   portions: number | null;
   tags: string[];
+  rating: number | null;
   created_at: string;
   ingredients?: RecipeIngredient[];
 }

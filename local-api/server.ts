@@ -85,7 +85,19 @@ interface RecipeRow {
   prep_time_minutes: number | null;
   portions: number | null;
   tags: string;
+  rating: number | null;
   created_at: string;
+}
+
+function parseRecipeRating(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const num = Number(value);
+  if (!Number.isInteger(num) || num < 1 || num > 5) {
+    return null;
+  }
+  return num;
 }
 
 function toIntOrNull(value: unknown): number | null {
@@ -142,7 +154,7 @@ function serializeRecipe(row: RecipeRow) {
 function getRecipeRow(id: string, userId: string): RecipeRow | undefined {
   return db
     .prepare(
-      `select id, user_id, title, description, prep_time_minutes, portions, tags, created_at
+      `select id, user_id, title, description, prep_time_minutes, portions, tags, rating, created_at
        from recipes
        where id = ? and user_id = ?`
     )
@@ -588,7 +600,7 @@ app.delete('/food-items/:id', authMiddleware, (req: AuthenticatedRequest, res) =
 app.get('/recipes', authMiddleware, (req: AuthenticatedRequest, res) => {
   const rows = db
     .prepare(
-      `select id, user_id, title, description, prep_time_minutes, portions, tags, created_at
+      `select id, user_id, title, description, prep_time_minutes, portions, tags, rating, created_at
        from recipes
        where user_id = ?
        order by created_at desc`
@@ -672,6 +684,28 @@ app.delete('/recipes/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
   }
 
   res.status(204).send();
+});
+
+app.patch('/recipes/:id/rating', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const existing = getRecipeRow(req.params['id']!, req.userId!);
+  if (!existing) {
+    res.status(404).json({ error: 'Recipe not found.' });
+    return;
+  }
+
+  const rating = parseRecipeRating(req.body?.rating);
+  if (req.body?.rating !== null && req.body?.rating !== undefined && rating === null) {
+    res.status(400).json({ error: 'Rating must be between 1 and 5, or null.' });
+    return;
+  }
+
+  db.prepare('update recipes set rating = ? where id = ? and user_id = ?').run(
+    rating,
+    req.params['id'],
+    req.userId
+  );
+
+  res.json({ data: serializeRecipe(getRecipeRow(req.params['id']!, req.userId!)!) });
 });
 
 app.get('/prepared-portions', authMiddleware, (req: AuthenticatedRequest, res) => {
