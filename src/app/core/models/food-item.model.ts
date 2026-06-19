@@ -31,6 +31,20 @@ export const STORAGE_LOCATION_LABELS: Record<StorageLocation, string> = {
   pantry: 'Pantry',
 };
 
+export const FOOD_UNITS = ['kg', 'g', 'mg', 'L', 'ml', 'pcs'] as const;
+export type FoodUnit = (typeof FOOD_UNITS)[number];
+
+export const FOOD_UNIT_LABELS: Record<FoodUnit, string> = {
+  kg: 'Kg',
+  g: 'g',
+  mg: 'mg',
+  L: 'L',
+  ml: 'ml',
+  pcs: 'Pieces',
+};
+
+export const FOOD_UNIT_OTHER = '__other__' as const;
+
 export type InventoryFilter =
   | 'all'
   | 'fridge'

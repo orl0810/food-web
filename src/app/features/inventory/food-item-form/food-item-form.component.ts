@@ -5,6 +5,9 @@ import { FoodItemHistory } from '../../../core/models/food-item-history.model';
 import {
   FoodItem,
   FoodItemInsert,
+  FOOD_UNIT_LABELS,
+  FOOD_UNIT_OTHER,
+  FOOD_UNITS,
   StorageLocation,
   STORAGE_LOCATIONS,
   STORAGE_LOCATION_LABELS,
@@ -124,13 +127,26 @@ import {
 
         <div>
           <label for="unit" class="mb-1 block text-sm font-medium text-stone-700">Unit</label>
-          <input
+          <select
             id="unit"
-            type="text"
             formControlName="unit"
             class="input"
-            placeholder="kg, pcs, L"
-          />
+          >
+            <option value="">—</option>
+            @for (foodUnit of foodUnits; track foodUnit) {
+              <option [value]="foodUnit">{{ unitLabels[foodUnit] }}</option>
+            }
+            <option [value]="unitOther">Other...</option>
+          </select>
+          @if (form.controls.unit.value === unitOther) {
+            <input
+              id="unit_custom"
+              type="text"
+              formControlName="unit_custom"
+              class="input mt-2"
+              placeholder="can, bottle, cup"
+            />
+          }
         </div>
 
         <div class="sm:col-span-2">
@@ -177,6 +193,9 @@ export class FoodItemFormComponent {
 
   readonly locations = STORAGE_LOCATIONS;
   readonly locationLabels = STORAGE_LOCATION_LABELS;
+  readonly foodUnits = FOOD_UNITS;
+  readonly unitLabels = FOOD_UNIT_LABELS;
+  readonly unitOther = FOOD_UNIT_OTHER;
 
   readonly submitting = input(false);
   readonly error = input<string | null>(null);
@@ -186,6 +205,7 @@ export class FoodItemFormComponent {
     category: [''],
     quantity: [1, [Validators.required, Validators.min(0.01)]],
     unit: [''],
+    unit_custom: [''],
     expiration_date: [''],
     location: ['fridge' as StorageLocation, Validators.required],
   });
@@ -248,6 +268,16 @@ export class FoodItemFormComponent {
   }
 
   constructor() {
+    this.form.controls.unit.valueChanges.subscribe((unit) => {
+      const customControl = this.form.controls.unit_custom;
+      if (unit === FOOD_UNIT_OTHER) {
+        customControl.setValidators(Validators.required);
+      } else {
+        customControl.clearValidators();
+      }
+      customControl.updateValueAndValidity({ emitEvent: false });
+    });
+
     effect(() => {
       const item = this.item();
       const prefill = this.prefillFromHistory();
@@ -257,7 +287,7 @@ export class FoodItemFormComponent {
           name: item.name,
           category: item.category ?? '',
           quantity: item.quantity,
-          unit: item.unit ?? '',
+          ...this.resolveUnitFields(item.unit),
           expiration_date: item.expiration_date ?? '',
           location: item.location,
         });
@@ -275,6 +305,7 @@ export class FoodItemFormComponent {
         category: '',
         quantity: 1,
         unit: '',
+        unit_custom: '',
         expiration_date: '',
         location: 'fridge',
       });
@@ -300,7 +331,7 @@ export class FoodItemFormComponent {
     this.form.patchValue({
       name: entry.name,
       category: entry.category ?? '',
-      unit: entry.unit ?? '',
+      ...this.resolveUnitFields(entry.unit),
       location: entry.location,
       quantity: entry.default_quantity,
     });
@@ -310,7 +341,7 @@ export class FoodItemFormComponent {
     this.form.patchValue({
       name: formatInventoryName(entry.name),
       category: entry.category_name,
-      unit: entry.default_unit ?? '',
+      ...this.resolveUnitFields(entry.default_unit),
       location: entry.default_location,
       quantity: entry.default_quantity,
     });
@@ -331,14 +362,33 @@ export class FoodItemFormComponent {
     }
 
     const value = this.form.getRawValue();
+    const unit =
+      value.unit === FOOD_UNIT_OTHER
+        ? value.unit_custom?.trim() || null
+        : value.unit?.trim() || null;
+
     this.saved.emit({
       name: formatInventoryName(value.name!),
       category: value.category?.trim() || null,
       quantity: value.quantity!,
-      unit: value.unit?.trim() || null,
+      unit,
       expiration_date: value.expiration_date || null,
       location: value.location!,
     });
+  }
+
+  private resolveUnitFields(unit: string | null | undefined): { unit: string; unit_custom: string } {
+    const trimmed = unit?.trim() ?? '';
+
+    if (!trimmed) {
+      return { unit: '', unit_custom: '' };
+    }
+
+    if ((FOOD_UNITS as readonly string[]).includes(trimmed)) {
+      return { unit: trimmed, unit_custom: '' };
+    }
+
+    return { unit: FOOD_UNIT_OTHER, unit_custom: trimmed };
   }
 
   private isHistoryEntry(payload: unknown): payload is FoodItemHistory {
