@@ -22,6 +22,10 @@ import {
   formatInventoryName,
   normalizeNameKey,
 } from '../../../shared/utils/name-normalization.utils';
+import {
+  resolveStoredUnit,
+  resolveUnitFormFields,
+} from '../../../shared/utils/food-unit.utils';
 
 @Component({
   selector: 'app-food-item-form',
@@ -287,7 +291,7 @@ export class FoodItemFormComponent {
           name: item.name,
           category: item.category ?? '',
           quantity: item.quantity,
-          ...this.resolveUnitFields(item.unit),
+          ...resolveUnitFormFields(item.unit),
           expiration_date: item.expiration_date ?? '',
           location: item.location,
         });
@@ -331,7 +335,7 @@ export class FoodItemFormComponent {
     this.form.patchValue({
       name: entry.name,
       category: entry.category ?? '',
-      ...this.resolveUnitFields(entry.unit),
+      ...resolveUnitFormFields(entry.unit),
       location: entry.location,
       quantity: entry.default_quantity,
     });
@@ -341,7 +345,7 @@ export class FoodItemFormComponent {
     this.form.patchValue({
       name: formatInventoryName(entry.name),
       category: entry.category_name,
-      ...this.resolveUnitFields(entry.default_unit),
+      ...resolveUnitFormFields(entry.default_unit),
       location: entry.default_location,
       quantity: entry.default_quantity,
     });
@@ -362,10 +366,7 @@ export class FoodItemFormComponent {
     }
 
     const value = this.form.getRawValue();
-    const unit =
-      value.unit === FOOD_UNIT_OTHER
-        ? value.unit_custom?.trim() || null
-        : value.unit?.trim() || null;
+    const unit = resolveStoredUnit(value.unit, value.unit_custom);
 
     this.saved.emit({
       name: formatInventoryName(value.name!),
@@ -375,20 +376,6 @@ export class FoodItemFormComponent {
       expiration_date: value.expiration_date || null,
       location: value.location!,
     });
-  }
-
-  private resolveUnitFields(unit: string | null | undefined): { unit: string; unit_custom: string } {
-    const trimmed = unit?.trim() ?? '';
-
-    if (!trimmed) {
-      return { unit: '', unit_custom: '' };
-    }
-
-    if ((FOOD_UNITS as readonly string[]).includes(trimmed)) {
-      return { unit: trimmed, unit_custom: '' };
-    }
-
-    return { unit: FOOD_UNIT_OTHER, unit_custom: trimmed };
   }
 
   private isHistoryEntry(payload: unknown): payload is FoodItemHistory {

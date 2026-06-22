@@ -79,6 +79,34 @@ export class AiRecipeService {
     if (request.onboardingContext) {
       cleaned.onboardingContext = request.onboardingContext;
     }
+    const excludeTitles = this.cleanExcludeTitles(request.excludeTitles);
+    if (excludeTitles.length > 0) {
+      cleaned.excludeTitles = excludeTitles;
+    }
+    return cleaned;
+  }
+
+  private cleanExcludeTitles(titles: string[] | undefined): string[] {
+    if (!titles?.length) {
+      return [];
+    }
+    const seen = new Set<string>();
+    const cleaned: string[] = [];
+    for (const title of titles) {
+      const trimmed = title.trim();
+      if (!trimmed) {
+        continue;
+      }
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      cleaned.push(trimmed);
+      if (cleaned.length >= 10) {
+        break;
+      }
+    }
     return cleaned;
   }
 

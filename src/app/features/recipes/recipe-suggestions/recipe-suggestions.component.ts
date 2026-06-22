@@ -35,6 +35,8 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { FormatTagPipe } from '../../../shared/pipes/format-tag.pipe';
 import { normalizeIngredientName } from '../../../shared/utils/ingredient-matching.utils';
+import { buildAiOnboardingContextFromProfile } from '../../../shared/utils/ai-recipe-context.utils';
+import { UserProfileFacadeService } from '../../user-profile/services/user-profile-facade.service';
 import { AddToMealPlanDialogComponent } from './add-to-meal-plan-dialog.component';
 import { SuggestionCardComponent } from './suggestion-card.component';
 
@@ -507,6 +509,7 @@ export class RecipeSuggestionsComponent implements OnInit {
   readonly inventoryService = inject(FoodInventoryService);
   readonly aiRecipeService = inject(AiRecipeService);
   readonly preparedPortionService = inject(PreparedPortionService);
+  private readonly profileFacade = inject(UserProfileFacadeService);
   private readonly shoppingListService = inject(ShoppingListService);
   private readonly router = inject(Router);
 
@@ -701,12 +704,22 @@ export class RecipeSuggestionsComponent implements OnInit {
       return;
     }
 
+    const onboardingContext = buildAiOnboardingContextFromProfile(
+      this.profileFacade.getProfileForSuggestions()
+    );
+    const excludeTitles =
+      this.aiSuggestions().length > 0
+        ? this.aiSuggestions().map((suggestion) => suggestion.title)
+        : undefined;
+
     const response = await this.aiRecipeService.generateRecipesFromInventory({
       mealType: this.aiMealType(),
       maxPrepTimeMinutes: this.aiMaxPrepTime(),
       prioritizeExpiringIngredients: this.aiPrioritizeExpiring(),
       includeMissingIngredients: this.aiIncludeMissing(),
       numberOfSuggestions: 3,
+      ...(onboardingContext ? { onboardingContext } : {}),
+      ...(excludeTitles?.length ? { excludeTitles } : {}),
     });
 
     if (this.aiRecipeService.error()) {

@@ -23,6 +23,7 @@ export interface AiRecipeSuggestionRequest {
   includeMissingIngredients: boolean;
   numberOfSuggestions: number;
   onboardingContext?: AiOnboardingContext;
+  excludeTitles?: string[];
 }
 
 export interface AiRecipeIngredient {

@@ -19,6 +19,7 @@ interface AiRecipeSuggestionRequest {
   includeMissingIngredients: boolean;
   numberOfSuggestions: number;
   onboardingContext?: AiOnboardingContext;
+  excludeTitles?: string[];
 }
 
 interface FoodItemForPrompt {
@@ -175,6 +176,7 @@ function cleanRequest(input: unknown): AiRecipeSuggestionRequest {
   const numberOfSuggestions = clampNumber(body.numberOfSuggestions, 1, maxSuggestions, 3);
 
   const onboardingContext = cleanOnboardingContext(body.onboardingContext);
+  const excludeTitles = normalizeStringArray(body.excludeTitles).slice(0, 10);
 
   return {
     mealType,
@@ -183,6 +185,7 @@ function cleanRequest(input: unknown): AiRecipeSuggestionRequest {
     includeMissingIngredients: Boolean(body.includeMissingIngredients),
     numberOfSuggestions,
     onboardingContext,
+    excludeTitles: excludeTitles.length > 0 ? excludeTitles : undefined,
   };
 }
 
@@ -333,6 +336,9 @@ function buildUserPrompt(
       ...dietaryRules,
       request.onboardingContext?.dislikedIngredients?.length
         ? `Avoid these disliked ingredients when possible: ${request.onboardingContext.dislikedIngredients.join(', ')}.`
+        : null,
+      request.excludeTitles?.length
+        ? `Do not repeat these recipe titles: ${request.excludeTitles.join(', ')}.`
         : null,
       'Every recipe must fit within maxPrepTimeMinutes.',
       'Prefer available inventory ingredients over unrelated ingredients.',

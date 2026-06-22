@@ -8,23 +8,44 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FoodCatalogItem } from '../../../core/models/food-catalog-item.model';
 import { FoodItemHistory } from '../../../core/models/food-item-history.model';
+import {
+  FOOD_UNIT_LABELS,
+  FOOD_UNIT_OTHER,
+  FOOD_UNITS,
+} from '../../../core/models/food-item.model';
 import {
   RecipeIngredientInput,
   RecipeInput,
 } from '../../../core/models/recipe.model';
 import { SearchSelectOption } from '../../../core/models/search-select-option.model';
+import { FoodCatalogService } from '../../../core/services/food-catalog.service';
+import { FoodIconService } from '../../../core/services/food-icon.service';
 import { FoodItemHistoryService } from '../../../core/services/food-item-history.service';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
+import { FoodIconBadgeComponent } from '../../../shared/components/food-icon-badge/food-icon-badge.component';
 import { SearchSelectComponent } from '../../../shared/components/search-select/search-select.component';
 import { FormatTagPipe } from '../../../shared/pipes/format-tag.pipe';
+import {
+  resolveStoredUnit,
+  resolveUnitFormFields,
+} from '../../../shared/utils/food-unit.utils';
+import { normalizeNameKey } from '../../../shared/utils/name-normalization.utils';
 import { normalizeTag } from '../../../shared/utils/tag.utils';
 
 @Component({
   selector: 'app-recipe-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, LoadingStateComponent, SearchSelectComponent, FormatTagPipe],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    LoadingStateComponent,
+    FoodIconBadgeComponent,
+    SearchSelectComponent,
+    FormatTagPipe,
+  ],
   template: `
     @if (loading()) {
       <app-loading-state message="Loading recipe..." />
@@ -163,12 +184,23 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
                         placeholder="Qty"
                         class="input bg-white sm:col-span-2"
                       />
-                      <input
-                        type="text"
-                        formControlName="unit"
-                        placeholder="Unit"
-                        class="input bg-white sm:col-span-3"
-                      />
+                      <div class="sm:col-span-3">
+                        <select formControlName="unit" class="input bg-white">
+                          <option value="">—</option>
+                          @for (foodUnit of foodUnits; track foodUnit) {
+                            <option [value]="foodUnit">{{ unitLabels[foodUnit] }}</option>
+                          }
+                          <option [value]="unitOther">Other...</option>
+                        </select>
+                        @if (ingredient.get('unit')?.value === unitOther) {
+                          <input
+                            type="text"
+                            formControlName="unit_custom"
+                            class="input mt-2 bg-white"
+                            placeholder="can, bottle, cup"
+                          />
+                        }
+                      </div>
                       <button
                         type="button"
                         class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 sm:col-span-1"
@@ -184,25 +216,10 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
                     class="flex w-max min-w-full cursor-pointer items-center gap-3 px-4 py-2 transition-colors hover:bg-white/50 sm:gap-5 sm:px-5"
                     (click)="startEdit(i)"
                   >
-                    <div
-                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-stone-200/80"
-                      aria-hidden="true"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke-width="1.5"
-                        stroke="currentColor"
-                        class="h-4 w-4 text-stone-400"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H5.25A2.25 2.25 0 0 0 3 5.25v13.5A2.25 2.25 0 0 0 5.25 21Z"
-                        />
-                      </svg>
-                    </div>
+                    <app-food-icon-badge
+                      [name]="ingredientLabel(i)"
+                      [category]="ingredientCategory(i)"
+                    />
 
                     <p class="shrink-0 text-sm font-semibold text-stone-900">
                       {{ ingredientLabel(i) }}
@@ -250,12 +267,23 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
                   placeholder="Qty"
                   class="input bg-white sm:col-span-2"
                 />
-                <input
-                  type="text"
-                  formControlName="unit"
-                  placeholder="Unit"
-                  class="input bg-white sm:col-span-4"
-                />
+                <div class="sm:col-span-4">
+                  <select formControlName="unit" class="input bg-white">
+                    <option value="">—</option>
+                    @for (foodUnit of foodUnits; track foodUnit) {
+                      <option [value]="foodUnit">{{ unitLabels[foodUnit] }}</option>
+                    }
+                    <option [value]="unitOther">Other...</option>
+                  </select>
+                  @if (draftForm.controls.unit.value === unitOther) {
+                    <input
+                      type="text"
+                      formControlName="unit_custom"
+                      class="input mt-2 bg-white"
+                      placeholder="can, bottle, cup"
+                    />
+                  }
+                </div>
               </div>
               <div class="flex justify-end gap-2">
                 <button
@@ -324,6 +352,8 @@ export class RecipeFormComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly recipeService = inject(RecipeService);
   private readonly foodItemHistoryService = inject(FoodItemHistoryService);
+  private readonly foodCatalogService = inject(FoodCatalogService);
+  private readonly foodIconService = inject(FoodIconService);
 
   readonly loading = signal(false);
   readonly saving = signal(false);
@@ -332,11 +362,35 @@ export class RecipeFormComponent implements OnInit {
   readonly editingIndex = signal<number | null>(null);
   readonly showAddForm = signal(false);
 
+  readonly foodUnits = FOOD_UNITS;
+  readonly unitLabels = FOOD_UNIT_LABELS;
+  readonly unitOther = FOOD_UNIT_OTHER;
+
   private recipeId: string | null = null;
 
   readonly ingredientOptions = computed<SearchSelectOption[]>(() => {
     this.foodItemHistoryService.history();
-    return this.foodItemHistoryService.getHistoryOptions('');
+    this.foodCatalogService.catalogItems();
+
+    const historyOptions = this.foodItemHistoryService.getHistoryOptions('').map((option) => ({
+      ...option,
+      icon: this.foodIconService.resolveIcon(
+        option.label,
+        this.isHistoryEntry(option.payload) ? option.payload.category : null
+      ),
+    }));
+    const historyKeys = new Set(historyOptions.map((option) => normalizeNameKey(option.label)));
+    const catalogOptions = this.foodCatalogService
+      .getCatalogOptions('')
+      .filter((option) => !historyKeys.has(normalizeNameKey(option.label)))
+      .map((option) => ({
+        ...option,
+        icon: this.isCatalogItem(option.payload)
+          ? option.payload.icon
+          : this.foodIconService.resolveIcon(option.label),
+      }));
+
+    return [...historyOptions, ...catalogOptions];
   });
 
   readonly form = this.fb.group({
@@ -351,9 +405,17 @@ export class RecipeFormComponent implements OnInit {
     name: ['', Validators.required],
     quantity: [null as number | null],
     unit: [''],
+    unit_custom: [''],
+    category: [''],
   });
 
   readonly draftNameControl = this.draftForm.get('name') as FormControl<string | null>;
+
+  constructor() {
+    this.draftForm.controls.unit.valueChanges.subscribe((unit) => {
+      this.syncUnitCustomValidators(this.draftForm.controls.unit_custom, unit);
+    });
+  }
 
   get ingredients(): FormArray<FormGroup> {
     return this.form.controls.ingredients;
@@ -369,6 +431,7 @@ export class RecipeFormComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     void this.foodItemHistoryService.loadAllHistory();
+    void this.foodCatalogService.loadCatalog();
 
     this.recipeId = this.route.snapshot.paramMap.get('id');
 
@@ -406,30 +469,39 @@ export class RecipeFormComponent implements OnInit {
   }
 
   applyIngredientSelection(index: number, option: SearchSelectOption): void {
-    const payload = option.payload as FoodItemHistory | undefined;
-    const group = this.ingredients.at(index);
-    const currentUnit = (group.get('unit')?.value ?? '').trim();
-    if (payload?.unit && !currentUnit) {
-      group.patchValue({ unit: payload.unit });
-    }
+    this.applySelectionPayload(this.ingredients.at(index), option);
   }
 
   applyDraftSelection(option: SearchSelectOption): void {
-    const payload = option.payload as FoodItemHistory | undefined;
-    const currentUnit = (this.draftForm.get('unit')?.value ?? '').trim();
-    if (payload?.unit && !currentUnit) {
-      this.draftForm.patchValue({ unit: payload.unit });
-    }
+    this.applySelectionPayload(this.draftForm, option);
   }
 
   ingredientLabel(index: number): string {
     return ((this.ingredients.at(index).get('name')?.value as string) ?? '').trim();
   }
 
+  ingredientCategory(index: number): string | null {
+    const group = this.ingredients.at(index);
+    const fromForm = ((group.get('category')?.value as string) ?? '').trim();
+    if (fromForm) {
+      return fromForm;
+    }
+
+    const name = this.ingredientLabel(index);
+    const entry = this.foodItemHistoryService
+      .history()
+      .find((h) => normalizeNameKey(h.name) === normalizeNameKey(name));
+    return entry?.category?.trim() || null;
+  }
+
   ingredientQuantityLabel(index: number): string | null {
     const group = this.ingredients.at(index);
     const quantity = this.toNumberOrNull(group.get('quantity')?.value as number | null);
-    const unit = ((group.get('unit')?.value as string) ?? '').trim();
+    const unit =
+      resolveStoredUnit(
+        group.get('unit')?.value as string | null,
+        group.get('unit_custom')?.value as string | null
+      ) ?? '';
 
     if (quantity === null && !unit) {
       return null;
@@ -453,7 +525,7 @@ export class RecipeFormComponent implements OnInit {
   }
 
   cancelAddForm(): void {
-    this.draftForm.reset({ name: '', quantity: null, unit: '' });
+    this.draftForm.reset({ name: '', quantity: null, unit: '', unit_custom: '', category: '' });
     this.showAddForm.set(false);
   }
 
@@ -462,6 +534,10 @@ export class RecipeFormComponent implements OnInit {
     const name = ((group.get('name')?.value as string) ?? '').trim();
     if (!name) {
       group.get('name')?.markAsTouched();
+      return;
+    }
+    if (group.invalid) {
+      group.markAllAsTouched();
       return;
     }
     this.editingIndex.set(null);
@@ -473,12 +549,20 @@ export class RecipeFormComponent implements OnInit {
       this.draftForm.get('name')?.markAsTouched();
       return;
     }
+    if (this.draftForm.invalid) {
+      this.draftForm.markAllAsTouched();
+      return;
+    }
 
     const quantity = this.toNumberOrNull(this.draftForm.get('quantity')?.value as number | null);
-    const unit = ((this.draftForm.get('unit')?.value as string) ?? '').trim() || null;
+    const unit = resolveStoredUnit(
+      this.draftForm.get('unit')?.value,
+      this.draftForm.get('unit_custom')?.value
+    );
+    const category = ((this.draftForm.get('category')?.value as string) ?? '').trim() || null;
 
-    this.ingredients.push(this.buildIngredientGroup(name, quantity, unit));
-    this.draftForm.reset({ name: '', quantity: null, unit: '' });
+    this.ingredients.push(this.buildIngredientGroup(name, quantity, unit, category));
+    this.draftForm.reset({ name: '', quantity: null, unit: '', unit_custom: '', category: '' });
     this.editingIndex.set(null);
     this.showAddForm.set(false);
   }
@@ -531,11 +615,12 @@ export class RecipeFormComponent implements OnInit {
           name: string | null;
           quantity: number | null;
           unit: string | null;
+          unit_custom: string | null;
         };
         return {
           name: (raw.name ?? '').trim(),
           quantity: this.toNumberOrNull(raw.quantity),
-          unit: raw.unit?.trim() || null,
+          unit: resolveStoredUnit(raw.unit, raw.unit_custom),
         };
       })
       .filter((ingredient) => ingredient.name.length > 0);
@@ -557,13 +642,77 @@ export class RecipeFormComponent implements OnInit {
   private buildIngredientGroup(
     name = '',
     quantity: number | null = null,
-    unit: string | null = null
+    unit: string | null = null,
+    category: string | null = null
   ): FormGroup {
-    return this.fb.group({
+    const unitFields = resolveUnitFormFields(unit);
+    const group = this.fb.group({
       name: [name, Validators.required],
       quantity: [quantity],
-      unit: [unit ?? ''],
+      unit: [unitFields.unit],
+      unit_custom: [unitFields.unit_custom],
+      category: [category ?? ''],
     });
+
+    group.controls.unit.valueChanges.subscribe((selectedUnit) => {
+      this.syncUnitCustomValidators(group.controls.unit_custom, selectedUnit);
+    });
+
+    return group;
+  }
+
+  private syncUnitCustomValidators(
+    customControl: FormControl<string | null>,
+    unit: string | null | undefined
+  ): void {
+    if (unit === FOOD_UNIT_OTHER) {
+      customControl.setValidators(Validators.required);
+    } else {
+      customControl.clearValidators();
+    }
+    customControl.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private applySelectionPayload(target: FormGroup, option: SearchSelectOption): void {
+    const patch: Record<string, string> = {};
+
+    if (this.isHistoryEntry(option.payload)) {
+      if (option.payload.category) {
+        patch['category'] = option.payload.category;
+      }
+      const hasUnit = !!resolveStoredUnit(
+        target.get('unit')?.value as string | null,
+        target.get('unit_custom')?.value as string | null
+      );
+      if (option.payload.unit && !hasUnit) {
+        Object.assign(patch, resolveUnitFormFields(option.payload.unit));
+      }
+    } else if (this.isCatalogItem(option.payload)) {
+      patch['category'] = option.payload.category_name;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      target.patchValue(patch);
+    }
+  }
+
+  private isHistoryEntry(payload: unknown): payload is FoodItemHistory {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      'user_id' in payload &&
+      'last_used_at' in payload &&
+      !('category_id' in payload)
+    );
+  }
+
+  private isCatalogItem(payload: unknown): payload is FoodCatalogItem {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      'category_id' in payload &&
+      'category_name' in payload
+    );
   }
 
   private toNumberOrNull(value: number | null | undefined): number | null {
