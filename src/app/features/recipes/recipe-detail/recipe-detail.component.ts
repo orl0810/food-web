@@ -22,6 +22,42 @@ import { CookRecipeDialogComponent } from '../../inventory/ready-portions/cook-r
       } @else if (error()) {
         <p class="alert-error">{{ error() }}</p>
       } @else if (recipe(); as r) {
+        <figure
+          class="w-full overflow-hidden rounded-2xl aspect-[16/10] bg-stone-100 ring-1 ring-stone-200"
+        >
+          @if (r.image_url && !imageError()) {
+            <img
+              [src]="r.image_url"
+              [alt]="r.title"
+              class="h-full w-full object-cover"
+              (error)="onImageError()"
+            />
+          } @else {
+            <div
+              class="flex h-full w-full items-center justify-center"
+              role="img"
+              [attr.aria-label]="'No photo for ' + r.title"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="h-16 w-16 text-brand-600"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M17 21a1 1 0 0 0 1-1v-5.35c0-.457.316-.844.727-1.041a4 4 0 0 0-2.134-7.589 5 5 0 0 0-9.186 0 4 4 0 0 0-2.134 7.588c.411.198.727.585.727 1.041V20a1 1 0 0 0 1 1Z"
+                />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 17h12" />
+              </svg>
+            </div>
+          }
+        </figure>
+
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 class="page-title">{{ r.title }}</h1>
@@ -127,6 +163,7 @@ export class RecipeDetailComponent implements OnInit {
   readonly deleting = signal(false);
   readonly showCookDialog = signal(false);
   readonly ratingError = signal<string | null>(null);
+  readonly imageError = signal(false);
 
   async ngOnInit(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id');
@@ -145,6 +182,11 @@ export class RecipeDetailComponent implements OnInit {
     }
 
     this.recipe.set(recipe);
+    this.imageError.set(false);
+  }
+
+  onImageError(): void {
+    this.imageError.set(true);
   }
 
   async onRatingChange(rating: number | null): Promise<void> {

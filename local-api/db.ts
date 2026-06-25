@@ -78,6 +78,10 @@ if (tableExists('recipes') && !tableHasColumn('recipes', 'rating')) {
   db.exec('alter table recipes add column rating integer check (rating is null or (rating >= 1 and rating <= 5))');
 }
 
+if (tableExists('recipes') && !tableHasColumn('recipes', 'image_url')) {
+  db.exec('alter table recipes add column image_url text');
+}
+
 if (tableExists('user_food_profiles') && !tableHasColumn('user_food_profiles', 'onboarding_status')) {
   db.exec(`
     alter table user_food_profiles add column onboarding_status text not null default 'pending';

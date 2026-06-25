@@ -455,6 +455,7 @@ export class RecipeService {
       ...recipe,
       tags: normalizeTags(recipe.tags ?? []),
       rating: this.normalizeRating(recipe.rating),
+      image_url: recipe.image_url?.trim() || null,
       ingredients: [...(recipe.ingredients ?? [])].sort((a, b) =>
         a.name.localeCompare(b.name)
       ),

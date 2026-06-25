@@ -86,6 +86,7 @@ interface RecipeRow {
   portions: number | null;
   tags: string;
   rating: number | null;
+  image_url: string | null;
   created_at: string;
 }
 
@@ -154,7 +155,7 @@ function serializeRecipe(row: RecipeRow) {
 function getRecipeRow(id: string, userId: string): RecipeRow | undefined {
   return db
     .prepare(
-      `select id, user_id, title, description, prep_time_minutes, portions, tags, rating, created_at
+      `select id, user_id, title, description, prep_time_minutes, portions, tags, rating, image_url, created_at
        from recipes
        where id = ? and user_id = ?`
     )
@@ -600,7 +601,7 @@ app.delete('/food-items/:id', authMiddleware, (req: AuthenticatedRequest, res) =
 app.get('/recipes', authMiddleware, (req: AuthenticatedRequest, res) => {
   const rows = db
     .prepare(
-      `select id, user_id, title, description, prep_time_minutes, portions, tags, rating, created_at
+      `select id, user_id, title, description, prep_time_minutes, portions, tags, rating, image_url, created_at
        from recipes
        where user_id = ?
        order by created_at desc`

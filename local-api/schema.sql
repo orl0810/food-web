@@ -81,6 +81,7 @@ create table if not exists recipes (
   portions integer,
   tags text not null default '[]',
   rating integer check (rating is null or (rating >= 1 and rating <= 5)),
+  image_url text,
   created_at text not null default (datetime('now'))
 );
 

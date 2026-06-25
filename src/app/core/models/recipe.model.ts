@@ -15,6 +15,7 @@ export interface Recipe {
   portions: number | null;
   tags: string[];
   rating: number | null;
+  image_url: string | null;
   created_at: string;
   ingredients?: RecipeIngredient[];
 }
