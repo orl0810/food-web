@@ -23,9 +23,17 @@ import {
   getIngredientAvailability,
   IngredientAvailability,
 } from '../../shared/utils/recipe-availability.utils';
+import { ConfettiCelebrationComponent } from './components/confetti-celebration/confetti-celebration.component';
+import { DailyProgressBarComponent } from './components/daily-progress-bar/daily-progress-bar.component';
+import { MealSlotCompletionButtonComponent } from './components/meal-slot-completion-button/meal-slot-completion-button.component';
+import { MealPlanProgressService } from './services/meal-plan-progress.service';
 import { MealSlotItemsComponent } from './meal-slot-items.component';
 import { MealSlotItemPickerComponent } from './meal-slot-item-picker.component';
 import { getMealSlotItemDisplayName } from '../../shared/utils/prepared-portion.utils';
+import {
+  getDayProgressTitle,
+  isSlotCompleted,
+} from './utils/meal-slot-completion.utils';
 
 interface SelectedSlot {
   date: string;
@@ -41,8 +49,18 @@ interface WeekStats {
 @Component({
   selector: 'app-meal-plan',
   standalone: true,
-  imports: [LoadingStateComponent, StatCardComponent, MealSlotItemsComponent, MealSlotItemPickerComponent],
+  imports: [
+    LoadingStateComponent,
+    StatCardComponent,
+    MealSlotItemsComponent,
+    MealSlotItemPickerComponent,
+    DailyProgressBarComponent,
+    MealSlotCompletionButtonComponent,
+    ConfettiCelebrationComponent,
+  ],
   template: `
+    <app-confetti-celebration [active]="showConfetti()" />
+
     <div class="page">
       <div>
         <h1 class="page-title">Meal Plan</h1>
@@ -172,6 +190,12 @@ interface WeekStats {
             }
           </div>
 
+          <app-daily-progress-bar
+            class="mb-5 block"
+            [title]="dayProgressTitle()"
+            [progress]="dayProgress()"
+          />
+
           <div class="space-y-6">
             @for (mealType of mealTypes; track mealType) {
               <section>
@@ -181,13 +205,22 @@ interface WeekStats {
                 </div>
 
                 @if (itemsFor(selectedDate(), mealType).length > 0) {
-                  <app-meal-slot-items
-                    [items]="itemsFor(selectedDate(), mealType)"
-                    [removingId]="removingId()"
-                    [canAdd]="canAddToSelectedDate()"
-                    (addItem)="openPicker(selectedDate(), mealType)"
-                    (removeItem)="onRemoveItem($event)"
-                  />
+                  <div class="space-y-3">
+                    <app-meal-slot-items
+                      [items]="itemsFor(selectedDate(), mealType)"
+                      [removingId]="removingId()"
+                      [canAdd]="canAddToSelectedDate()"
+                      [completed]="isSlotCompletedFor(selectedDate(), mealType)"
+                      (addItem)="openPicker(selectedDate(), mealType)"
+                      (removeItem)="onRemoveItem($event)"
+                    />
+                    <app-meal-slot-completion-button
+                      [mealType]="mealType"
+                      [completed]="isSlotCompletedFor(selectedDate(), mealType)"
+                      [loading]="isSlotCompleting(selectedDate(), mealType)"
+                      (toggled)="onToggleSlotCompletion(selectedDate(), mealType)"
+                    />
+                  </div>
                 } @else if (isPastDate(selectedDate())) {
                   <div
                     class="flex w-full items-center gap-3 rounded-xl border border-dashed border-stone-200 bg-stone-50/40 p-4 text-left"
@@ -242,18 +275,33 @@ export class MealPlanComponent implements OnInit {
   readonly mealPlanService = inject(MealPlanService);
   private readonly recipeService = inject(RecipeService);
   private readonly inventoryService = inject(FoodInventoryService);
+  private readonly progressService = inject(MealPlanProgressService);
 
   readonly mealTypes = MEAL_TYPES;
   readonly selectedSlot = signal<SelectedSlot | null>(null);
   readonly selectedDate = signal(toISODate(new Date()));
   readonly removingId = signal<string | null>(null);
   readonly duplicating = signal(false);
+  readonly completingSlotKey = signal<string | null>(null);
+  readonly showConfetti = signal(false);
+  private readonly celebrationArmed = signal(false);
 
   readonly weekRangeLabel = computed(() =>
     formatWeekRangeCompact(this.mealPlanService.weekDates())
   );
 
   readonly selectedDayHeading = computed(() => formatFullDayHeading(this.selectedDate()));
+
+  readonly dayProgress = computed(() =>
+    this.progressService.calculateDayProgress(
+      this.selectedDate(),
+      this.mealPlanService.entries()
+    )
+  );
+
+  readonly dayProgressTitle = computed(() =>
+    getDayProgressTitle(this.selectedDate(), this.isTodayDate(this.selectedDate()))
+  );
 
   readonly weekStats = computed((): WeekStats => {
     const inventory = this.inventoryService.items();
@@ -307,7 +355,39 @@ export class MealPlanComponent implements OnInit {
       this.inventoryService.loadItems(),
     ]).then(() => {
       this.syncSelectedDateToWeek();
+      this.armCelebrationTracking();
     });
+  }
+
+  isSlotCompletedFor(date: string, mealType: MealType): boolean {
+    return isSlotCompleted(this.itemsFor(date, mealType));
+  }
+
+  isSlotCompleting(date: string, mealType: MealType): boolean {
+    return this.completingSlotKey() === this.slotKey(date, mealType);
+  }
+
+  async onToggleSlotCompletion(date: string, mealType: MealType): Promise<void> {
+    const previous = this.dayProgress();
+    const key = this.slotKey(date, mealType);
+    this.completingSlotKey.set(key);
+
+    const { error } = await this.progressService.toggleMealSlotCompletion(date, mealType);
+    this.completingSlotKey.set(null);
+
+    if (error) {
+      return;
+    }
+
+    await this.mealPlanService.getTodayMeals();
+
+    const current = this.dayProgress();
+    if (
+      this.celebrationArmed() &&
+      this.progressService.shouldTriggerDayCompletedCelebration(previous, current)
+    ) {
+      this.triggerConfetti();
+    }
   }
 
   itemsFor(date: string, mealType: MealType): MealSlotItem[] {
@@ -433,5 +513,19 @@ export class MealPlanComponent implements OnInit {
 
     const firstUpcoming = weekDates.find((date) => !isPastDate(date));
     this.selectedDate.set(firstUpcoming ?? weekDates[0]);
+  }
+
+  private slotKey(date: string, mealType: MealType): string {
+    return `${date}|${mealType}`;
+  }
+
+  private armCelebrationTracking(): void {
+    this.celebrationArmed.set(true);
+  }
+
+  private triggerConfetti(): void {
+    this.showConfetti.set(false);
+    requestAnimationFrame(() => this.showConfetti.set(true));
+    window.setTimeout(() => this.showConfetti.set(false), 1100);
   }
 }

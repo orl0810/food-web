@@ -11,7 +11,12 @@ import {
   standalone: true,
   imports: [RouterLink, FoodIconBadgeComponent],
   template: `
-    <article class="card overflow-hidden p-4">
+    <article
+      class="card overflow-hidden p-4 transition-colors"
+      [class.ring-1]="completed()"
+      [class.ring-brand-200]="completed()"
+      [class.bg-brand-50/30]="completed()"
+    >
       <ul class="divide-y divide-stone-100">
         @for (item of items(); track item.id) {
           <li class="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
@@ -24,7 +29,14 @@ import {
               <div class="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p class="font-medium text-stone-900">{{ displayName(item) }}</p>
-                  <p class="mt-0.5 text-xs text-stone-500">{{ itemTypeLabel(item) }}</p>
+                  <div class="mt-0.5 flex flex-wrap items-center gap-2">
+                    <p class="text-xs text-stone-500">{{ itemTypeLabel(item) }}</p>
+                    @if (item.status === 'eaten') {
+                      <span class="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
+                        Eaten
+                      </span>
+                    }
+                  </div>
                   @if (item.item_type === 'prepared_portion' && item.portions_used > 1) {
                     <p class="mt-0.5 text-xs text-stone-500">{{ item.portions_used }} portions</p>
                   }
@@ -74,6 +86,7 @@ export class MealSlotItemsComponent {
   readonly items = input.required<MealSlotItem[]>();
   readonly removingId = input<string | null>(null);
   readonly canAdd = input(true);
+  readonly completed = input(false);
 
   readonly addItem = output<void>();
   readonly removeItem = output<MealSlotItem>();

@@ -1,0 +1,55 @@
+.meal-completion-btn--incomplete {
+  border: 1.5px solid rgb(22 163 74 / 0.35);
+  background-color: #fff;
+  color: #15803d;
+}
+
+.meal-completion-btn--incomplete:hover:not(:disabled) {
+  background-color: #f0fdf4;
+  border-color: rgb(22 163 74 / 0.55);
+}
+
+.meal-completion-btn--complete {
+  border: 1.5px solid rgb(22 163 74 / 0.25);
+  background-color: #f0fdf4;
+  color: #15803d;
+  box-shadow: 0 1px 2px rgb(22 163 74 / 0.08);
+}
+
+.meal-completion-btn--animating {
+  animation: completion-pop 300ms ease-out;
+}
+
+.meal-completion-btn__check--bounce {
+  animation: check-bounce 300ms ease-out;
+}
+
+@keyframes completion-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgb(22 163 74 / 0.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes check-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meal-completion-btn--animating,
+  .meal-completion-btn__check--bounce {
+    animation: none;
+  }
+}
