@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, Injector, computed, inject, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { MealType } from '../models/meal-plan.model';
 import { MealSlotItem, MealSlotItemInput, MealSlotItemStatus } from '../models/meal-slot-item.model';
@@ -32,6 +32,7 @@ export class MealPlanService {
   private readonly localApiService = inject(LocalApiService);
   private readonly authService = inject(AuthService);
   private readonly preparedPortionService = inject(PreparedPortionService);
+  private readonly injector = inject(Injector);
 
   private readonly itemsSignal = signal<MealSlotItem[]>([]);
   private readonly todayItemsSignal = signal<MealSlotItem[]>([]);
@@ -340,10 +341,13 @@ export class MealPlanService {
     id: string,
     status: MealSlotItemStatus
   ): Promise<{ error: string | null }> {
+    const itemBeforeUpdate = this.findItemById(id);
     const completedAt = status === 'planned' ? null : new Date().toISOString();
 
     if (environment.useLocalApi) {
-      return this.updateSlotItemStatusLocal(id, status, completedAt);
+      const result = await this.updateSlotItemStatusLocal(id, status, completedAt);
+      this.notifyStreakIfNeeded(itemBeforeUpdate, status, result.error);
+      return result;
     }
 
     const client = this.supabaseService.getClient();
@@ -368,7 +372,12 @@ export class MealPlanService {
     }
 
     this.patchItemInSignals(id, { status, completed_at: completedAt });
+    this.notifyStreakIfNeeded(itemBeforeUpdate, status, null);
     return { error: null };
+  }
+
+  getItemById(id: string): MealSlotItem | undefined {
+    return this.findItemById(id);
   }
 
   async duplicatePreviousWeek(
@@ -505,6 +514,22 @@ export class MealPlanService {
       this.itemsSignal().find((item) => item.id === id) ??
       this.todayItemsSignal().find((item) => item.id === id)
     );
+  }
+
+  private notifyStreakIfNeeded(
+    item: MealSlotItem | undefined,
+    status: MealSlotItemStatus,
+    error: string | null
+  ): void {
+    if (error || !item || !this.authService.user()?.id) {
+      return;
+    }
+
+    if (status === 'eaten' || item.status === 'eaten') {
+      void import('./meal-streak.service').then(({ MealStreakService }) => {
+        void this.injector.get(MealStreakService).handleCompletionChanged(item.date);
+      });
+    }
   }
 
   private async fetchMealPlanForDateRangeLocal(

@@ -95,16 +95,26 @@ create policy "Users can delete own meal plan items"
   on public.meal_plan_items for delete
   using (auth.uid() = user_id);
 
--- Migrate existing meal_plan data into meal_plan_items
-insert into public.meal_plan_items (
-  id, user_id, date, meal_type, item_type, recipe_id, created_at
-)
-select id, user_id, date, meal_type, 'recipe', recipe_id, created_at
-from public.meal_plan
-where recipe_id is not null
-  and not exists (
-    select 1 from public.meal_plan_items mpi where mpi.id = meal_plan.id
-  );
+-- Migrate existing meal_plan data into meal_plan_items (skip if legacy table already dropped)
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'meal_plan'
+  ) then
+    insert into public.meal_plan_items (
+      id, user_id, date, meal_type, item_type, recipe_id, created_at
+    )
+    select id, user_id, date, meal_type, 'recipe', recipe_id, created_at
+    from public.meal_plan
+    where recipe_id is not null
+      and not exists (
+        select 1 from public.meal_plan_items mpi where mpi.id = meal_plan.id
+      );
+  end if;
+end $$;
 
 -- Drop legacy table after migration
 drop table if exists public.meal_plan;

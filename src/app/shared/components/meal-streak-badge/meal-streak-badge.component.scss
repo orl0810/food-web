@@ -1,0 +1,27 @@
+.meal-streak-badge--pulse {
+  animation: streak-pulse 600ms ease-out;
+}
+
+@keyframes streak-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  }
+
+  40% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 3px rgb(245 158 11 / 0.25);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meal-streak-badge--pulse {
+    animation: none;
+    box-shadow: 0 0 0 2px rgb(245 158 11 / 0.35);
+  }
+}

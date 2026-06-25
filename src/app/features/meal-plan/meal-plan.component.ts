@@ -8,6 +8,7 @@ import {
 import { MealSlotItem } from '../../core/models/meal-slot-item.model';
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { MealPlanService } from '../../core/services/meal-plan.service';
+import { MealStreakService } from '../../core/services/meal-streak.service';
 import { RecipeService } from '../../core/services/recipe.service';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
@@ -62,10 +63,10 @@ interface WeekStats {
     <app-confetti-celebration [active]="showConfetti()" />
 
     <div class="page">
-      <div>
+      <!-- <div>
         <h1 class="page-title">Meal Plan</h1>
         <p class="page-subtitle">Plan your week and reduce waste.</p>
-      </div>
+      </div>-->
 
       <!-- Week navigation -->
       <div class="flex items-center justify-between gap-3">
@@ -196,6 +197,16 @@ interface WeekStats {
             [progress]="dayProgress()"
           />
 
+          @if (streakFeedbackMessage()) {
+            <p
+              class="mb-5 rounded-lg bg-brand-50 px-4 py-3 text-sm font-medium text-brand-800"
+              role="status"
+              aria-live="polite"
+            >
+              {{ streakFeedbackMessage() }}
+            </p>
+          }
+
           <div class="space-y-6">
             @for (mealType of mealTypes; track mealType) {
               <section>
@@ -276,6 +287,7 @@ export class MealPlanComponent implements OnInit {
   private readonly recipeService = inject(RecipeService);
   private readonly inventoryService = inject(FoodInventoryService);
   private readonly progressService = inject(MealPlanProgressService);
+  private readonly mealStreakService = inject(MealStreakService);
 
   readonly mealTypes = MEAL_TYPES;
   readonly selectedSlot = signal<SelectedSlot | null>(null);
@@ -302,6 +314,13 @@ export class MealPlanComponent implements OnInit {
   readonly dayProgressTitle = computed(() =>
     getDayProgressTitle(this.selectedDate(), this.isTodayDate(this.selectedDate()))
   );
+
+  readonly streakFeedbackMessage = computed(() => {
+    if (!this.isTodayDate(this.selectedDate())) {
+      return null;
+    }
+    return this.mealStreakService.lastFeedbackMessage();
+  });
 
   readonly weekStats = computed((): WeekStats => {
     const inventory = this.inventoryService.items();

@@ -2,13 +2,15 @@ import { Component, HostListener, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { FoodIconService } from '../../../core/services/food-icon.service';
 import { BottomNavComponent } from '../bottom-nav/bottom-nav.component';
+import { MealStreakBadgeComponent } from '../meal-streak-badge/meal-streak-badge.component';
 import { ProfileMenuComponent } from '../../../features/user-profile/components/profile-menu/profile-menu.component';
 import { UserProfileFacadeService } from '../../../features/user-profile/services/user-profile-facade.service';
+import { MealStreakService } from '../../../core/services/meal-streak.service';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, BottomNavComponent, ProfileMenuComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, BottomNavComponent, MealStreakBadgeComponent, ProfileMenuComponent],
   template: `
     <div class="min-h-screen bg-surface">
       <header class="border-b border-stone-200 bg-card">
@@ -69,6 +71,7 @@ import { UserProfileFacadeService } from '../../../features/user-profile/service
                 <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" aria-hidden="true"></span>
               </button>
 
+              <app-meal-streak-badge />
               <app-profile-menu />
             </div>
           </div>
@@ -86,9 +89,11 @@ import { UserProfileFacadeService } from '../../../features/user-profile/service
 export class AppShellComponent {
   private readonly foodIconService = inject(FoodIconService);
   private readonly userProfileFacade = inject(UserProfileFacadeService);
+  private readonly mealStreakService = inject(MealStreakService);
 
   constructor() {
     void this.foodIconService.preload();
     void this.userProfileFacade.loadAll();
+    void this.mealStreakService.loadStreak();
   }
 }
