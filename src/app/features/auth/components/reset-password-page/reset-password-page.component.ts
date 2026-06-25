@@ -95,10 +95,10 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
                 formControlName="password"
                 autocomplete="new-password"
                 class="input"
-                placeholder="At least 8 characters"
+                placeholder="At least 6 characters"
               />
               @if (updateForm.controls.password.touched && updateForm.controls.password.invalid) {
-                <p class="mt-1 text-sm text-red-600">Password must be at least 8 characters.</p>
+                <p class="mt-1 text-sm text-red-600">Password must be at least 6 characters.</p>
               }
             </div>
 
@@ -151,8 +151,8 @@ export class ResetPasswordPageComponent implements OnInit {
 
   readonly updateForm = this.fb.nonNullable.group(
     {
-      password: ['', [Validators.required, Validators.minLength(8)]],
-      confirmPassword: ['', [Validators.required, Validators.minLength(8)]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', [Validators.required, Validators.minLength(6)]],
     },
     { validators: passwordsMatch }
   );

@@ -100,11 +100,11 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
                 formControlName="password"
                 [attr.autocomplete]="signUpMode() ? 'new-password' : 'current-password'"
                 class="input"
-                placeholder="At least 8 characters"
+                placeholder="At least 6 characters"
               />
               @if (passwordForm.controls.password.touched && passwordForm.controls.password.invalid) {
                 <p class="mt-1 text-sm text-red-600">
-                  Password must be at least 8 characters.
+                  Password must be at least 6 characters.
                 </p>
               }
             </div>
@@ -266,7 +266,7 @@ export class LoginPageComponent implements OnInit, OnDestroy {
   readonly passwordForm = this.fb.nonNullable.group(
     {
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(8)]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: [''],
     },
     { validators: passwordsMatch }
@@ -321,7 +321,7 @@ export class LoginPageComponent implements OnInit, OnDestroy {
     this.passwordForm.controls.confirmPassword.reset();
     const confirmControl = this.passwordForm.controls.confirmPassword;
     if (enabled) {
-      confirmControl.setValidators([Validators.required, Validators.minLength(8)]);
+      confirmControl.setValidators([Validators.required, Validators.minLength(6)]);
     } else {
       confirmControl.clearValidators();
     }
