@@ -220,7 +220,15 @@ export class ResetPasswordPageComponent implements OnInit {
       return;
     }
 
-    const target = await this.authFacade.handlePostLoginRedirect(user.id);
-    await this.router.navigateByUrl(target);
+    try {
+      const target = await this.authFacade.handlePostLoginRedirect(user.id);
+      await this.router.navigateByUrl(target);
+    } catch (error) {
+      this.error.set(
+        error instanceof Error
+          ? error.message
+          : 'Password updated, but we could not load your profile. Try signing in again.'
+      );
+    }
   }
 }

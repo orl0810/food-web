@@ -54,7 +54,16 @@ export class AuthCallbackPageComponent implements OnInit {
       return;
     }
 
-    const target = await this.authFacade.handlePostLoginRedirect(result.session.user.id);
-    await this.router.navigateByUrl(target);
+    try {
+      const target = await this.authFacade.handlePostLoginRedirect(result.session.user.id);
+      await this.router.navigateByUrl(target);
+    } catch (error) {
+      this.error.set(
+        error instanceof Error
+          ? error.message
+          : 'Signed in, but we could not load your profile. Try again from the login page.'
+      );
+      this.state.set('error');
+    }
   }
 }

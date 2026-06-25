@@ -6,6 +6,5 @@ export const environment: Environment = {
   localApiUrl: '',
   supabaseUrl: 'https://gxkkwhrjlqpcjjzmvpcc.supabase.co',
   supabaseAnonKey: 'sb_publishable_DomMaeJ3jG48RQ37PDojZg_Oc_5ai5h',
-  // Set to your Vercel URL if needed; empty uses window.location.origin at runtime.
-  authSiteUrl: '',
+  authSiteUrl: 'https://food-web-orlando-0810.vercel.app',
 };

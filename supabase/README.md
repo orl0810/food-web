@@ -14,11 +14,38 @@ PantryFlow uses Supabase for auth and data storage. Production (Vercel) talks to
    - **Redirect URLs** (add all that apply):
      - `http://localhost:4200/auth/callback`
      - `http://localhost:4200/auth/reset-password`
-     - `https://<your-vercel-domain>/auth/callback`
-     - `https://<your-vercel-domain>/auth/reset-password`
+     - `https://food-web-orlando-0810.vercel.app/auth/callback`
+     - `https://food-web-orlando-0810.vercel.app/auth/reset-password`
 5. Optional: disable email confirmation in **Authentication → Providers → Email** for faster local testing.
 
 Never commit real Supabase keys to a public repository.
+
+## Production auth URLs (verified)
+
+For the deployed app at `https://food-web-orlando-0810.vercel.app`, confirm these values in the Supabase Dashboard under **Authentication → URL Configuration**:
+
+| Setting | Value |
+|---------|-------|
+| Site URL | `https://food-web-orlando-0810.vercel.app` |
+| Redirect URL | `https://food-web-orlando-0810.vercel.app/auth/callback` |
+| Redirect URL | `https://food-web-orlando-0810.vercel.app/auth/reset-password` |
+
+`environment.prod.ts` sets `authSiteUrl` to the production domain so magic-link and password-reset emails always redirect correctly.
+
+Auth logs should show `referer: https://food-web-orlando-0810.vercel.app` on sign-in requests. If redirects fail, add the URLs above and redeploy.
+
+## Custom SMTP (recommended for production)
+
+Supabase's built-in email provider has strict rate limits (~2–4 emails/hour on the free tier). Magic-link login can hit `429 email rate limit exceeded` when users resend links.
+
+To avoid this:
+
+1. Open **Authentication → Email** in the Supabase Dashboard.
+2. Enable **Custom SMTP** (e.g. [Resend](https://resend.com), SendGrid, or Amazon SES).
+3. Use a verified sender domain (e.g. `noreply@yourdomain.com`).
+4. Test with a magic-link sign-in after saving.
+
+Password sign-in (`signInWithPassword`) does not send email and is unaffected by email rate limits. The production login page defaults to password sign-in for this reason.
 
 ## Auth redirect URLs
 

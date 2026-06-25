@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -12,6 +12,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { LoginUiState } from '../../../../core/models/auth.model';
 import { AuthFacadeService } from '../../services/auth-facade.service';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
+import { MAGIC_LINK_RESEND_COOLDOWN_SECONDS } from '../../../../core/utils/auth-error.utils';
 
 function passwordsMatch(control: AbstractControl): ValidationErrors | null {
   const password = control.get('password')?.value;
@@ -38,13 +39,29 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
               <p class="font-medium">Check your email</p>
               <p class="mt-1">We sent a secure link to <strong>{{ sentEmail() }}</strong>.</p>
             </div>
+            @if (error()) {
+              <p class="text-sm text-red-600" role="alert">{{ error() }}</p>
+            }
             <button
               type="button"
               class="btn-secondary w-full"
-              [disabled]="resending()"
+              [disabled]="resending() || resendCooldownRemaining() > 0"
               (click)="resendMagicLink()"
             >
-              {{ resending() ? 'Sending…' : 'Resend link' }}
+              @if (resending()) {
+                Sending…
+              } @else if (resendCooldownRemaining() > 0) {
+                Resend link in {{ resendCooldownRemaining() }}s
+              } @else {
+                Resend link
+              }
+            </button>
+            <button
+              type="button"
+              class="w-full text-sm font-medium text-brand-700 hover:text-brand-800"
+              (click)="switchToPassword()"
+            >
+              Use password instead
             </button>
             <button
               type="button"
@@ -232,11 +249,13 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
     </app-auth-layout>
   `,
 })
-export class LoginPageComponent implements OnInit {
+export class LoginPageComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly authFacade = inject(AuthFacadeService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+
+  private resendCooldownTimer: ReturnType<typeof setInterval> | null = null;
 
   readonly useLocalApi = environment.useLocalApi;
 
@@ -261,11 +280,16 @@ export class LoginPageComponent implements OnInit {
   readonly confirmationSent = signal(false);
   readonly error = signal<string | null>(null);
   readonly sentEmail = signal('');
+  readonly resendCooldownRemaining = signal(0);
 
   ngOnInit(): void {
-    if (this.useLocalApi) {
+    if (this.useLocalApi || environment.production) {
       this.passwordMode.set(true);
     }
+  }
+
+  ngOnDestroy(): void {
+    this.clearResendCooldown();
   }
 
   switchToPassword(): void {
@@ -307,6 +331,7 @@ export class LoginPageComponent implements OnInit {
   backToEmail(): void {
     this.uiState.set('idle');
     this.error.set(null);
+    this.clearResendCooldown();
   }
 
   async submitMagicLink(): Promise<void> {
@@ -331,9 +356,14 @@ export class LoginPageComponent implements OnInit {
 
     this.sentEmail.set(email);
     this.uiState.set('linkSent');
+    this.startResendCooldown();
   }
 
   async resendMagicLink(): Promise<void> {
+    if (this.resendCooldownRemaining() > 0 || this.resending()) {
+      return;
+    }
+
     const email = this.sentEmail() || this.magicLinkForm.controls.email.value.trim();
     if (!email) {
       return;
@@ -348,7 +378,10 @@ export class LoginPageComponent implements OnInit {
 
     if (result.error) {
       this.error.set(result.error);
+      return;
     }
+
+    this.startResendCooldown();
   }
 
   async submitPassword(): Promise<void> {
@@ -387,7 +420,38 @@ export class LoginPageComponent implements OnInit {
     }
 
     this.uiState.set('redirecting');
-    const target = await this.authFacade.handlePostLoginRedirect(user.id);
-    await this.router.navigateByUrl(target);
+    try {
+      const target = await this.authFacade.handlePostLoginRedirect(user.id);
+      await this.router.navigateByUrl(target);
+    } catch (error) {
+      this.uiState.set('idle');
+      this.error.set(
+        error instanceof Error
+          ? error.message
+          : 'Signed in, but we could not load your profile. Try again or contact support.'
+      );
+    }
+  }
+
+  private startResendCooldown(): void {
+    this.clearResendCooldown();
+    this.resendCooldownRemaining.set(MAGIC_LINK_RESEND_COOLDOWN_SECONDS);
+
+    this.resendCooldownTimer = setInterval(() => {
+      const next = this.resendCooldownRemaining() - 1;
+      if (next <= 0) {
+        this.clearResendCooldown();
+        return;
+      }
+      this.resendCooldownRemaining.set(next);
+    }, 1000);
+  }
+
+  private clearResendCooldown(): void {
+    if (this.resendCooldownTimer !== null) {
+      clearInterval(this.resendCooldownTimer);
+      this.resendCooldownTimer = null;
+    }
+    this.resendCooldownRemaining.set(0);
   }
 }

@@ -7,6 +7,7 @@ import {
   MagicLinkResult,
 } from '../models/auth.model';
 import { AppUser } from '../models/auth-user.model';
+import { formatAuthError } from '../utils/auth-error.utils';
 import {
   getAuthCallbackUrl,
   getAuthResetPasswordUrl,
@@ -92,7 +93,7 @@ export class AuthService {
     });
 
     if (error) {
-      return { error: error.message };
+      return { error: formatAuthError(error.message) };
     }
 
     return { error: null };
@@ -111,7 +112,7 @@ export class AuthService {
     const { data, error } = await client.auth.signInWithPassword({ email, password });
 
     if (error) {
-      return { error: error.message };
+      return { error: formatAuthError(error.message) };
     }
 
     this.sessionSignal.set(data.session);
@@ -137,7 +138,7 @@ export class AuthService {
     });
 
     if (error) {
-      return { error: error.message };
+      return { error: formatAuthError(error.message) };
     }
 
     if (data.session) {
@@ -166,7 +167,7 @@ export class AuthService {
     });
 
     if (error) {
-      return { error: error.message };
+      return { error: formatAuthError(error.message) };
     }
 
     return { error: null };
@@ -185,7 +186,7 @@ export class AuthService {
     const { error } = await client.auth.updateUser({ password });
 
     if (error) {
-      return { error: error.message };
+      return { error: formatAuthError(error.message) };
     }
 
     return { error: null };
@@ -210,18 +211,23 @@ export class AuthService {
       queryParams.get('error');
 
     if (authError) {
-      return { error: decodeURIComponent(authError.replace(/\+/g, ' ')), session: null };
+      return {
+        error: formatAuthError(decodeURIComponent(authError.replace(/\+/g, ' '))),
+        session: null,
+      };
     }
 
     const { data, error } = await client.auth.getSession();
 
     if (error) {
-      return { error: error.message, session: null };
+      return { error: formatAuthError(error.message), session: null };
     }
 
     if (!data.session) {
       return {
-        error: 'This sign-in link is invalid or has expired. Request a new one.',
+        error: formatAuthError(
+          'This sign-in link is invalid or has expired. Request a new one.'
+        ),
         session: null,
       };
     }
