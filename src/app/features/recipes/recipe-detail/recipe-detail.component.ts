@@ -43,7 +43,24 @@ import { AddToMealPlanDialogComponent } from '../recipe-suggestions/add-to-meal-
       } @else if (error()) {
         <p class="alert-error">{{ error() }}</p>
       } @else if (recipe(); as r) {
-        <app-recipe-image [recipe]="r" variant="hero" />
+        <div class="relative">
+          <app-recipe-image [recipe]="r" variant="hero" />
+          @if (showImageAction(r)) {
+            <div class="absolute bottom-3 right-3">
+              <button
+                type="button"
+                class="btn-secondary-sm bg-white/95 shadow-sm backdrop-blur-sm"
+                [disabled]="generatingImage()"
+                (click)="generateRecipeImage(r)"
+              >
+                {{ generatingImage() ? 'Generating image…' : imageActionLabel(r) }}
+              </button>
+            </div>
+          }
+          @if (imageError()) {
+            <p class="mt-2 text-sm text-red-600">{{ imageError() }}</p>
+          }
+        </div>
 
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -244,6 +261,17 @@ import { AddToMealPlanDialogComponent } from '../recipe-suggestions/add-to-meal-
                 <p class="text-sm text-stone-500">
                   Nutrition estimate is not available for this recipe.
                 </p>
+                <button
+                  type="button"
+                  class="btn-secondary-sm mt-3"
+                  [disabled]="recalculatingNutrition()"
+                  (click)="recalculateNutrition(r)"
+                >
+                  {{ recalculatingNutrition() ? 'Calculating nutrition…' : 'Calculate nutrition' }}
+                </button>
+                @if (nutritionError()) {
+                  <p class="mt-2 text-sm text-red-600">{{ nutritionError() }}</p>
+                }
               }
             </div>
           }
@@ -279,6 +307,10 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
   readonly nutritionExpanded = signal(false);
   readonly ratingError = signal<string | null>(null);
   readonly customizing = signal(false);
+  readonly generatingImage = signal(false);
+  readonly imageError = signal<string | null>(null);
+  readonly recalculatingNutrition = signal(false);
+  readonly nutritionError = signal<string | null>(null);
 
   isStarterMode(): boolean {
     return this.route.snapshot.data['starterMode'] === true;
@@ -316,7 +348,11 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
   }
 
   private startImagePollingIfNeeded(recipe: Recipe): void {
-    if (this.isStarterMode() || recipe.image_status !== 'generating') {
+    if (this.isStarterMode()) {
+      return;
+    }
+
+    if (recipe.image_status !== 'generating' && recipe.image_status !== 'pending') {
       return;
     }
 
@@ -326,6 +362,71 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
     this.imagePollTimer = setInterval(() => {
       void this.pollRecipeImage(recipe.id);
     }, 3000);
+  }
+
+  showImageAction(recipe: Recipe): boolean {
+    if (this.isStarterMode() || this.generatingImage()) {
+      return false;
+    }
+
+    return recipe.image_status === 'pending' || recipe.image_status === 'failed';
+  }
+
+  imageActionLabel(recipe: Recipe): string {
+    if (recipe.image_status === 'failed') {
+      return 'Retry image';
+    }
+    if (recipe.image_status === 'generating') {
+      return 'Generating image…';
+    }
+    return 'Generate image';
+  }
+
+  async generateRecipeImage(recipe: Recipe): Promise<void> {
+    if (this.generatingImage()) {
+      return;
+    }
+
+    this.generatingImage.set(true);
+    this.imageError.set(null);
+
+    const regenerate = recipe.image_status === 'failed' || recipe.image_status === 'completed';
+    const { error } = regenerate
+      ? await this.recipeService.regenerateRecipeImage(recipe.id)
+      : await this.recipeService.requestRecipeImageGeneration(recipe.id);
+
+    this.generatingImage.set(false);
+
+    if (error) {
+      this.imageError.set(error);
+      return;
+    }
+
+    this.recipe.set({ ...recipe, image_status: 'generating' });
+    this.startImagePollingIfNeeded({ ...recipe, image_status: 'generating' });
+  }
+
+  async recalculateNutrition(recipe: Recipe): Promise<void> {
+    if (this.recalculatingNutrition()) {
+      return;
+    }
+
+    this.recalculatingNutrition.set(true);
+    this.nutritionError.set(null);
+
+    const { error } = await this.recipeService.recalculateNutrition(recipe.id);
+    this.recalculatingNutrition.set(false);
+
+    if (error) {
+      this.nutritionError.set(error);
+      return;
+    }
+
+    const { recipe: updated, error: loadError } = await this.recipeService.getRecipeById(recipe.id);
+    if (!loadError && updated) {
+      this.recipe.set(updated);
+      this.nutritionExpanded.set(true);
+    }
   }
 
   private async pollRecipeImage(recipeId: string): Promise<void> {

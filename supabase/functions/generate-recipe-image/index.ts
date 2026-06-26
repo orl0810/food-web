@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
-import { PutObjectCommand, S3Client } from 'https://esm.sh/@aws-sdk/client-s3@3.679.0';
+import { AwsClient } from 'https://esm.sh/aws4fetch@1.0.20';
 import { buildRecipeImagePrompt } from './prompt.ts';
 
 interface GenerateRecipeImageRequest {
@@ -211,25 +211,26 @@ async function uploadToR2(storageKey: string, body: Uint8Array): Promise<void> {
   const secretAccessKey = requireEnv('R2_SECRET_ACCESS_KEY');
   const bucketName = requireEnv('R2_BUCKET_NAME');
 
-  const client = new S3Client({
+  const client = new AwsClient({
+    accessKeyId,
+    secretAccessKey,
+    service: 's3',
     region: 'auto',
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-    forcePathStyle: true,
   });
 
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucketName,
-      Key: storageKey,
-      Body: body,
-      ContentType: 'image/png',
-      CacheControl: 'public, max-age=31536000, immutable',
-    })
-  );
+  const url = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${storageKey}`;
+  const response = await client.fetch(url, {
+    method: 'PUT',
+    body,
+    headers: {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Could not upload recipe image to storage.');
+  }
 }
 
 function decodeBase64(value: string): Uint8Array {

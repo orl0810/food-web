@@ -217,6 +217,32 @@ supabase secrets set OPENAI_IMAGE_SIZE=1024x1024
 
 Generation takes ~15–30 seconds. DALL-E 3 has a per-image cost.
 
+### Nutrition estimation (user recipes)
+
+When a user creates a new recipe in production (`useLocalApi: false`), the app calls the `estimate-recipe-nutrition` edge function automatically (if the recipe has ingredients). The function:
+
+1. Sends recipe title, portions, and ingredients to OpenAI
+2. Returns per-portion nutrition estimates (calories, fat, protein, etc.)
+3. The Angular app saves the values on the recipe row
+
+Deploy the function:
+
+```bash
+supabase functions deploy estimate-recipe-nutrition
+```
+
+Required secrets:
+
+```bash
+supabase secrets set OPENAI_API_KEY=...   # already used by other functions
+```
+
+Optional:
+
+```bash
+supabase secrets set OPENAI_MODEL=gpt-4o-mini
+```
+
 ### Manual workflow (base/starter recipes)
 
 1. Generate an image externally using the brand prompt style (see `RecipeImagePromptBuilder` in the Angular app).
@@ -228,10 +254,21 @@ Generation takes ~15–30 seconds. DALL-E 3 has a per-image cost.
 
 All R2 and OpenAI secrets are server-side only — never add them to Angular environment files.
 
-### Migrations for recipe images
+### Migrations for recipe metadata
 
 | File | Purpose |
 |------|---------|
 | `018_recipe_image_url.sql` | Adds `image_url` column |
+| `019_recipe_nutrition.sql` | Per-portion nutrition columns on recipes |
 | `025_recipe_image_metadata.sql` | Image status, storage key, prompt, provider fields |
 | `026_seed_base_recipe_images.sql` | Template for incremental base recipe image updates |
+
+### Backfilling stuck recipes
+
+If recipes were created before these functions were deployed, run:
+
+```bash
+npm run backfill:recipe-metadata
+```
+
+Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, and the R2 secrets documented above before running the script.

@@ -348,11 +348,11 @@ export class RecipeService {
   }
 
   async requestRecipeImageGeneration(recipeId: string): Promise<{ error: string | null }> {
-    return this.recipeImageService.requestRecipeImageGeneration(recipeId);
+    return this.requestRecipeImageGenerationWithStatus(recipeId);
   }
 
   async regenerateRecipeImage(recipeId: string): Promise<{ error: string | null }> {
-    return this.recipeImageService.regenerateRecipeImage(recipeId);
+    return this.requestRecipeImageGenerationWithStatus(recipeId, { regenerate: true });
   }
 
   private hasImageMetadata(recipe: Recipe): boolean {
@@ -419,11 +419,46 @@ export class RecipeService {
       return;
     }
 
+    void this.runRecipeImageGeneration(recipeId);
+  }
+
+  async requestRecipeImageGenerationWithStatus(
+    recipeId: string,
+    options?: { regenerate?: boolean }
+  ): Promise<{ error: string | null }> {
+    if (environment.useLocalApi) {
+      return { error: 'Recipe image generation is not available in local mode.' };
+    }
+
+    return this.runRecipeImageGeneration(recipeId, options?.regenerate ?? false);
+  }
+
+  private async runRecipeImageGeneration(
+    recipeId: string,
+    regenerate = false
+  ): Promise<{ error: string | null }> {
     this.applyGeneratingToSignal(recipeId);
 
-    void this.recipeImageService.requestRecipeImageGeneration(recipeId).then(() => {
-      void this.loadRecipes();
+    const { error: statusError } = await this.updateRecipeImageMetadata(recipeId, {
+      image_status: 'generating',
+      image_error: null,
     });
+
+    if (statusError) {
+      return { error: statusError };
+    }
+
+    const { error } = regenerate
+      ? await this.recipeImageService.regenerateRecipeImage(recipeId)
+      : await this.recipeImageService.requestRecipeImageGeneration(recipeId);
+
+    if (error) {
+      await this.markRecipeImageAsFailed(recipeId, error);
+      return { error };
+    }
+
+    await this.loadRecipes();
+    return { error: null };
   }
 
   private applyGeneratingToSignal(recipeId: string): void {
@@ -990,21 +1025,59 @@ export class RecipeService {
     return Math.round(num * 10) / 10;
   }
 
+  async recalculateNutrition(recipeId: string): Promise<{ error: string | null }> {
+    if (environment.useLocalApi) {
+      return { error: 'Nutrition estimation is not available in local mode.' };
+    }
+
+    const { recipe, error: loadError } = await this.getRecipeById(recipeId);
+    if (loadError || !recipe) {
+      return { error: loadError ?? 'Recipe not found.' };
+    }
+
+    const ingredients = (recipe.ingredients ?? []).map((ingredient) => ({
+      name: ingredient.name,
+      quantity: ingredient.quantity,
+      unit: ingredient.unit,
+    }));
+
+    if (ingredients.length === 0) {
+      return { error: 'Add at least one ingredient to estimate nutrition.' };
+    }
+
+    return this.calculateAndSaveNutrition(
+      recipeId,
+      {
+        title: recipe.title,
+        description: recipe.description,
+        portions: recipe.portions,
+      },
+      ingredients
+    );
+  }
+
   private async calculateAndSaveNutrition(
     recipeId: string,
-    recipeData: RecipeInput,
+    recipeData: Pick<RecipeInput, 'title' | 'description' | 'portions'>,
     ingredients: { name: string; quantity: number | null; unit: string | null }[]
-  ): Promise<void> {
-    const { nutrition } = await this.recipeNutritionService.estimateNutrition({
+  ): Promise<{ error: string | null }> {
+    const { nutrition, error } = await this.recipeNutritionService.estimateNutrition({
       title: recipeData.title,
       description: recipeData.description,
       portions: recipeData.portions,
       ingredients,
     });
 
+    if (error) {
+      return { error };
+    }
+
     if (nutrition) {
       await this.saveRecipeNutrition(recipeId, nutrition);
+      return { error: null };
     }
+
+    return { error: 'Could not estimate nutrition right now.' };
   }
 
   private async saveRecipeNutrition(

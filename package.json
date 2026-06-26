@@ -10,6 +10,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "generate:base-recipe-seed": "tsx scripts/generate-base-recipe-seed.mjs",
+    "backfill:recipe-metadata": "node scripts/backfill-recipe-metadata.mjs",
     "serve:ssr:food-web": "node dist/food-web/server/server.mjs"
   },
   "private": true,
@@ -47,6 +48,7 @@
     "@types/jasmine": "~5.1",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.19.19",
+    "aws4fetch": "^1.0.20",
     "concurrently": "^9.2.0",
     "jasmine-core": "~5.6",
     "karma": "~6.4",
