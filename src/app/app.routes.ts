@@ -65,6 +65,14 @@ export const routes: Routes = [
           import('./features/recipes/recipes.component').then((m) => m.RecipesComponent),
       },
       {
+        path: 'recipes/starter/:id',
+        loadComponent: () =>
+          import('./features/recipes/recipe-detail/recipe-detail.component').then(
+            (m) => m.RecipeDetailComponent
+          ),
+        data: { starterMode: true },
+      },
+      {
         path: 'recipes/new',
         loadComponent: () =>
           import('./features/recipes/recipe-form/recipe-form.component').then(

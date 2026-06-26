@@ -9,6 +9,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "generate:base-recipe-seed": "tsx scripts/generate-base-recipe-seed.mjs",
     "serve:ssr:food-web": "node dist/food-web/server/server.mjs"
   },
   "private": true,

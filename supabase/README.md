@@ -155,3 +155,83 @@ supabase functions deploy generate-ai-recipes
 ```
 
 3. Production (`useLocalApi: false`) requires this function and `OPENAI_API_KEY` for onboarding plan generation. Local dev (`useLocalApi: true`) uses a preference-aware mock generator instead.
+
+## Recipe images (Cloudflare R2)
+
+Recipe images are stored in Cloudflare R2 and served via a public custom domain. The Angular app only uses public image URLs — never R2 credentials.
+
+### Frontend configuration
+
+Set `recipeImagesBaseUrl` in `src/environments/environment.prod.ts` (no trailing slash):
+
+```ts
+recipeImagesBaseUrl: 'https://images.yourdomain.com',
+```
+
+When empty, the app uses the full `image_url` stored on each recipe row.
+
+### R2 object layout
+
+```txt
+recipe-images/base/{slug}.webp
+recipe-images/users/{userId}/{recipeId}/v{version}.webp
+recipe-images/placeholders/{mealType}.webp
+```
+
+### Automatic generation (user recipes)
+
+When a user creates a new recipe in production (`useLocalApi: false`), the app calls the `generate-recipe-image` edge function automatically. The function:
+
+1. Builds a branded prompt from recipe metadata
+2. Generates an image with OpenAI DALL-E 3
+3. Uploads PNG to R2
+4. Updates the recipe with `image_status = completed`
+
+Starter recipes copied from a template with an existing image inherit that image instead of regenerating.
+
+Deploy the function:
+
+```bash
+supabase functions deploy generate-recipe-image
+```
+
+Required secrets:
+
+```bash
+supabase secrets set OPENAI_API_KEY=...           # already used by other functions
+supabase secrets set R2_ACCOUNT_ID=...
+supabase secrets set R2_ACCESS_KEY_ID=...
+supabase secrets set R2_SECRET_ACCESS_KEY=...
+supabase secrets set R2_BUCKET_NAME=foodweb
+supabase secrets set R2_PUBLIC_BASE_URL=https://cdk.orlando-photo.com
+```
+
+Optional:
+
+```bash
+supabase secrets set OPENAI_IMAGE_MODEL=dall-e-3
+supabase secrets set OPENAI_IMAGE_SIZE=1024x1024
+```
+
+`R2_PUBLIC_BASE_URL` must match `recipeImagesBaseUrl` in `environment.prod.ts` (same domain, with `https://`, no trailing slash).
+
+Generation takes ~15–30 seconds. DALL-E 3 has a per-image cost.
+
+### Manual workflow (base/starter recipes)
+
+1. Generate an image externally using the brand prompt style (see `RecipeImagePromptBuilder` in the Angular app).
+2. Review and approve the image quality.
+3. Upload to R2 as `.webp` (via Cloudflare dashboard or `wrangler r2 object put`).
+4. Update the recipe row in Supabase (see `026_seed_base_recipe_images.sql` for an example `UPDATE`).
+
+### Edge function secrets reference
+
+All R2 and OpenAI secrets are server-side only — never add them to Angular environment files.
+
+### Migrations for recipe images
+
+| File | Purpose |
+|------|---------|
+| `018_recipe_image_url.sql` | Adds `image_url` column |
+| `025_recipe_image_metadata.sql` | Image status, storage key, prompt, provider fields |
+| `026_seed_base_recipe_images.sql` | Template for incremental base recipe image updates |

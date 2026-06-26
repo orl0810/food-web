@@ -2,6 +2,7 @@ import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { AppUser } from '../models/auth-user.model';
+import { RecipeImageMetadataUpdate } from '../models/recipe.model';
 
 const TOKEN_STORAGE_KEY = 'pantryflow_local_token';
 const USER_STORAGE_KEY = 'pantryflow_local_user';
@@ -132,6 +133,30 @@ export class LocalApiService {
     return response.data;
   }
 
+  async getBaseRecipes(): Promise<unknown[]> {
+    const response = await this.request<{ data: unknown[] }>('/recipes/base', {
+      method: 'GET',
+      auth: true,
+    });
+    return response.data;
+  }
+
+  async getBaseRecipe(id: string): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>(`/recipes/base/${id}`, {
+      method: 'GET',
+      auth: true,
+    });
+    return response.data;
+  }
+
+  async createRecipeFromTemplate(baseId: string): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>(`/recipes/from-template/${baseId}`, {
+      method: 'POST',
+      auth: true,
+    });
+    return response.data;
+  }
+
   async getRecipe(id: string): Promise<unknown> {
     const response = await this.request<{ data: unknown }>(`/recipes/${id}`, {
       method: 'GET',
@@ -170,6 +195,18 @@ export class LocalApiService {
       method: 'PATCH',
       auth: true,
       body: JSON.stringify({ rating }),
+    });
+    return response.data;
+  }
+
+  async updateRecipeImageMetadata(
+    id: string,
+    metadata: RecipeImageMetadataUpdate
+  ): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>(`/recipes/${id}/image-metadata`, {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify(metadata),
     });
     return response.data;
   }

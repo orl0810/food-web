@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
+import { allBaseRecipeSeeds } from '../supabase/seeds/base-recipes/index.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = join(__dirname, 'data', 'pantryflow.sqlite');
@@ -82,6 +83,124 @@ if (tableExists('recipes') && !tableHasColumn('recipes', 'image_url')) {
   db.exec('alter table recipes add column image_url text');
 }
 
+if (tableExists('recipes') && !tableHasColumn('recipes', 'image_status')) {
+  db.exec(`
+    alter table recipes add column image_status text not null default 'pending'
+      check (image_status in ('pending', 'generating', 'completed', 'failed'));
+    alter table recipes add column image_prompt text;
+    alter table recipes add column image_provider text;
+    alter table recipes add column image_version integer not null default 1;
+    alter table recipes add column image_generated_at text;
+    alter table recipes add column image_error text;
+    alter table recipes add column image_storage_provider text default 'cloudflare_r2';
+    alter table recipes add column image_storage_key text;
+  `);
+  db.exec(`
+    update recipes
+    set image_status = 'completed'
+    where image_url is not null and trim(image_url) <> '';
+  `);
+}
+
+if (tableExists('recipes') && !tableHasColumn('recipes', 'nutrition_calories')) {
+  db.exec(`
+    alter table recipes add column nutrition_calories real;
+    alter table recipes add column nutrition_fat_g real;
+    alter table recipes add column nutrition_cholesterol_mg real;
+    alter table recipes add column nutrition_protein_g real;
+    alter table recipes add column nutrition_sugar_g real;
+    alter table recipes add column nutrition_sodium_mg real;
+    alter table recipes add column nutrition_carbs_g real;
+    alter table recipes add column nutrition_fiber_g real;
+    alter table recipes add column nutrition_calculated_at text;
+  `);
+}
+
+if (tableExists('recipes') && !tableHasColumn('recipes', 'is_base_recipe')) {
+  db.exec(`
+    alter table recipes add column is_base_recipe integer not null default 0 check (is_base_recipe in (0, 1));
+    alter table recipes add column base_recipe_id text references recipes (id) on delete set null;
+    alter table recipes add column meal_type text check (meal_type in ('breakfast', 'lunch', 'dinner', 'snack'));
+    alter table recipes add column category text;
+    alter table recipes add column difficulty text check (difficulty in ('easy', 'medium', 'hard'));
+    alter table recipes add column cook_time_minutes integer;
+    alter table recipes add column instructions text not null default '[]';
+    alter table recipes add column updated_at text;
+    update recipes set updated_at = coalesce(created_at, datetime('now')) where updated_at is null;
+  `);
+}
+
+if (tableExists('recipes')) {
+  const userIdColumn = (
+    db.prepare('pragma table_info(recipes)').all() as { name: string; notnull: number }[]
+  ).find((column) => column.name === 'user_id');
+
+  if (userIdColumn?.notnull === 1) {
+    db.exec(`
+      pragma foreign_keys = off;
+      drop table if exists recipes_migrated;
+      create table recipes_migrated (
+        id text primary key,
+        user_id text references users (id) on delete cascade,
+        title text not null,
+        description text,
+        prep_time_minutes integer,
+        cook_time_minutes integer,
+        portions integer,
+        tags text not null default '[]',
+        rating integer check (rating is null or (rating >= 1 and rating <= 5)),
+        image_url text,
+        is_base_recipe integer not null default 0 check (is_base_recipe in (0, 1)),
+        base_recipe_id text references recipes_migrated (id) on delete set null,
+        meal_type text check (meal_type in ('breakfast', 'lunch', 'dinner', 'snack')),
+        category text,
+        difficulty text check (difficulty in ('easy', 'medium', 'hard')),
+        instructions text not null default '[]',
+        nutrition_calories real,
+        nutrition_fat_g real,
+        nutrition_cholesterol_mg real,
+        nutrition_protein_g real,
+        nutrition_sugar_g real,
+        nutrition_sodium_mg real,
+        nutrition_carbs_g real,
+        nutrition_fiber_g real,
+        nutrition_calculated_at text,
+        created_at text not null default (datetime('now')),
+        updated_at text not null default (datetime('now')),
+        check (
+          (is_base_recipe = 1 and user_id is null)
+          or (is_base_recipe = 0 and user_id is not null)
+        )
+      );
+      insert into recipes_migrated (
+        id, user_id, title, description, prep_time_minutes, cook_time_minutes, portions, tags,
+        rating, image_url, is_base_recipe, base_recipe_id, meal_type, category, difficulty,
+        instructions, nutrition_calories, nutrition_fat_g, nutrition_cholesterol_mg,
+        nutrition_protein_g, nutrition_sugar_g, nutrition_sodium_mg, nutrition_carbs_g,
+        nutrition_fiber_g, nutrition_calculated_at, created_at, updated_at
+      )
+      select
+        id, user_id, title, description, prep_time_minutes, cook_time_minutes, portions, tags,
+        rating, image_url,
+        coalesce(is_base_recipe, 0), base_recipe_id, meal_type, category, difficulty,
+        coalesce(instructions, '[]'),
+        nutrition_calories, nutrition_fat_g, nutrition_cholesterol_mg,
+        nutrition_protein_g, nutrition_sugar_g, nutrition_sodium_mg, nutrition_carbs_g,
+        nutrition_fiber_g, nutrition_calculated_at, created_at,
+        coalesce(created_at, datetime('now'))
+      from recipes;
+      drop table recipes;
+      alter table recipes_migrated rename to recipes;
+      create index if not exists recipes_user_id_idx on recipes (user_id);
+      create index if not exists recipes_is_base_recipe_idx on recipes (is_base_recipe);
+      create index if not exists recipes_meal_type_idx on recipes (meal_type);
+      create index if not exists recipes_category_idx on recipes (category);
+      create index if not exists recipes_base_recipe_id_idx on recipes (base_recipe_id);
+      pragma foreign_keys = on;
+    `);
+  }
+}
+
 if (tableExists('user_food_profiles') && !tableHasColumn('user_food_profiles', 'onboarding_status')) {
   db.exec(`
     alter table user_food_profiles add column onboarding_status text not null default 'pending';
@@ -100,6 +219,72 @@ db.exec(schema);
 
 const iconMigration = readFileSync(join(__dirname, 'migrate-icons.sql'), 'utf8');
 db.exec(iconMigration);
+
+function seedBaseRecipesIfNeeded(): void {
+  if (!tableExists('recipes')) {
+    return;
+  }
+
+  const baseCount = db
+    .prepare('select count(*) as count from recipes where is_base_recipe = 1')
+    .get() as { count: number };
+
+  if (baseCount.count >= allBaseRecipeSeeds.length) {
+    return;
+  }
+
+  const insertRecipe = db.prepare(`
+    insert or ignore into recipes (
+      id, user_id, title, description, prep_time_minutes, cook_time_minutes, portions, tags,
+      image_url, image_status, image_prompt, image_storage_provider, image_storage_key,
+      is_base_recipe, meal_type, category, difficulty, instructions
+    ) values (?, null, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+  `);
+  const insertIngredient = db.prepare(`
+    insert or ignore into recipe_ingredients (id, recipe_id, name, quantity, unit)
+    values (?, ?, ?, ?, ?)
+  `);
+
+  const seedAll = db.transaction(() => {
+    for (const recipe of allBaseRecipeSeeds) {
+      insertRecipe.run(
+        recipe.id,
+        recipe.title,
+        recipe.description,
+        recipe.prep_time_minutes,
+        recipe.cook_time_minutes,
+        recipe.portions,
+        JSON.stringify(recipe.tags),
+        recipe.image_url ?? null,
+        recipe.image_status ?? 'pending',
+        recipe.image_prompt ?? null,
+        recipe.image_storage_provider ?? 'cloudflare_r2',
+        recipe.image_storage_key ?? null,
+        recipe.meal_type,
+        recipe.category,
+        recipe.difficulty,
+        JSON.stringify(recipe.instructions)
+      );
+
+      recipe.ingredients.forEach((ingredient) => {
+        if (!ingredient.id) {
+          throw new Error(`Missing ingredient id for ${recipe.title}`);
+        }
+        insertIngredient.run(
+          ingredient.id,
+          recipe.id,
+          ingredient.name,
+          ingredient.quantity ?? null,
+          ingredient.unit ?? null
+        );
+      });
+    }
+  });
+
+  seedAll();
+}
+
+seedBaseRecipesIfNeeded();
 
 const DEV_USER_ID = '00000000-0000-4000-8000-000000000001';
 

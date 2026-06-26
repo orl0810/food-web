@@ -1,4 +1,5 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { TitleCasePipe } from '@angular/common';
 import {
   FormArray,
   FormBuilder,
@@ -16,9 +17,12 @@ import {
   FOOD_UNITS,
 } from '../../../core/models/food-item.model';
 import {
+  RecipeDifficulty,
   RecipeIngredientInput,
   RecipeInput,
+  RECIPE_CATEGORIES,
 } from '../../../core/models/recipe.model';
+import { MEAL_TYPES, MEAL_TYPE_LABELS, MealType } from '../../../core/models/meal-plan.model';
 import { SearchSelectOption } from '../../../core/models/search-select-option.model';
 import { FoodCatalogService } from '../../../core/services/food-catalog.service';
 import { FoodIconService } from '../../../core/services/food-icon.service';
@@ -45,6 +49,7 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
     FoodIconBadgeComponent,
     SearchSelectComponent,
     FormatTagPipe,
+    TitleCasePipe,
   ],
   template: `
     @if (loading()) {
@@ -101,6 +106,19 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
               />
             </div>
             <div>
+              <label for="cook_time_minutes" class="mb-1 block text-sm font-medium text-stone-700">
+                Cook time (minutes)
+              </label>
+              <input
+                id="cook_time_minutes"
+                type="number"
+                min="0"
+                step="1"
+                formControlName="cook_time_minutes"
+                class="input"
+              />
+            </div>
+            <div>
               <label for="portions" class="mb-1 block text-sm font-medium text-stone-700">Portions</label>
               <input
                 id="portions"
@@ -111,7 +129,68 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
                 class="input"
               />
             </div>
+            <div>
+              <label for="meal_type" class="mb-1 block text-sm font-medium text-stone-700">Meal type</label>
+              <select id="meal_type" formControlName="meal_type" class="input">
+                <option value="">—</option>
+                @for (mealType of mealTypes; track mealType) {
+                  <option [value]="mealType">{{ mealTypeLabels[mealType] }}</option>
+                }
+              </select>
+            </div>
+            <div>
+              <label for="category" class="mb-1 block text-sm font-medium text-stone-700">Category</label>
+              <select id="category" formControlName="category" class="input">
+                <option value="">—</option>
+                @for (category of recipeCategories; track category) {
+                  <option [value]="category">{{ category }}</option>
+                }
+              </select>
+            </div>
+            <div>
+              <label for="difficulty" class="mb-1 block text-sm font-medium text-stone-700">Difficulty</label>
+              <select id="difficulty" formControlName="difficulty" class="input">
+                <option value="">—</option>
+                @for (level of difficultyLevels; track level) {
+                  <option [value]="level">{{ level | titlecase }}</option>
+                }
+              </select>
+            </div>
           </div>
+        </section>
+
+        <section class="card space-y-3 p-5">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="section-title">Instructions</h2>
+            <button type="button" class="btn-secondary-sm" (click)="addInstructionStep()">
+              Add step
+            </button>
+          </div>
+          @if (instructions.length === 0) {
+            <p class="text-sm text-stone-500">No steps yet. Add simple cooking instructions.</p>
+          } @else {
+            <div class="space-y-3" formArrayName="instructions">
+              @for (step of instructions.controls; track step; let i = $index) {
+                <div class="flex gap-2" [formGroupName]="i">
+                  <span class="mt-2.5 shrink-0 text-sm font-medium text-stone-500">{{ i + 1 }}.</span>
+                  <textarea
+                    rows="2"
+                    formControlName="text"
+                    class="input flex-1"
+                    placeholder="Describe this step..."
+                  ></textarea>
+                  <button
+                    type="button"
+                    class="shrink-0 self-start rounded-lg border border-stone-300 px-2 py-1 text-sm text-stone-600 hover:bg-stone-50"
+                    aria-label="Remove step"
+                    (click)="removeInstructionStep(i)"
+                  >
+                    &times;
+                  </button>
+                </div>
+              }
+            </div>
+          }
         </section>
 
         <section class="card space-y-3 p-5">
@@ -339,7 +418,7 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
             class="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
             [disabled]="form.invalid || saving()"
           >
-            {{ saving() ? 'Saving...' : isEdit() ? 'Save changes' : 'Create recipe' }}
+            {{ saving() ? (isEdit() ? 'Saving...' : 'Calculating nutrition...') : isEdit() ? 'Save changes' : 'Create recipe' }}
           </button>
         </div>
       </form>
@@ -367,6 +446,12 @@ export class RecipeFormComponent implements OnInit {
   readonly unitOther = FOOD_UNIT_OTHER;
 
   private recipeId: string | null = null;
+  private baseRecipeId: string | null = null;
+
+  readonly mealTypes = MEAL_TYPES;
+  readonly mealTypeLabels = MEAL_TYPE_LABELS;
+  readonly recipeCategories = RECIPE_CATEGORIES;
+  readonly difficultyLevels: RecipeDifficulty[] = ['easy', 'medium', 'hard'];
 
   readonly ingredientOptions = computed<SearchSelectOption[]>(() => {
     this.foodItemHistoryService.history();
@@ -397,8 +482,13 @@ export class RecipeFormComponent implements OnInit {
     title: ['', Validators.required],
     description: [''],
     prep_time_minutes: [null as number | null],
+    cook_time_minutes: [null as number | null],
     portions: [null as number | null],
+    meal_type: ['' as MealType | ''],
+    category: [''],
+    difficulty: ['' as RecipeDifficulty | ''],
     ingredients: this.fb.array<FormGroup>([]),
+    instructions: this.fb.array<FormGroup>([]),
   });
 
   readonly draftForm = this.fb.group({
@@ -419,6 +509,10 @@ export class RecipeFormComponent implements OnInit {
 
   get ingredients(): FormArray<FormGroup> {
     return this.form.controls.ingredients;
+  }
+
+  get instructions(): FormArray<FormGroup> {
+    return this.form.controls.instructions;
   }
 
   isEdit(): boolean {
@@ -452,15 +546,24 @@ export class RecipeFormComponent implements OnInit {
       title: recipe.title,
       description: recipe.description ?? '',
       prep_time_minutes: recipe.prep_time_minutes,
+      cook_time_minutes: recipe.cook_time_minutes,
       portions: recipe.portions,
+      meal_type: recipe.meal_type ?? '',
+      category: recipe.category ?? '',
+      difficulty: recipe.difficulty ?? '',
     });
     this.tags.set([...recipe.tags]);
+    this.baseRecipeId = recipe.base_recipe_id;
 
     const ingredients = recipe.ingredients ?? [];
     for (const ingredient of ingredients) {
       this.ingredients.push(
         this.buildIngredientGroup(ingredient.name, ingredient.quantity, ingredient.unit)
       );
+    }
+
+    for (const step of recipe.instructions ?? []) {
+      this.instructions.push(this.buildInstructionGroup(step));
     }
   }
 
@@ -591,6 +694,14 @@ export class RecipeFormComponent implements OnInit {
     this.tags.update((tags) => tags.filter((existing) => existing !== tag));
   }
 
+  addInstructionStep(text = ''): void {
+    this.instructions.push(this.buildInstructionGroup(text));
+  }
+
+  removeInstructionStep(index: number): void {
+    this.instructions.removeAt(index);
+  }
+
   async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -605,8 +716,16 @@ export class RecipeFormComponent implements OnInit {
       title: value.title!.trim(),
       description: value.description?.trim() || null,
       prep_time_minutes: this.toNumberOrNull(value.prep_time_minutes),
+      cook_time_minutes: this.toNumberOrNull(value.cook_time_minutes),
       portions: this.toNumberOrNull(value.portions),
       tags: this.tags(),
+      base_recipe_id: this.baseRecipeId,
+      meal_type: value.meal_type || null,
+      category: value.category?.trim() || null,
+      difficulty: value.difficulty || null,
+      instructions: this.instructions.controls
+        .map((group) => String(group.get('text')?.value ?? '').trim())
+        .filter((step) => step.length > 0),
     };
 
     const ingredients: RecipeIngredientInput[] = this.ingredients.controls
@@ -637,6 +756,12 @@ export class RecipeFormComponent implements OnInit {
     }
 
     await this.router.navigate(['/recipes', result.recipe.id]);
+  }
+
+  private buildInstructionGroup(text = ''): FormGroup {
+    return this.fb.group({
+      text: [text],
+    });
   }
 
   private buildIngredientGroup(

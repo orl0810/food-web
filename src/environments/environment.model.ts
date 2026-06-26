@@ -11,4 +11,6 @@ export interface Environment {
   supabaseAnonKey: string;
   /** Base app URL for auth redirects (no trailing slash). Falls back to window.location.origin in the browser. */
   authSiteUrl: string;
+  /** Public CDN/custom domain for recipe images (no trailing slash). Empty = use image_url as-is. */
+  recipeImagesBaseUrl: string;
 }

@@ -74,18 +74,51 @@ where fi.id = (
 
 create table if not exists recipes (
   id text primary key,
-  user_id text not null references users (id) on delete cascade,
+  user_id text references users (id) on delete cascade,
   title text not null,
   description text,
   prep_time_minutes integer,
+  cook_time_minutes integer,
   portions integer,
   tags text not null default '[]',
   rating integer check (rating is null or (rating >= 1 and rating <= 5)),
   image_url text,
-  created_at text not null default (datetime('now'))
+  image_status text not null default 'pending' check (image_status in ('pending', 'generating', 'completed', 'failed')),
+  image_prompt text,
+  image_provider text,
+  image_version integer not null default 1,
+  image_generated_at text,
+  image_error text,
+  image_storage_provider text default 'cloudflare_r2',
+  image_storage_key text,
+  is_base_recipe integer not null default 0 check (is_base_recipe in (0, 1)),
+  base_recipe_id text references recipes (id) on delete set null,
+  meal_type text check (meal_type in ('breakfast', 'lunch', 'dinner', 'snack')),
+  category text,
+  difficulty text check (difficulty in ('easy', 'medium', 'hard')),
+  instructions text not null default '[]',
+  nutrition_calories real,
+  nutrition_fat_g real,
+  nutrition_cholesterol_mg real,
+  nutrition_protein_g real,
+  nutrition_sugar_g real,
+  nutrition_sodium_mg real,
+  nutrition_carbs_g real,
+  nutrition_fiber_g real,
+  nutrition_calculated_at text,
+  created_at text not null default (datetime('now')),
+  updated_at text not null default (datetime('now')),
+  check (
+    (is_base_recipe = 1 and user_id is null)
+    or (is_base_recipe = 0 and user_id is not null)
+  )
 );
 
 create index if not exists recipes_user_id_idx on recipes (user_id);
+create index if not exists recipes_is_base_recipe_idx on recipes (is_base_recipe);
+create index if not exists recipes_meal_type_idx on recipes (meal_type);
+create index if not exists recipes_category_idx on recipes (category);
+create index if not exists recipes_base_recipe_id_idx on recipes (base_recipe_id);
 
 create table if not exists recipe_ingredients (
   id text primary key,

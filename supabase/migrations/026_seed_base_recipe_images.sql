@@ -1,0 +1,13 @@
+-- PantryFlow: incremental base recipe image updates
+-- Apply after uploading approved images to Cloudflare R2.
+-- Replace YOUR_PUBLIC_BASE_URL with your R2 custom domain (e.g. https://images.myapp.com).
+
+-- Example: Classic Oatmeal Bowl
+-- update public.recipes
+-- set
+--   image_url = 'https://YOUR_PUBLIC_BASE_URL/recipe-images/base/classic-oatmeal-bowl.webp',
+--   image_status = 'completed',
+--   image_storage_provider = 'cloudflare_r2',
+--   image_storage_key = 'recipe-images/base/classic-oatmeal-bowl.webp',
+--   image_generated_at = now()
+-- where id = '00000000-0000-4000-8000-000100010000';

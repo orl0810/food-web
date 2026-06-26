@@ -79,16 +79,49 @@ function upsertFoodItemHistory(userId: string, payload: FoodItemHistoryPayload):
 
 interface RecipeRow {
   id: string;
-  user_id: string;
+  user_id: string | null;
   title: string;
   description: string | null;
   prep_time_minutes: number | null;
+  cook_time_minutes: number | null;
   portions: number | null;
   tags: string;
   rating: number | null;
   image_url: string | null;
+  image_status: string;
+  image_prompt: string | null;
+  image_provider: string | null;
+  image_version: number;
+  image_generated_at: string | null;
+  image_error: string | null;
+  image_storage_provider: string | null;
+  image_storage_key: string | null;
+  is_base_recipe: number;
+  base_recipe_id: string | null;
+  meal_type: string | null;
+  category: string | null;
+  difficulty: string | null;
+  instructions: string;
+  nutrition_calories: number | null;
+  nutrition_fat_g: number | null;
+  nutrition_cholesterol_mg: number | null;
+  nutrition_protein_g: number | null;
+  nutrition_sugar_g: number | null;
+  nutrition_sodium_mg: number | null;
+  nutrition_carbs_g: number | null;
+  nutrition_fiber_g: number | null;
+  nutrition_calculated_at: string | null;
   created_at: string;
+  updated_at: string | null;
 }
+
+const RECIPE_SELECT = `id, user_id, title, description, prep_time_minutes, cook_time_minutes, portions, tags,
+  rating, image_url, image_status, image_prompt, image_provider, image_version, image_generated_at,
+  image_error, image_storage_provider, image_storage_key,
+  is_base_recipe, base_recipe_id, meal_type, category, difficulty, instructions,
+  nutrition_calories, nutrition_fat_g, nutrition_cholesterol_mg, nutrition_protein_g,
+  nutrition_sugar_g, nutrition_sodium_mg, nutrition_carbs_g, nutrition_fiber_g,
+  nutrition_calculated_at, created_at, updated_at`;
 
 function parseRecipeRating(value: unknown): number | null {
   if (value === null || value === undefined) {
@@ -131,6 +164,18 @@ function normalizeTags(value: unknown): string[] {
   return [...tags];
 }
 
+function parseJsonArray(value: string | null | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
 function serializeRecipe(row: RecipeRow) {
   const ingredients = db
     .prepare(
@@ -141,25 +186,33 @@ function serializeRecipe(row: RecipeRow) {
     )
     .all(row.id);
 
-  let tags: string[] = [];
-  try {
-    const parsed = JSON.parse(row.tags ?? '[]');
-    tags = Array.isArray(parsed) ? parsed : [];
-  } catch {
-    tags = [];
-  }
-
-  return { ...row, tags, ingredients };
+  return {
+    ...row,
+    is_base_recipe: row.is_base_recipe === 1,
+    tags: parseJsonArray(row.tags),
+    instructions: parseJsonArray(row.instructions),
+    ingredients,
+  };
 }
 
 function getRecipeRow(id: string, userId: string): RecipeRow | undefined {
   return db
     .prepare(
-      `select id, user_id, title, description, prep_time_minutes, portions, tags, rating, image_url, created_at
+      `select ${RECIPE_SELECT}
        from recipes
-       where id = ? and user_id = ?`
+       where id = ? and user_id = ? and is_base_recipe = 0`
     )
     .get(id, userId) as RecipeRow | undefined;
+}
+
+function getBaseRecipeRow(id: string): RecipeRow | undefined {
+  return db
+    .prepare(
+      `select ${RECIPE_SELECT}
+       from recipes
+       where id = ? and is_base_recipe = 1`
+    )
+    .get(id) as RecipeRow | undefined;
 }
 
 interface MealPlanItemRow {
@@ -598,12 +651,94 @@ app.delete('/food-items/:id', authMiddleware, (req: AuthenticatedRequest, res) =
   res.status(204).send();
 });
 
+app.get('/recipes/base', authMiddleware, (_req: AuthenticatedRequest, res) => {
+  const rows = db
+    .prepare(
+      `select ${RECIPE_SELECT}
+       from recipes
+       where is_base_recipe = 1
+       order by meal_type asc, title asc`
+    )
+    .all() as RecipeRow[];
+
+  res.json({ data: rows.map(serializeRecipe) });
+});
+
+app.get('/recipes/base/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const row = getBaseRecipeRow(req.params['id']!);
+
+  if (!row) {
+    res.status(404).json({ error: 'Starter recipe not found.' });
+    return;
+  }
+
+  res.json({ data: serializeRecipe(row) });
+});
+
+app.post('/recipes/from-template/:baseId', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const base = getBaseRecipeRow(req.params['baseId']!);
+  if (!base) {
+    res.status(404).json({ error: 'Starter recipe not found.' });
+    return;
+  }
+
+  const id = crypto.randomUUID();
+  db.prepare(
+    `insert into recipes (
+      id, user_id, title, description, prep_time_minutes, cook_time_minutes, portions, tags,
+      image_url, image_status, image_prompt, image_provider, image_version, image_generated_at,
+      image_error, image_storage_provider, image_storage_key,
+      is_base_recipe, base_recipe_id, meal_type, category, difficulty, instructions
+    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    req.userId,
+    base.title,
+    base.description,
+    base.prep_time_minutes,
+    base.cook_time_minutes,
+    base.portions,
+    base.tags,
+    base.image_url,
+    base.image_status,
+    base.image_prompt,
+    base.image_provider,
+    base.image_version,
+    base.image_generated_at,
+    base.image_error,
+    base.image_storage_provider,
+    base.image_storage_key,
+    base.id,
+    base.meal_type,
+    base.category,
+    base.difficulty,
+    base.instructions
+  );
+
+  const baseIngredients = db
+    .prepare(
+      `select name, quantity, unit from recipe_ingredients where recipe_id = ? order by name asc`
+    )
+    .all(base.id) as { name: string; quantity: number | null; unit: string | null }[];
+
+  replaceRecipeIngredients(
+    id,
+    baseIngredients.map((ingredient) => ({
+      name: ingredient.name,
+      quantity: ingredient.quantity,
+      unit: ingredient.unit,
+    }))
+  );
+
+  res.status(201).json({ data: serializeRecipe(getRecipeRow(id, req.userId!)!) });
+});
+
 app.get('/recipes', authMiddleware, (req: AuthenticatedRequest, res) => {
   const rows = db
     .prepare(
-      `select id, user_id, title, description, prep_time_minutes, portions, tags, rating, image_url, created_at
+      `select ${RECIPE_SELECT}
        from recipes
-       where user_id = ?
+       where user_id = ? and is_base_recipe = 0
        order by created_at desc`
     )
     .all(req.userId) as RecipeRow[];
@@ -632,13 +767,39 @@ app.post('/recipes', authMiddleware, (req: AuthenticatedRequest, res) => {
   const id = crypto.randomUUID();
   const description = req.body?.description?.trim?.() || null;
   const prep_time_minutes = toIntOrNull(req.body?.prep_time_minutes);
+  const cook_time_minutes = toIntOrNull(req.body?.cook_time_minutes);
   const portions = toIntOrNull(req.body?.portions);
   const tags = JSON.stringify(normalizeTags(req.body?.tags));
+  const base_recipe_id = req.body?.base_recipe_id?.trim?.() || null;
+  const meal_type = req.body?.meal_type?.trim?.() || null;
+  const category = req.body?.category?.trim?.() || null;
+  const difficulty = req.body?.difficulty?.trim?.() || null;
+  const instructions = JSON.stringify(
+    Array.isArray(req.body?.instructions)
+      ? req.body.instructions.map((step: unknown) => String(step).trim()).filter(Boolean)
+      : []
+  );
 
   db.prepare(
-    `insert into recipes (id, user_id, title, description, prep_time_minutes, portions, tags)
-     values (?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, req.userId, title, description, prep_time_minutes, portions, tags);
+    `insert into recipes (
+      id, user_id, title, description, prep_time_minutes, cook_time_minutes, portions, tags,
+      is_base_recipe, base_recipe_id, meal_type, category, difficulty, instructions
+    ) values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    req.userId,
+    title,
+    description,
+    prep_time_minutes,
+    cook_time_minutes,
+    portions,
+    tags,
+    base_recipe_id,
+    meal_type,
+    category,
+    difficulty,
+    instructions
+  );
 
   replaceRecipeIngredients(id, req.body?.ingredients);
 
@@ -660,14 +821,37 @@ app.put('/recipes/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
 
   const description = req.body?.description?.trim?.() || null;
   const prep_time_minutes = toIntOrNull(req.body?.prep_time_minutes);
+  const cook_time_minutes = toIntOrNull(req.body?.cook_time_minutes);
   const portions = toIntOrNull(req.body?.portions);
   const tags = JSON.stringify(normalizeTags(req.body?.tags));
+  const meal_type = req.body?.meal_type?.trim?.() || null;
+  const category = req.body?.category?.trim?.() || null;
+  const difficulty = req.body?.difficulty?.trim?.() || null;
+  const instructions = JSON.stringify(
+    Array.isArray(req.body?.instructions)
+      ? req.body.instructions.map((step: unknown) => String(step).trim()).filter(Boolean)
+      : []
+  );
 
   db.prepare(
     `update recipes
-     set title = ?, description = ?, prep_time_minutes = ?, portions = ?, tags = ?
-     where id = ? and user_id = ?`
-  ).run(title, description, prep_time_minutes, portions, tags, req.params['id'], req.userId);
+     set title = ?, description = ?, prep_time_minutes = ?, cook_time_minutes = ?, portions = ?, tags = ?,
+         meal_type = ?, category = ?, difficulty = ?, instructions = ?, updated_at = datetime('now')
+     where id = ? and user_id = ? and is_base_recipe = 0`
+  ).run(
+    title,
+    description,
+    prep_time_minutes,
+    cook_time_minutes,
+    portions,
+    tags,
+    meal_type,
+    category,
+    difficulty,
+    instructions,
+    req.params['id'],
+    req.userId
+  );
 
   replaceRecipeIngredients(req.params['id']!, req.body?.ingredients);
 
@@ -676,7 +860,7 @@ app.put('/recipes/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
 
 app.delete('/recipes/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
   const result = db
-    .prepare('delete from recipes where id = ? and user_id = ?')
+    .prepare('delete from recipes where id = ? and user_id = ? and is_base_recipe = 0')
     .run(req.params['id'], req.userId);
 
   if (result.changes === 0) {
@@ -702,6 +886,65 @@ app.patch('/recipes/:id/rating', authMiddleware, (req: AuthenticatedRequest, res
 
   db.prepare('update recipes set rating = ? where id = ? and user_id = ?').run(
     rating,
+    req.params['id'],
+    req.userId
+  );
+
+  res.json({ data: serializeRecipe(getRecipeRow(req.params['id']!, req.userId!)!) });
+});
+
+app.patch('/recipes/:id/image-metadata', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const existing = getRecipeRow(req.params['id']!, req.userId!);
+  if (!existing) {
+    res.status(404).json({ error: 'Recipe not found.' });
+    return;
+  }
+
+  const image_url =
+    req.body?.image_url === null || req.body?.image_url === undefined
+      ? existing.image_url
+      : String(req.body.image_url).trim() || null;
+  const image_status =
+    typeof req.body?.image_status === 'string' ? req.body.image_status : existing.image_status;
+  const image_prompt =
+    req.body?.image_prompt === undefined ? existing.image_prompt : req.body.image_prompt;
+  const image_provider =
+    req.body?.image_provider === undefined ? existing.image_provider : req.body.image_provider;
+  const image_version =
+    req.body?.image_version === undefined
+      ? existing.image_version
+      : toIntOrNull(req.body.image_version) ?? existing.image_version;
+  const image_generated_at =
+    req.body?.image_generated_at === undefined
+      ? existing.image_generated_at
+      : req.body.image_generated_at;
+  const image_error =
+    req.body?.image_error === undefined ? existing.image_error : req.body.image_error;
+  const image_storage_provider =
+    req.body?.image_storage_provider === undefined
+      ? existing.image_storage_provider
+      : req.body.image_storage_provider;
+  const image_storage_key =
+    req.body?.image_storage_key === undefined
+      ? existing.image_storage_key
+      : req.body.image_storage_key;
+
+  db.prepare(
+    `update recipes
+     set image_url = ?, image_status = ?, image_prompt = ?, image_provider = ?,
+         image_version = ?, image_generated_at = ?, image_error = ?,
+         image_storage_provider = ?, image_storage_key = ?, updated_at = datetime('now')
+     where id = ? and user_id = ? and is_base_recipe = 0`
+  ).run(
+    image_url,
+    image_status,
+    image_prompt,
+    image_provider,
+    image_version,
+    image_generated_at,
+    image_error,
+    image_storage_provider,
+    image_storage_key,
     req.params['id'],
     req.userId
   );
