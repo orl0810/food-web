@@ -22,8 +22,9 @@ import { createClient } from '@supabase/supabase-js';
 import { AwsClient } from 'aws4fetch';
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'dall-e-3';
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1-mini';
 const OPENAI_IMAGE_SIZE = process.env.OPENAI_IMAGE_SIZE || '1024x1024';
+const OPENAI_IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY || 'medium';
 
 function requireEnv(name) {
   const value = process.env[name]?.trim();
@@ -134,19 +135,26 @@ async function estimateNutrition(openAiApiKey, recipe, ingredients) {
 }
 
 async function generateImage(openAiApiKey, prompt) {
+  const isGptImageModel = OPENAI_IMAGE_MODEL.startsWith('gpt-image');
+  const requestBody = {
+    model: OPENAI_IMAGE_MODEL,
+    prompt,
+    n: 1,
+    size: OPENAI_IMAGE_SIZE,
+    ...(isGptImageModel
+      ? { quality: OPENAI_IMAGE_QUALITY }
+      : OPENAI_IMAGE_MODEL === 'dall-e-2'
+        ? { response_format: 'b64_json' }
+        : {}),
+  };
+
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${openAiApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: OPENAI_IMAGE_MODEL,
-      prompt,
-      n: 1,
-      size: OPENAI_IMAGE_SIZE,
-      response_format: 'b64_json',
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
@@ -154,12 +162,22 @@ async function generateImage(openAiApiKey, prompt) {
   }
 
   const payload = await response.json();
-  const b64 = payload?.data?.[0]?.b64_json;
-  if (!b64) {
-    throw new Error('OpenAI image response missing image data');
+  const item = payload?.data?.[0];
+  const b64 = item?.b64_json;
+  if (typeof b64 === 'string' && b64) {
+    return Uint8Array.from(atob(b64), (char) => char.charCodeAt(0));
   }
 
-  return Uint8Array.from(atob(b64), (char) => char.charCodeAt(0));
+  const imageUrl = item?.url;
+  if (typeof imageUrl === 'string' && imageUrl) {
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error('Could not download generated image');
+    }
+    return new Uint8Array(await imageResponse.arrayBuffer());
+  }
+
+  throw new Error('OpenAI image response missing image data');
 }
 
 async function uploadToR2(storageKey, body, r2Config) {

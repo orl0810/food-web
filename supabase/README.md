@@ -183,8 +183,8 @@ recipe-images/placeholders/{mealType}.webp
 When a user creates a new recipe in production (`useLocalApi: false`), the app calls the `generate-recipe-image` edge function automatically. The function:
 
 1. Builds a branded prompt from recipe metadata
-2. Generates an image with OpenAI DALL-E 3
-3. Uploads PNG to R2
+2. Generates an image with OpenAI GPT Image (`gpt-image-1-mini` by default)
+3. Uploads PNG to Supabase Storage (`recipe-images` bucket)
 4. Updates the recipe with `image_status = completed`
 
 Starter recipes copied from a template with an existing image inherit that image instead of regenerating.
@@ -199,21 +199,19 @@ Required secrets:
 
 ```bash
 supabase secrets set OPENAI_API_KEY=...           # already used by other functions
-supabase secrets set R2_ACCOUNT_ID=...
-supabase secrets set R2_ACCESS_KEY_ID=...
-supabase secrets set R2_SECRET_ACCESS_KEY=...
-supabase secrets set R2_BUCKET_NAME=foodweb
-supabase secrets set R2_PUBLIC_BASE_URL=https://cdk.orlando-photo.com
 ```
 
 Optional:
 
 ```bash
-supabase secrets set OPENAI_IMAGE_MODEL=dall-e-3
+supabase secrets set OPENAI_IMAGE_MODEL=gpt-image-1-mini   # or gpt-image-1, gpt-image-2
 supabase secrets set OPENAI_IMAGE_SIZE=1024x1024
+supabase secrets set OPENAI_IMAGE_QUALITY=medium           # low, medium, or high
 ```
 
-`R2_PUBLIC_BASE_URL` must match `recipeImagesBaseUrl` in `environment.prod.ts` (same domain, with `https://`, no trailing slash).
+GPT Image models replaced DALL-E 2/3 (retired May 2026). Your OpenAI organization may need [API verification](https://platform.openai.com/settings/organization/general) before image generation works.
+
+R2 secrets are only needed for manually uploaded base/starter recipe images (see manual workflow below).
 
 Generation takes ~15–30 seconds. DALL-E 3 has a per-image cost.
 

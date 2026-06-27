@@ -1,0 +1,11 @@
+node_modules
+.angular
+.git
+local-api
+supabase
+dist
+scripts
+.cursor
+coverage
+*.sqlite
+*.sqlite3

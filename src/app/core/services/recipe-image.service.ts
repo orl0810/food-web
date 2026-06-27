@@ -8,6 +8,7 @@ interface GenerateRecipeImageResponse {
   image_url?: string;
   image_status?: string;
   error?: string;
+  message?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -69,28 +70,37 @@ export class RecipeImageService {
       };
     }
 
-    try {
-      const { data, error } = await client.functions.invoke<GenerateRecipeImageResponse>(
-        'generate-recipe-image',
-        {
-          body: { recipeId, regenerate },
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+    const supabaseUrl = environment.supabaseUrl.replace(/\/+$/, '');
+    const anonKey = environment.supabaseAnonKey;
 
-      if (error) {
-        return { image_url: null, image_status: null, error: error.message };
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-recipe-image`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: anonKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ recipeId, regenerate }),
+      });
+
+      const body = (await response.json().catch(() => ({}))) as GenerateRecipeImageResponse;
+
+      if (!response.ok) {
+        return {
+          image_url: null,
+          image_status: null,
+          error: this.resolveResponseError(body, response.status),
+        };
       }
 
-      if (data?.error) {
-        return { image_url: null, image_status: null, error: data.error };
+      if (body.error) {
+        return { image_url: null, image_status: null, error: body.error };
       }
 
       return {
-        image_url: data?.image_url ?? null,
-        image_status: data?.image_status ?? null,
+        image_url: body.image_url ?? null,
+        image_status: body.image_status ?? null,
         error: null,
       };
     } catch (error) {
@@ -100,5 +110,17 @@ export class RecipeImageService {
           : 'Could not request recipe image generation right now.';
       return { image_url: null, image_status: null, error: message };
     }
+  }
+
+  private resolveResponseError(body: GenerateRecipeImageResponse, status: number): string {
+    if (typeof body.error === 'string' && body.error.trim()) {
+      return body.error.trim();
+    }
+
+    if (typeof body.message === 'string' && body.message.trim()) {
+      return body.message.trim();
+    }
+
+    return `Could not generate recipe image right now (${status}).`;
   }
 }

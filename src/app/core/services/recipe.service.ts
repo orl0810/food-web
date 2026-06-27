@@ -453,8 +453,31 @@ export class RecipeService {
       : await this.recipeImageService.requestRecipeImageGeneration(recipeId);
 
     if (error) {
-      await this.markRecipeImageAsFailed(recipeId, error);
-      return { error };
+      const { recipe } = await this.getRecipeById(recipeId);
+      const dbError = recipe?.image_error?.trim();
+      const apiError = error.trim();
+
+      if (apiError) {
+        if (
+          !dbError ||
+          dbError.includes('non-2xx') ||
+          dbError === apiError
+        ) {
+          if (recipe?.image_status !== 'failed' || recipe.image_error !== apiError) {
+            await this.markRecipeImageAsFailed(recipeId, apiError);
+          }
+          await this.loadRecipes();
+          return { error: apiError };
+        }
+      }
+
+      if (recipe?.image_status === 'failed' && dbError) {
+        await this.loadRecipes();
+        return { error: dbError };
+      }
+
+      await this.markRecipeImageAsFailed(recipeId, apiError || 'Could not generate recipe image.');
+      return { error: apiError || 'Could not generate recipe image.' };
     }
 
     await this.loadRecipes();

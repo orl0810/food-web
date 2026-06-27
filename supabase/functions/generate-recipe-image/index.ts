@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
-import { AwsClient } from 'https://esm.sh/aws4fetch@1.0.20';
 import { buildRecipeImagePrompt } from './prompt.ts';
 
 interface GenerateRecipeImageRequest {
@@ -30,8 +29,9 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const defaultImageModel = 'dall-e-3';
+const defaultImageModel = 'gpt-image-1-mini';
 const defaultImageSize = '1024x1024';
+const defaultImageQuality = 'medium';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -64,6 +64,7 @@ serve(async (req) => {
 
     const supabaseUrl = requireEnv('SUPABASE_URL');
     const supabaseAnonKey = requireEnv('SUPABASE_ANON_KEY');
+    const serviceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
@@ -71,6 +72,7 @@ serve(async (req) => {
         },
       },
     });
+    const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) {
@@ -92,6 +94,10 @@ serve(async (req) => {
 
     const recipeRow = recipe as RecipeRow;
 
+    if (recipeRow.user_id !== userId) {
+      return jsonResponse({ error: 'Recipe not found.' }, 404);
+    }
+
     if (recipeRow.image_status === 'completed' && !body.regenerate) {
       return jsonResponse({
         image_status: 'completed',
@@ -102,7 +108,7 @@ serve(async (req) => {
     const currentVersion = recipeRow.image_version ?? 1;
     const nextVersion = body.regenerate ? currentVersion + 1 : currentVersion;
 
-    await updateRecipeImage(supabase, recipeId, {
+    await updateRecipeImage(adminSupabase, recipeId, {
       image_status: 'generating',
       image_error: null,
     });
@@ -118,17 +124,14 @@ serve(async (req) => {
 
     const imageBytes = await generateImage(openAiApiKey, prompt);
     const storageKey = `recipe-images/users/${userId}/${recipeId}/v${nextVersion}.png`;
-    await uploadToR2(storageKey, imageBytes);
+    const imageUrl = await uploadRecipeImage(adminSupabase, supabaseUrl, storageKey, imageBytes);
 
-    const publicBaseUrl = normalizeBaseUrl(requireEnv('R2_PUBLIC_BASE_URL'));
-    const imageUrl = `${publicBaseUrl}/${storageKey}`;
-
-    await updateRecipeImage(supabase, recipeId, {
+    await updateRecipeImage(adminSupabase, recipeId, {
       image_url: imageUrl,
       image_status: 'completed',
       image_prompt: prompt,
-      image_provider: 'openai_dall_e_3',
-      image_storage_provider: 'cloudflare_r2',
+      image_provider: 'openai_gpt_image',
+      image_storage_provider: 'supabase_storage',
       image_storage_key: storageKey,
       image_generated_at: new Date().toISOString(),
       image_version: nextVersion,
@@ -142,12 +145,17 @@ serve(async (req) => {
   } catch (error) {
     const message = sanitizeError(error);
 
-    if (supabase && recipeId) {
+    if (recipeId) {
       try {
-        await updateRecipeImage(supabase, recipeId, {
-          image_status: 'failed',
-          image_error: message,
-        });
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        if (serviceRoleKey && supabaseUrl) {
+          const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
+          await updateRecipeImage(adminSupabase, recipeId, {
+            image_status: 'failed',
+            image_error: message,
+          });
+        }
       } catch {
         // Ignore secondary update failures.
       }
@@ -176,6 +184,20 @@ async function updateRecipeImage(
 async function generateImage(apiKey: string, prompt: string): Promise<Uint8Array> {
   const model = Deno.env.get('OPENAI_IMAGE_MODEL') || defaultImageModel;
   const size = Deno.env.get('OPENAI_IMAGE_SIZE') || defaultImageSize;
+  const isGptImageModel = model.startsWith('gpt-image');
+
+  const requestBody: Record<string, unknown> = {
+    model,
+    prompt,
+    n: 1,
+    size,
+  };
+
+  if (isGptImageModel) {
+    requestBody.quality = Deno.env.get('OPENAI_IMAGE_QUALITY') || defaultImageQuality;
+  } else if (model === 'dall-e-2') {
+    requestBody.response_format = 'b64_json';
+  }
 
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
@@ -183,54 +205,90 @@ async function generateImage(apiKey: string, prompt: string): Promise<Uint8Array
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      prompt,
-      n: 1,
-      size,
-      response_format: 'b64_json',
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
-    throw new Error('Could not generate recipe image right now.');
+    const errorBody = await response.text();
+    console.error('OpenAI image generation failed:', response.status, errorBody);
+    throw new Error(parseOpenAiError(errorBody, response.status));
   }
 
   const payload = await response.json();
-  const b64 = payload?.data?.[0]?.b64_json;
-  if (typeof b64 !== 'string' || !b64) {
-    throw new Error('Image generation returned an invalid response.');
+  const item = payload?.data?.[0];
+  const b64 = item?.b64_json;
+
+  if (typeof b64 === 'string' && b64) {
+    return decodeBase64(b64);
   }
 
-  return decodeBase64(b64);
+  const imageUrl = item?.url;
+  if (typeof imageUrl === 'string' && imageUrl) {
+    return await downloadImage(imageUrl);
+  }
+
+  console.error('OpenAI image response missing url/b64_json:', JSON.stringify(payload).slice(0, 500));
+  throw new Error('Image generation returned an invalid response.');
 }
 
-async function uploadToR2(storageKey: string, body: Uint8Array): Promise<void> {
-  const accountId = requireEnv('R2_ACCOUNT_ID');
-  const accessKeyId = requireEnv('R2_ACCESS_KEY_ID');
-  const secretAccessKey = requireEnv('R2_SECRET_ACCESS_KEY');
-  const bucketName = requireEnv('R2_BUCKET_NAME');
+function parseOpenAiError(errorBody: string, status: number): string {
+  try {
+    const parsed = JSON.parse(errorBody) as {
+      error?: { message?: string; type?: string; code?: string };
+    };
+    const message = parsed?.error?.message?.trim();
+    const type = parsed?.error?.type?.trim();
+    const code = parsed?.error?.code?.trim();
 
-  const client = new AwsClient({
-    accessKeyId,
-    secretAccessKey,
-    service: 's3',
-    region: 'auto',
-  });
-
-  const url = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${storageKey}`;
-  const response = await client.fetch(url, {
-    method: 'PUT',
-    body,
-    headers: {
-      'Content-Type': 'image/png',
-      'Cache-Control': 'public, max-age=31536000, immutable',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Could not upload recipe image to storage.');
+    if (message) {
+      return message;
+    }
+    if (type === 'image_generation_user_error') {
+      return 'Image generation was blocked. Try simplifying the recipe title or ingredients.';
+    }
+    if (code) {
+      return `OpenAI image generation failed (${code}).`;
+    }
+  } catch {
+    // Fall through to generic message.
   }
+
+  return `Could not generate recipe image right now (OpenAI ${status}).`;
+}
+
+async function downloadImage(url: string): Promise<Uint8Array> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Could not download generated image.');
+  }
+
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function uploadRecipeImage(
+  adminSupabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  storageKey: string,
+  body: Uint8Array
+): Promise<string> {
+  const { error } = await adminSupabase.storage.from('recipe-images').upload(storageKey, body, {
+    contentType: 'image/png',
+    cacheControl: '31536000',
+    upsert: true,
+  });
+
+  if (error) {
+    console.error('Supabase storage upload failed:', error.message);
+    throw new Error(`Could not upload recipe image to storage (${error.message}).`);
+  }
+
+  const { data } = adminSupabase.storage.from('recipe-images').getPublicUrl(storageKey);
+  const publicUrl = data.publicUrl?.trim();
+  if (publicUrl) {
+    return publicUrl;
+  }
+
+  return `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/recipe-images/${storageKey}`;
 }
 
 function decodeBase64(value: string): Uint8Array {
@@ -242,17 +300,16 @@ function decodeBase64(value: string): Uint8Array {
   return bytes;
 }
 
-function normalizeBaseUrl(value: string): string {
-  const trimmed = value.trim().replace(/\/+$/, '');
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return `https://${trimmed}`;
-}
-
 function sanitizeError(error: unknown): string {
-  if (error instanceof Error && error.message.includes('Missing environment variable')) {
-    return 'Recipe image generation is not configured yet.';
+  if (error instanceof Error) {
+    if (error.message.includes('Missing environment variable')) {
+      return 'Recipe image generation is not configured yet.';
+    }
+    if (error.message.includes('Could not upload recipe image to storage')) {
+      return 'Could not store recipe image. Please try again.';
+    }
+    console.error('generate-recipe-image error:', error.message);
+    return error.message;
   }
   return 'Could not generate recipe image right now. Please try again.';
 }
