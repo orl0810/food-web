@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { TitleCasePipe } from '@angular/common';
 import {
   FormArray,
@@ -17,6 +17,7 @@ import {
   FOOD_UNITS,
 } from '../../../core/models/food-item.model';
 import {
+  Recipe,
   RecipeDifficulty,
   RecipeIngredientInput,
   RecipeInput,
@@ -55,18 +56,20 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
     @if (loading()) {
       <app-loading-state message="Loading recipe..." />
     } @else {
-      <form class="page" [formGroup]="form" (ngSubmit)="submit()">
-        <div class="flex items-center justify-between gap-4">
-          <h1 class="page-title">
-            {{ isEdit() ? 'Edit recipe' : 'New recipe' }}
-          </h1>
-          <a
-            [routerLink]="cancelLink()"
-            class="text-sm text-stone-500 hover:text-stone-700"
-          >
-            Cancel
-          </a>
-        </div>
+      <form [class]="embedded() ? 'space-y-4' : 'page'" [formGroup]="form" (ngSubmit)="submit()">
+        @if (!embedded()) {
+          <div class="flex items-center justify-between gap-4">
+            <h1 class="page-title">
+              {{ isEdit() ? 'Edit recipe' : 'New recipe' }}
+            </h1>
+            <a
+              [routerLink]="cancelLink()"
+              class="text-sm text-stone-500 hover:text-stone-700"
+            >
+              Cancel
+            </a>
+          </div>
+        }
 
         <section class="card space-y-4 p-5">
           <div>
@@ -409,18 +412,20 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
           <p class="alert-error">{{ error() }}</p>
         }
 
-        <div class="flex justify-end gap-3">
-          <a [routerLink]="cancelLink()" class="btn-secondary">
-            Cancel
-          </a>
-          <button
-            type="submit"
-            class="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
-            [disabled]="form.invalid || saving()"
-          >
-            {{ saving() ? (isEdit() ? 'Saving...' : 'Calculating nutrition...') : isEdit() ? 'Save changes' : 'Create recipe' }}
-          </button>
-        </div>
+        @if (!embedded()) {
+          <div class="flex justify-end gap-3">
+            <a [routerLink]="cancelLink()" class="btn-secondary">
+              Cancel
+            </a>
+            <button
+              type="submit"
+              class="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+              [disabled]="form.invalid || saving()"
+            >
+              {{ saving() ? (isEdit() ? 'Saving...' : 'Calculating nutrition...') : isEdit() ? 'Save changes' : 'Create recipe' }}
+            </button>
+          </div>
+        }
       </form>
     }
   `,
@@ -433,6 +438,12 @@ export class RecipeFormComponent implements OnInit {
   private readonly foodItemHistoryService = inject(FoodItemHistoryService);
   private readonly foodCatalogService = inject(FoodCatalogService);
   private readonly foodIconService = inject(FoodIconService);
+
+  readonly embedded = input(false);
+  readonly titleId = input('recipe-form-title');
+
+  readonly saved = output<Recipe>();
+  readonly cancelled = output<void>();
 
   readonly loading = signal(false);
   readonly saving = signal(false);
@@ -752,6 +763,11 @@ export class RecipeFormComponent implements OnInit {
 
     if (result.error || !result.recipe) {
       this.error.set(result.error ?? 'Could not save this recipe. Please try again.');
+      return;
+    }
+
+    if (this.embedded()) {
+      this.saved.emit(result.recipe);
       return;
     }
 

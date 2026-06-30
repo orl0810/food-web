@@ -1,4 +1,15 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  OnDestroy,
+  OnInit,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
   MEAL_TYPE_LABELS,
@@ -19,7 +30,10 @@ import { FormatTagPipe } from '../../shared/pipes/format-tag.pipe';
 import { countAvailableIngredients } from '../../shared/utils/recipe-availability.utils';
 import { StarRatingComponent } from '../../shared/components/star-rating/star-rating.component';
 import { RecipeImageComponent } from '../../shared/components/recipe-image/recipe-image.component';
-import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggestions.component';
+import { AiRecipeDialogComponent } from './ai-recipe-generator/ai-recipe-dialog.component';
+import { RecipeFormDialogComponent } from './recipe-form/recipe-form-dialog.component';
+
+const RECIPE_BATCH_SIZE = 7;
 
 @Component({
   selector: 'app-recipes',
@@ -30,23 +44,26 @@ import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggesti
     LoadingStateComponent,
     FormatTagPipe,
     StarRatingComponent,
-    RecipeSuggestionsComponent,
     RecipeImageComponent,
+    RecipeFormDialogComponent,
+    AiRecipeDialogComponent,
   ],
   template: `
     <div class="page">
-      <app-recipe-suggestions />
+      <div class="grid grid-cols-2 gap-3">
+        <button type="button" class="btn-primary" (click)="showCreateDialog.set(true)">
+          Create recipe
+        </button>
+        <button type="button" class="btn-secondary" (click)="showAiDialog.set(true)">
+          Create AI recipe
+        </button>
+      </div>
 
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 class="section-title">Recipe library</h2>
-          <p class="mt-1 text-sm text-stone-600">
-            Browse starter recipes or manage your saved versions.
-          </p>
-        </div>
-        <a routerLink="/recipes/new" class="btn-primary-sm shrink-0 text-center">
-          New recipe
-        </a>
+      <div>
+        <h2 class="section-title">Recipe library</h2>
+        <p class="mt-1 text-sm text-stone-600">
+          Browse starter recipes or manage your saved versions.
+        </p>
       </div>
 
       <div class="flex flex-wrap gap-2">
@@ -153,7 +170,7 @@ import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggesti
         />
       } @else {
         <div class="flex flex-col gap-4">
-          @for (recipe of filteredRecipes(); track recipe.id) {
+          @for (recipe of visibleRecipes(); track recipe.id) {
             <article class="card p-4">
               <div class="flex gap-3">
                 <app-recipe-image [recipe]="recipe" variant="thumbnail" />
@@ -162,7 +179,9 @@ import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggesti
                   <div class="flex flex-wrap items-center gap-2">
                     <h2 class="text-base font-semibold text-stone-900">{{ recipe.title }}</h2>
                     @if (recipe.is_base_recipe) {
-                      <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+                      <span
+                        class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200"
+                      >
                         Starter recipe
                       </span>
                     }
@@ -199,7 +218,10 @@ import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggesti
                       <span>{{ recipe.cook_time_minutes }} min cook</span>
                     }
                     @if (recipe.portions) {
-                      <span>{{ recipe.portions }} {{ recipe.portions === 1 ? 'portion' : 'portions' }}</span>
+                      <span
+                        >{{ recipe.portions }}
+                        {{ recipe.portions === 1 ? 'portion' : 'portions' }}</span
+                      >
                     }
                   </div>
 
@@ -253,15 +275,32 @@ import { RecipeSuggestionsComponent } from './recipe-suggestions/recipe-suggesti
               </div>
             </article>
           }
+
+          @if (hasMoreRecipes()) {
+            <div #loadMoreSentinel class="h-1" aria-hidden="true"></div>
+          }
         </div>
       }
     </div>
+
+    @if (showCreateDialog()) {
+      <app-recipe-form-dialog
+        (saved)="onRecipeCreated()"
+        (cancelled)="showCreateDialog.set(false)"
+      />
+    }
+    @if (showAiDialog()) {
+      <app-ai-recipe-dialog (closed)="showAiDialog.set(false)" />
+    }
   `,
 })
-export class RecipesComponent implements OnInit {
+export class RecipesComponent implements OnInit, OnDestroy {
   readonly recipeService = inject(RecipeService);
   readonly inventoryService = inject(FoodInventoryService);
   private readonly router = inject(Router);
+
+  private readonly loadMoreSentinel = viewChild<ElementRef<HTMLElement>>('loadMoreSentinel');
+  private observer: IntersectionObserver | null = null;
 
   readonly mealTypes = MEAL_TYPES;
   readonly categories = RECIPE_CATEGORIES;
@@ -278,6 +317,9 @@ export class RecipesComponent implements OnInit {
   readonly categoryFilter = signal<string | null>(null);
   readonly activeTagFilters = signal<string[]>([]);
   readonly customizingId = signal<string | null>(null);
+  readonly visibleCount = signal(RECIPE_BATCH_SIZE);
+  readonly showCreateDialog = signal(false);
+  readonly showAiDialog = signal(false);
 
   readonly filteredRecipes = computed(() =>
     this.recipeService.searchRecipes({
@@ -287,6 +329,14 @@ export class RecipesComponent implements OnInit {
       tags: this.activeTagFilters(),
       search: this.search(),
     })
+  );
+
+  readonly visibleRecipes = computed(() =>
+    this.filteredRecipes().slice(0, this.visibleCount())
+  );
+
+  readonly hasMoreRecipes = computed(
+    () => this.visibleCount() < this.filteredRecipes().length
   );
 
   readonly isLoading = computed(
@@ -310,12 +360,38 @@ export class RecipesComponent implements OnInit {
     );
   });
 
+  constructor() {
+    effect(() => {
+      this.search();
+      this.sourceTab();
+      this.mealTypeFilter();
+      this.categoryFilter();
+      this.activeTagFilters();
+      this.visibleCount.set(RECIPE_BATCH_SIZE);
+    });
+
+    effect(() => {
+      this.visibleRecipes();
+      this.hasMoreRecipes();
+      queueMicrotask(() => this.setupLoadMoreObserver());
+    });
+
+    afterNextRender(() => {
+      this.setupLoadMoreObserver();
+    });
+  }
+
   ngOnInit(): void {
     void Promise.all([
       this.recipeService.loadRecipes(),
       this.recipeService.loadBaseRecipes(),
       this.inventoryService.loadItems(),
     ]);
+  }
+
+  ngOnDestroy(): void {
+    this.observer?.disconnect();
+    this.observer = null;
   }
 
   mealTypeLabel(mealType: MealType): string {
@@ -337,6 +413,10 @@ export class RecipesComponent implements OnInit {
     this.mealTypeFilter.set(null);
     this.categoryFilter.set(null);
     this.activeTagFilters.set([]);
+  }
+
+  onRecipeCreated(): void {
+    this.showCreateDialog.set(false);
   }
 
   availabilityLabel(recipe: Recipe): string {
@@ -371,5 +451,34 @@ export class RecipesComponent implements OnInit {
 
   async onRatingChange(recipeId: string, rating: number | null): Promise<void> {
     await this.recipeService.updateRecipeRating(recipeId, rating);
+  }
+
+  private setupLoadMoreObserver(): void {
+    this.observer?.disconnect();
+    this.observer = null;
+
+    if (!this.hasMoreRecipes()) {
+      return;
+    }
+
+    const sentinel = this.loadMoreSentinel()?.nativeElement;
+    if (!sentinel) {
+      return;
+    }
+
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          this.visibleCount.update((count) => count + RECIPE_BATCH_SIZE);
+        }
+      },
+      {
+        root: null,
+        rootMargin: '0px 0px 200px 0px',
+        threshold: 0,
+      }
+    );
+
+    this.observer.observe(sentinel);
   }
 }
