@@ -24,6 +24,7 @@ export interface AiRecipeSuggestionRequest {
   numberOfSuggestions: number;
   onboardingContext?: AiOnboardingContext;
   excludeTitles?: string[];
+  customPrompt?: string;
 }
 
 export interface AiRecipeIngredient {

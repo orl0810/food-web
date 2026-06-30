@@ -20,6 +20,7 @@ interface AiRecipeSuggestionRequest {
   numberOfSuggestions: number;
   onboardingContext?: AiOnboardingContext;
   excludeTitles?: string[];
+  customPrompt?: string;
 }
 
 interface FoodItemForPrompt {
@@ -177,6 +178,7 @@ function cleanRequest(input: unknown): AiRecipeSuggestionRequest {
 
   const onboardingContext = cleanOnboardingContext(body.onboardingContext);
   const excludeTitles = normalizeStringArray(body.excludeTitles).slice(0, 10);
+  const customPrompt = toNonEmptyString(body.customPrompt)?.slice(0, 200);
 
   return {
     mealType,
@@ -186,6 +188,7 @@ function cleanRequest(input: unknown): AiRecipeSuggestionRequest {
     numberOfSuggestions,
     onboardingContext,
     excludeTitles: excludeTitles.length > 0 ? excludeTitles : undefined,
+    customPrompt,
   };
 }
 
@@ -327,6 +330,7 @@ function buildUserPrompt(
       numberOfSuggestions: request.numberOfSuggestions,
       includeMissingIngredients: request.includeMissingIngredients,
       prioritizeExpiringIngredients: request.prioritizeExpiringIngredients,
+      customPrompt: request.customPrompt ?? null,
       onboarding: request.onboardingContext ?? null,
     },
     rules: [
@@ -339,6 +343,9 @@ function buildUserPrompt(
         : null,
       request.excludeTitles?.length
         ? `Do not repeat these recipe titles: ${request.excludeTitles.join(', ')}.`
+        : null,
+      request.customPrompt
+        ? `User personalization request (honor when possible without breaking allergies or dietary rules): ${request.customPrompt}`
         : null,
       'Every recipe must fit within maxPrepTimeMinutes.',
       'Prefer available inventory ingredients over unrelated ingredients.',

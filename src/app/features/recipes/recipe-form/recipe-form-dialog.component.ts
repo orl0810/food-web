@@ -1,4 +1,4 @@
-import { Component, output } from '@angular/core';
+import { Component, OnDestroy, OnInit, output } from '@angular/core';
 import { Recipe } from '../../../core/models/recipe.model';
 import { RecipeFormComponent } from './recipe-form.component';
 
@@ -8,7 +8,7 @@ import { RecipeFormComponent } from './recipe-form.component';
   imports: [RecipeFormComponent],
   template: `
     <div
-      class="fixed inset-x-0 top-16 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-[60] flex items-center justify-center bg-stone-900/40 p-4 md:bottom-0"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/50 p-4"
       (click)="cancelled.emit()"
     >
       <div
@@ -47,7 +47,15 @@ import { RecipeFormComponent } from './recipe-form.component';
     </div>
   `,
 })
-export class RecipeFormDialogComponent {
+export class RecipeFormDialogComponent implements OnInit, OnDestroy {
   readonly saved = output<Recipe>();
   readonly cancelled = output<void>();
+
+  ngOnInit(): void {
+    document.body.classList.add('overflow-hidden');
+  }
+
+  ngOnDestroy(): void {
+    document.body.classList.remove('overflow-hidden');
+  }
 }

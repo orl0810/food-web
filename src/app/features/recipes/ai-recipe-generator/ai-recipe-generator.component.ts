@@ -33,11 +33,6 @@ const AI_ERROR_MESSAGE = 'Could not generate recipes right now. Please try again
         </div>
       }
 
-      <p class="text-sm text-stone-600">
-        PantryFlow sends your selected preferences to a secure Supabase Edge Function. The function
-        loads only your inventory items needed for recipe ideas.
-      </p>
-
       @if (inventoryService.items().length === 0) {
         <p
           class="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-3 text-sm text-stone-600"
@@ -83,21 +78,16 @@ const AI_ERROR_MESSAGE = 'Could not generate recipes right now. Please try again
           </label>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            class="btn-primary"
-            [disabled]="aiRecipeService.loading()"
-            (click)="generateAiRecipes()"
-          >
-            {{ aiRecipeService.loading() ? 'Generating...' : 'Generate suggestions' }}
-          </button>
-          @if (aiRecipeService.loading()) {
-            <span class="text-sm text-stone-600">
-              Generating easy recipes from your ingredients...
-            </span>
-          }
-        </div>
+        <label class="block text-sm font-medium text-stone-700">
+          Personal touch (optional)
+          <input
+            type="text"
+            class="input mt-1.5"
+            placeholder='e.g. "Use fish", "with banana", "Colombian style"'
+            [value]="aiCustomPrompt()"
+            (input)="onCustomPromptInput($event)"
+          />
+        </label>
       }
 
       @if (aiError()) {
@@ -243,6 +233,7 @@ export class AiRecipeGeneratorComponent {
   readonly aiMaxPrepTime = signal(30);
   readonly aiPrioritizeExpiring = signal(true);
   readonly aiIncludeMissing = signal(false);
+  readonly aiCustomPrompt = signal('');
   readonly aiSuggestions = signal<AiRecipeSuggestion[]>([]);
   readonly aiError = signal<string | null>(null);
   readonly aiInfoMessage = signal<string | null>(null);
@@ -264,6 +255,10 @@ export class AiRecipeGeneratorComponent {
   setAiMaxPrepTime(event: Event): void {
     const value = Number((event.target as HTMLSelectElement).value);
     this.aiMaxPrepTime.set(value);
+  }
+
+  onCustomPromptInput(event: Event): void {
+    this.aiCustomPrompt.set((event.target as HTMLInputElement).value);
   }
 
   ingredientLabel(ingredient: {
@@ -302,6 +297,7 @@ export class AiRecipeGeneratorComponent {
       numberOfSuggestions: 3,
       ...(onboardingContext ? { onboardingContext } : {}),
       ...(excludeTitles?.length ? { excludeTitles } : {}),
+      ...(this.aiCustomPrompt().trim() ? { customPrompt: this.aiCustomPrompt().trim() } : {}),
     });
 
     if (this.aiRecipeService.error()) {

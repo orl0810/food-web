@@ -1,4 +1,4 @@
-import { Component, output } from '@angular/core';
+import { Component, OnDestroy, OnInit, output } from '@angular/core';
 import { AiRecipeGeneratorComponent } from './ai-recipe-generator.component';
 
 @Component({
@@ -7,7 +7,7 @@ import { AiRecipeGeneratorComponent } from './ai-recipe-generator.component';
   imports: [AiRecipeGeneratorComponent],
   template: `
     <div
-      class="fixed inset-x-0 top-16 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-[60] flex items-center justify-center bg-stone-900/40 p-4 md:bottom-0"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/50 p-4"
       (click)="closed.emit()"
     >
       <div
@@ -27,16 +27,32 @@ import { AiRecipeGeneratorComponent } from './ai-recipe-generator.component';
         </div>
 
         <div class="flex-1 overflow-y-auto px-5 py-4">
-          <app-ai-recipe-generator [embedded]="true" />
+          <app-ai-recipe-generator #generator [embedded]="true" />
         </div>
 
-        <div class="flex shrink-0 justify-end border-t border-stone-200 px-5 py-4">
+        <div class="flex shrink-0 justify-end gap-3 border-t border-stone-200 px-5 py-4">
           <button type="button" class="btn-secondary" (click)="closed.emit()">Close</button>
+          <button
+            type="button"
+            class="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+            [disabled]="generator.aiRecipeService.loading() || generator.inventoryService.items().length === 0"
+            (click)="generator.generateAiRecipes()"
+          >
+            {{ generator.aiRecipeService.loading() ? 'Generating...' : 'Generate suggestions' }}
+          </button>
         </div>
       </div>
     </div>
   `,
 })
-export class AiRecipeDialogComponent {
+export class AiRecipeDialogComponent implements OnInit, OnDestroy {
   readonly closed = output<void>();
+
+  ngOnInit(): void {
+    document.body.classList.add('overflow-hidden');
+  }
+
+  ngOnDestroy(): void {
+    document.body.classList.remove('overflow-hidden');
+  }
 }

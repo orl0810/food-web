@@ -168,6 +168,20 @@ describe('AiRecipeService', () => {
     expect(invokeSpy.calls.mostRecent().args[1].body.includeMissingIngredients).toBeFalse();
   });
 
+  it('forwards trimmed customPrompt to the edge function', async () => {
+    await service.generateRecipesFromInventory(
+      makeAiRequest({ customPrompt: '  Use fish  ' })
+    );
+
+    expect(invokeSpy.calls.mostRecent().args[1].body.customPrompt).toBe('Use fish');
+  });
+
+  it('omits empty customPrompt from the edge function request', async () => {
+    await service.generateRecipesFromInventory(makeAiRequest({ customPrompt: '   ' }));
+
+    expect(invokeSpy.calls.mostRecent().args[1].body.customPrompt).toBeUndefined();
+  });
+
   it('sets error and returns empty suggestions when there is no session token', async () => {
     getSessionSpy.and.resolveTo({ data: { session: null }, error: null });
 

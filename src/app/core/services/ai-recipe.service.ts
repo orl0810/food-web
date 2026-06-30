@@ -83,6 +83,10 @@ export class AiRecipeService {
     if (excludeTitles.length > 0) {
       cleaned.excludeTitles = excludeTitles;
     }
+    const customPrompt = request.customPrompt?.trim().slice(0, 200);
+    if (customPrompt) {
+      cleaned.customPrompt = customPrompt;
+    }
     return cleaned;
   }
 
