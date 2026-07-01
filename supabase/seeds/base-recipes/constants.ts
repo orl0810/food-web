@@ -1,4 +1,13 @@
 export const RECIPE_CATEGORIES = [
+  'Burgers',
+  'Healthy',
+  'Oriental',
+  'Chicken',
+  'Meat',
+  'Breakfast',
+  'Asian',
+  'Dessert',
+  'Italian',
   'Oats',
   'Yogurt Bowl',
   'Eggs',

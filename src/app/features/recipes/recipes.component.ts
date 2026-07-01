@@ -10,7 +10,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   MEAL_TYPE_LABELS,
   MEAL_TYPES,
@@ -20,7 +21,6 @@ import {
   RECIPE_CATEGORIES,
   Recipe,
   RecipeSourceTab,
-  STARTER_RECIPE_TAG_FILTERS,
 } from '../../core/models/recipe.model';
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { RecipeService } from '../../core/services/recipe.service';
@@ -32,6 +32,7 @@ import { StarRatingComponent } from '../../shared/components/star-rating/star-ra
 import { RecipeImageComponent } from '../../shared/components/recipe-image/recipe-image.component';
 import { AiRecipeDialogComponent } from './ai-recipe-generator/ai-recipe-dialog.component';
 import { RecipeFormDialogComponent } from './recipe-form/recipe-form-dialog.component';
+import { RecipeFiltersDialogComponent } from './recipe-filters-dialog.component';
 
 const RECIPE_BATCH_SIZE = 7;
 
@@ -47,6 +48,7 @@ const RECIPE_BATCH_SIZE = 7;
     RecipeImageComponent,
     RecipeFormDialogComponent,
     AiRecipeDialogComponent,
+    RecipeFiltersDialogComponent,
   ],
   template: `
     <div class="page">
@@ -66,33 +68,52 @@ const RECIPE_BATCH_SIZE = 7;
         </p>
       </div>
 
-      <div class="flex flex-wrap gap-2">
-        @for (tab of sourceTabs; track tab.id) {
-          <button
-            type="button"
-            class="filter-pill"
-            [class.filter-pill-active]="sourceTab() === tab.id"
-            [class.filter-pill-inactive]="sourceTab() !== tab.id"
-            (click)="sourceTab.set(tab.id)"
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="filter-dialog-btn"
+          aria-label="Open filters"
+          (click)="showFiltersDialog.set(true)"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="h-5 w-5"
+            aria-hidden="true"
           >
-            {{ tab.label }}
-          </button>
-        }
-      </div>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"
+            />
+          </svg>
+          @if (hasSecondaryFilters()) {
+            <span
+              class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-brand-600"
+              aria-hidden="true"
+            ></span>
+          }
+        </button>
 
-      <div class="space-y-3">
-        <input
-          type="search"
-          [value]="search()"
-          (input)="onSearch($event)"
-          placeholder="Search by name or ingredient..."
-          class="input"
-        />
+        <div class="filter-bar-scroll">
+          @for (tab of sourceTabs; track tab.id) {
+            <button
+              type="button"
+              class="filter-pill shrink-0"
+              [class.filter-pill-active]="sourceTab() === tab.id"
+              [class.filter-pill-inactive]="sourceTab() !== tab.id"
+              (click)="sourceTab.set(tab.id)"
+            >
+              {{ tab.label }}
+            </button>
+          }
 
-        <div class="flex flex-wrap gap-2">
           <button
             type="button"
-            class="filter-pill"
+            class="filter-pill shrink-0"
             [class.filter-pill-active]="mealTypeFilter() === null"
             [class.filter-pill-inactive]="mealTypeFilter() !== null"
             (click)="mealTypeFilter.set(null)"
@@ -102,7 +123,7 @@ const RECIPE_BATCH_SIZE = 7;
           @for (mealType of mealTypes; track mealType) {
             <button
               type="button"
-              class="filter-pill"
+              class="filter-pill shrink-0"
               [class.filter-pill-active]="mealTypeFilter() === mealType"
               [class.filter-pill-inactive]="mealTypeFilter() !== mealType"
               (click)="mealTypeFilter.set(mealType)"
@@ -110,12 +131,10 @@ const RECIPE_BATCH_SIZE = 7;
               {{ mealTypeLabel(mealType) }}
             </button>
           }
-        </div>
 
-        <div class="flex flex-wrap gap-2">
           <button
             type="button"
-            class="filter-pill"
+            class="filter-pill shrink-0"
             [class.filter-pill-active]="categoryFilter() === null"
             [class.filter-pill-inactive]="categoryFilter() !== null"
             (click)="categoryFilter.set(null)"
@@ -125,7 +144,7 @@ const RECIPE_BATCH_SIZE = 7;
           @for (category of categories; track category) {
             <button
               type="button"
-              class="filter-pill"
+              class="filter-pill shrink-0"
               [class.filter-pill-active]="categoryFilter() === category"
               [class.filter-pill-inactive]="categoryFilter() !== category"
               (click)="categoryFilter.set(category)"
@@ -135,20 +154,49 @@ const RECIPE_BATCH_SIZE = 7;
           }
         </div>
 
-        <div class="flex flex-wrap gap-2">
-          @for (tag of starterTagFilters; track tag) {
-            <button
-              type="button"
-              class="filter-pill"
-              [class.filter-pill-active]="activeTagFilters().includes(tag)"
-              [class.filter-pill-inactive]="!activeTagFilters().includes(tag)"
-              (click)="toggleTagFilter(tag)"
-            >
-              {{ tag | formatTag }}
-            </button>
-          }
-        </div>
+        @if (hasClearableFilters()) {
+          <button
+            type="button"
+            class="shrink-0 text-sm font-medium text-brand-700"
+            (click)="clearFilters()"
+          >
+            Clear all
+          </button>
+        }
       </div>
+
+      @if (hasSecondaryFilters()) {
+        <div class="applied-filters-card">
+          <div class="flex flex-wrap gap-2">
+            @if (search().trim()) {
+              <span class="applied-filter-chip">
+                Search: {{ search().trim() }}
+                <button
+                  type="button"
+                  class="text-brand-700 hover:text-brand-800"
+                  aria-label="Remove search filter"
+                  (click)="removeSearch()"
+                >
+                  &times;
+                </button>
+              </span>
+            }
+            @for (tag of activeTagFilters(); track tag) {
+              <span class="applied-filter-chip">
+                {{ tag | formatTag }}
+                <button
+                  type="button"
+                  class="text-brand-700 hover:text-brand-800"
+                  [attr.aria-label]="'Remove ' + tag + ' filter'"
+                  (click)="removeTag(tag)"
+                >
+                  &times;
+                </button>
+              </span>
+            }
+          </div>
+        </div>
+      }
 
       @if (isLoading()) {
         <app-loading-state message="Loading recipes..." />
@@ -292,11 +340,22 @@ const RECIPE_BATCH_SIZE = 7;
     @if (showAiDialog()) {
       <app-ai-recipe-dialog (closed)="showAiDialog.set(false)" />
     }
+    @if (showFiltersDialog()) {
+      <app-recipe-filters-dialog
+        [search]="search()"
+        [activeTags]="activeTagFilters()"
+        (searchChanged)="search.set($event)"
+        (tagToggled)="toggleTagFilter($event)"
+        (cleared)="clearFilters()"
+        (closed)="showFiltersDialog.set(false)"
+      />
+    }
   `,
 })
 export class RecipesComponent implements OnInit, OnDestroy {
   readonly recipeService = inject(RecipeService);
   readonly inventoryService = inject(FoodInventoryService);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   private readonly loadMoreSentinel = viewChild<ElementRef<HTMLElement>>('loadMoreSentinel');
@@ -304,7 +363,6 @@ export class RecipesComponent implements OnInit, OnDestroy {
 
   readonly mealTypes = MEAL_TYPES;
   readonly categories = RECIPE_CATEGORIES;
-  readonly starterTagFilters = STARTER_RECIPE_TAG_FILTERS;
   readonly sourceTabs: { id: RecipeSourceTab; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'mine', label: 'My recipes' },
@@ -320,6 +378,18 @@ export class RecipesComponent implements OnInit, OnDestroy {
   readonly visibleCount = signal(RECIPE_BATCH_SIZE);
   readonly showCreateDialog = signal(false);
   readonly showAiDialog = signal(false);
+  readonly showFiltersDialog = signal(false);
+
+  readonly hasSecondaryFilters = computed(
+    () => !!this.search().trim() || this.activeTagFilters().length > 0
+  );
+
+  readonly hasClearableFilters = computed(
+    () =>
+      this.hasSecondaryFilters() ||
+      this.mealTypeFilter() !== null ||
+      this.categoryFilter() !== null
+  );
 
   readonly filteredRecipes = computed(() =>
     this.recipeService.searchRecipes({
@@ -382,6 +452,13 @@ export class RecipesComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const category = params.get('category');
+      if (category && (RECIPE_CATEGORIES as readonly string[]).includes(category)) {
+        this.categoryFilter.set(category);
+      }
+    });
+
     void Promise.all([
       this.recipeService.loadRecipes(),
       this.recipeService.loadBaseRecipes(),
@@ -398,8 +475,12 @@ export class RecipesComponent implements OnInit, OnDestroy {
     return MEAL_TYPE_LABELS[mealType];
   }
 
-  onSearch(event: Event): void {
-    this.search.set((event.target as HTMLInputElement).value);
+  removeSearch(): void {
+    this.search.set('');
+  }
+
+  removeTag(tag: string): void {
+    this.activeTagFilters.update((tags) => tags.filter((existing) => existing !== tag));
   }
 
   toggleTagFilter(tag: string): void {

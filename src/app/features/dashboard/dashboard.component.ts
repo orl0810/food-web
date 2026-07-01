@@ -4,6 +4,7 @@ import { STORAGE_LOCATION_LABELS } from '../../core/models/food-item.model';
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { MealPlanService } from '../../core/services/meal-plan.service';
 import { SmartSuggestionService } from '../../core/services/smart-suggestion.service';
+import { MealInspirationSliderComponent } from './components/meal-inspiration-slider/meal-inspiration-slider.component';
 import { CompleteActionDialogComponent } from './components/complete-action-dialog/complete-action-dialog.component';
 import { DashboardSmartActionCardComponent } from './components/dashboard-smart-action-card/dashboard-smart-action-card.component';
 import {
@@ -41,16 +42,12 @@ import {
     LoadingStateComponent,
     TodaysMealPlanComponent,
     DashboardSmartActionCardComponent,
+    MealInspirationSliderComponent,
     CompleteActionDialogComponent,
     RouterLink,
   ],
   template: `
     <div class="page">
-      <div>
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">See what you have and what to use first.</p>
-      </div>
-
       <app-dashboard-smart-action-card
         class="block"
         [action]="facade.currentSmartAction()"
@@ -59,6 +56,8 @@ import {
         (primaryClick)="onSmartActionPrimary($event)"
         (dismissClick)="onSmartActionDismiss()"
       />
+
+      <app-meal-inspiration-slider class="block" />
 
       @if (dialogAction(); as pendingAction) {
         <app-complete-action-dialog

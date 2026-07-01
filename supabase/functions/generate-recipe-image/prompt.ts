@@ -5,6 +5,15 @@ const AVOID_LIST =
   'Avoid: text, logos, people, hands, branded packaging, messy table, dark lighting, unrealistic food, excessive garnish, watermarks.';
 
 const CATEGORY_COMPOSITION_MAP: Record<string, string> = {
+  Burgers: 'burger on a plate, 45-degree angle',
+  Healthy: 'top-down grain bowl composition',
+  Oriental: 'stir-fry on a plate, 45-degree angle',
+  Chicken: 'chicken on a dinner plate, 45-degree angle',
+  Meat: 'steak on a dinner plate, 45-degree angle',
+  Breakfast: 'breakfast plate, top-down composition',
+  Asian: 'rice bowl, top-down composition',
+  Dessert: 'small dessert glass or plate, top-down',
+  Italian: 'pasta on a ceramic plate, 45-degree angle',
   Oats: 'top-down bowl composition',
   'Yogurt Bowl': 'top-down bowl composition',
   Eggs: 'ceramic plate, 45-degree angle',

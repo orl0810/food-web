@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   breakfastBaseRecipes,
   dinnerBaseRecipes,
+  inspirationBaseRecipes,
   lunchBaseRecipes,
   snackBaseRecipes,
 } from '../supabase/seeds/base-recipes/index.ts';
@@ -84,7 +85,8 @@ generateMigrationFile('breakfast', breakfastBaseRecipes, 21);
 generateMigrationFile('lunch', lunchBaseRecipes, 22);
 generateMigrationFile('dinner', dinnerBaseRecipes, 23);
 generateMigrationFile('snacks', snackBaseRecipes, 24);
+generateMigrationFile('inspiration', inspirationBaseRecipes, 28);
 
 console.log(
-  `Total: ${breakfastBaseRecipes.length + lunchBaseRecipes.length + dinnerBaseRecipes.length + snackBaseRecipes.length} recipes`
+  `Total: ${breakfastBaseRecipes.length + lunchBaseRecipes.length + dinnerBaseRecipes.length + snackBaseRecipes.length + inspirationBaseRecipes.length} recipes`
 );
