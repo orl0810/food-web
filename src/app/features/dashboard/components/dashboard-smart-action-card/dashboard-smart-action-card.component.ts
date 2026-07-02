@@ -1,18 +1,8 @@
 import { Component, computed, input, output } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import {
   DashboardAction,
-  DashboardActionChip,
   DashboardActionType,
 } from '../../models/dashboard-action.model';
-
-const CHIP_LABELS: Record<DashboardActionChip, string> = {
-  today: 'Today',
-  expiring: 'Expiring soon',
-  'meal-plan': 'Meal plan',
-  inventory: 'Inventory',
-  'ready-portion': 'Ready portion',
-};
 
 const TYPE_ICONS: Record<DashboardActionType, string> = {
   cook_recipe_today: '🍳',
@@ -32,17 +22,16 @@ const TYPE_ICONS: Record<DashboardActionType, string> = {
 @Component({
   selector: 'app-dashboard-smart-action-card',
   standalone: true,
-  imports: [RouterLink],
   template: `
     @if (successMessage(); as message) {
       <section
-        class="rounded-xl border border-brand-100 bg-brand-50 px-4 py-4 shadow-sm sm:px-5"
+        class="rounded-xl border border-brand-100 bg-brand-50 px-4 py-3 shadow-sm"
         role="status"
         aria-live="polite"
       >
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2.5">
           <span
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-lg"
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-base"
             aria-hidden="true"
           >
             ✓
@@ -57,13 +46,13 @@ const TYPE_ICONS: Record<DashboardActionType, string> = {
       </section>
     } @else if (action(); as currentAction) {
       <section
-        class="rounded-xl border p-4 shadow-sm sm:p-5"
+        class="rounded-xl border px-4 py-3 shadow-sm"
         [class]="containerClasses()"
-        aria-labelledby="smart-action-title"
+        aria-labelledby="smart-action-label"
       >
-        <div class="flex items-start gap-3">
+        <div class="flex items-start gap-2.5">
           <span
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl"
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg"
             [class]="iconBadgeClasses()"
             aria-hidden="true"
           >
@@ -73,6 +62,7 @@ const TYPE_ICONS: Record<DashboardActionType, string> = {
           <div class="min-w-0 flex-1">
             <div class="flex items-start justify-between gap-2">
               <p
+                id="smart-action-label"
                 class="text-[11px] font-semibold uppercase tracking-wide"
                 [class]="labelClasses()"
               >
@@ -91,68 +81,32 @@ const TYPE_ICONS: Record<DashboardActionType, string> = {
               </button>
             </div>
 
-            <h2 id="smart-action-title" class="mt-1 text-base font-semibold text-stone-900">
-              {{ currentAction.title }}
-            </h2>
             <p class="mt-1 text-sm text-stone-600">{{ currentAction.message }}</p>
-
-            @if (currentAction.chips.length > 0) {
-              <ul class="mt-3 flex flex-wrap gap-1.5" aria-label="Related to">
-                @for (chip of currentAction.chips; track chip) {
-                  <li class="rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-medium text-stone-600 ring-1 ring-stone-200">
-                    {{ chipLabel(chip) }}
-                  </li>
-                }
-              </ul>
-            }
-
-            <div class="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                [class]="primaryButtonClasses()"
-                [disabled]="busy()"
-                (click)="primaryClick.emit(currentAction)"
-              >
-                {{ busy() ? 'Working...' : currentAction.primaryLabel }}
-              </button>
-              @if (currentAction.secondaryLabel && currentAction.secondaryRoute) {
-                <a
-                  [routerLink]="currentAction.secondaryRoute"
-                  class="rounded-lg px-3 py-1.5 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-900/5 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                >
-                  {{ currentAction.secondaryLabel }}
-                </a>
-              }
-            </div>
           </div>
         </div>
       </section>
     } @else {
       <section
-        class="rounded-xl border border-stone-200 bg-cream p-4 shadow-sm sm:p-5"
-        aria-labelledby="smart-action-title"
+        class="rounded-xl border border-stone-200 bg-cream px-4 py-3 shadow-sm"
+        aria-labelledby="smart-action-label"
       >
-        <div class="flex items-start gap-3">
+        <div class="flex items-start gap-2.5">
           <span
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xl"
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-lg"
             aria-hidden="true"
           >
             🌿
           </span>
           <div class="min-w-0 flex-1">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+            <p
+              id="smart-action-label"
+              class="text-[11px] font-semibold uppercase tracking-wide text-stone-500"
+            >
               Today's focus
             </p>
-            <h2 id="smart-action-title" class="mt-1 text-base font-semibold text-stone-900">
-              You're all set for today
-            </h2>
             <p class="mt-1 text-sm text-stone-600">
-              Nothing needs your attention right now. Keep your week on track:
+              Nothing needs your attention right now. Keep your week on track.
             </p>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <a routerLink="/meal-plan" class="btn-secondary-sm">Review weekly plan</a>
-              <a routerLink="/inventory" class="btn-secondary-sm">Check inventory</a>
-            </div>
           </div>
         </div>
       </section>
@@ -164,7 +118,6 @@ export class DashboardSmartActionCardComponent {
   readonly busy = input(false);
   readonly successMessage = input<string | null>(null);
 
-  readonly primaryClick = output<DashboardAction>();
   readonly dismissClick = output<void>();
 
   readonly icon = computed(() => {
@@ -212,15 +165,4 @@ export class DashboardSmartActionCardComponent {
         return 'text-stone-500';
     }
   });
-
-  readonly primaryButtonClasses = computed(() => {
-    if (this.action()?.priority === 'urgent') {
-      return 'rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50';
-    }
-    return 'btn-primary-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
-  });
-
-  chipLabel(chip: DashboardActionChip): string {
-    return CHIP_LABELS[chip];
-  }
 }

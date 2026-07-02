@@ -12,12 +12,13 @@ import {
   DashboardAction,
 } from './models/dashboard-action.model';
 import { DashboardFacadeService } from './services/dashboard-facade.service';
-import { UserProfileFacadeService } from '../user-profile/services/user-profile-facade.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
-import { TodaysMealPlanComponent } from '../../shared/components/todays-meal-plan/todays-meal-plan.component';
+import { RecipeImageComponent } from '../../shared/components/recipe-image/recipe-image.component';
+import { DailyProgressBarComponent } from '../meal-plan/components/daily-progress-bar/daily-progress-bar.component';
+import { MealPlanProgressService } from '../meal-plan/services/meal-plan-progress.service';
 import { PreparedPortion } from '../../core/models/prepared-portion.model';
 import { PreparedPortionService } from '../../core/services/prepared-portion.service';
 import {
@@ -31,6 +32,7 @@ import {
   buildUseFirstPortionPrompts,
   getBatchCookingInsight,
 } from '../../shared/utils/prepared-portion-suggestions.utils';
+import { toISODate } from '../../shared/utils/meal-plan.utils';
 
 @Component({
   selector: 'app-dashboard',
@@ -40,7 +42,8 @@ import {
     EmptyStateComponent,
     FoodIconBadgeComponent,
     LoadingStateComponent,
-    TodaysMealPlanComponent,
+    DailyProgressBarComponent,
+    RecipeImageComponent,
     DashboardSmartActionCardComponent,
     MealInspirationSliderComponent,
     CompleteActionDialogComponent,
@@ -53,7 +56,6 @@ import {
         [action]="facade.currentSmartAction()"
         [busy]="facade.completing()"
         [successMessage]="facade.successMessage()"
-        (primaryClick)="onSmartActionPrimary($event)"
         (dismissClick)="onSmartActionDismiss()"
       />
 
@@ -70,33 +72,23 @@ import {
         />
       }
 
-      <app-todays-meal-plan />
-
-      @if (profileFacade.stats()) {
-        <section class="mt-8">
-          <div class="mb-3 flex items-center justify-between gap-4">
-            <h2 class="section-title">Your progress</h2>
-            <a routerLink="/profile" [queryParams]="{ section: 'progress' }" class="btn-primary-sm shrink-0">
-              View profile
-            </a>
-          </div>
-          <div class="grid grid-cols-2 gap-3 sm:gap-4">
-            <app-stat-card
-              label="Weekly completion"
-              icon="clock"
-              variant="success"
-              [value]="(profileFacade.stats()?.weeklyCompletionPercentage ?? 0) + '%'"
-            />
-            <app-stat-card
-              label="Planning streak"
-              icon="basket"
-              variant="warning"
-              [value]="profileFacade.stats()?.completedWeeksStreak ?? 0"
-              unit=" weeks"
-            />
-          </div>
-        </section>
-      }
+      <section class="mt-8">
+        <div class="mb-3 flex items-center justify-between gap-4">
+          <h2 class="section-title">Today&apos;s progress</h2>
+          <a
+            routerLink="/meal-plan"
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-brand-700 transition-colors hover:border-brand-200 hover:bg-brand-50"
+          >
+            Go to meal plan
+          </a>
+        </div>
+        <app-daily-progress-bar
+          [title]="todayProgressTitle"
+          [progress]="todayProgress()"
+          [compact]="true"
+          [hideTitle]="true"
+        />
+      </section>
 
       <div class="mt-8 space-y-8">
       @if (inventoryService.loading()) {
@@ -277,12 +269,15 @@ import {
                 @for (suggestion of topOverall(); track suggestion.recipe.id) {
                   <a
                     [routerLink]="['/recipes', suggestion.recipe.id]"
-                    class="block px-4 py-3 transition-colors hover:bg-white/40 sm:px-5"
+                    class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/40 sm:px-5"
                   >
-                    <p class="text-sm font-semibold text-stone-900">{{ suggestion.recipe.title }}</p>
-                    @if (suggestion.reasons.length > 0) {
-                      <p class="mt-0.5 text-xs text-stone-500">{{ suggestion.reasons[0] }}</p>
-                    }
+                    <app-recipe-image [recipe]="suggestion.recipe" variant="thumbnail" />
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-semibold text-stone-900">{{ suggestion.recipe.title }}</p>
+                      @if (suggestion.reasons.length > 0) {
+                        <p class="mt-0.5 text-xs text-stone-500">{{ suggestion.reasons[0] }}</p>
+                      }
+                    </div>
                   </a>
                 } @empty {
                   <p class="px-4 py-3 text-sm text-stone-500 sm:px-5">No suggestions yet.</p>
@@ -295,12 +290,15 @@ import {
                 @for (suggestion of topExpiring(); track suggestion.recipe.id) {
                   <a
                     [routerLink]="['/recipes', suggestion.recipe.id]"
-                    class="block px-4 py-3 transition-colors hover:bg-white/40 sm:px-5"
+                    class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/40 sm:px-5"
                   >
-                    <p class="text-sm font-semibold text-stone-900">{{ suggestion.recipe.title }}</p>
-                    @if (suggestion.reasons.length > 0) {
-                      <p class="mt-0.5 text-xs text-stone-500">{{ suggestion.reasons[0] }}</p>
-                    }
+                    <app-recipe-image [recipe]="suggestion.recipe" variant="thumbnail" />
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-semibold text-stone-900">{{ suggestion.recipe.title }}</p>
+                      @if (suggestion.reasons.length > 0) {
+                        <p class="mt-0.5 text-xs text-stone-500">{{ suggestion.reasons[0] }}</p>
+                      }
+                    </div>
                   </a>
                 } @empty {
                   <p class="px-4 py-3 text-sm text-stone-500 sm:px-5">Nothing expiring soon.</p>
@@ -320,12 +318,13 @@ export class DashboardComponent implements OnInit {
   readonly preparedPortionService = inject(PreparedPortionService);
   readonly suggestionService = inject(SmartSuggestionService);
   readonly facade = inject(DashboardFacadeService);
-  readonly profileFacade = inject(UserProfileFacadeService);
+  private readonly progressService = inject(MealPlanProgressService);
   private readonly router = inject(Router);
   readonly locationLabels = STORAGE_LOCATION_LABELS;
 
   readonly dialogAction = signal<DashboardAction | null>(null);
   readonly dialogDraft = signal<ActionCompletionPayload | null>(null);
+  readonly todayProgressTitle = "Today's progress";
 
   readonly topOverall = computed(() =>
     this.suggestionService.getSmartSuggestions().slice(0, 3)
@@ -344,6 +343,14 @@ export class DashboardComponent implements OnInit {
   readonly portionPrompts = computed(() =>
     buildUseFirstPortionPrompts(this.preparedPortionService.expiringSoonPortions())
   );
+
+  readonly todayProgress = computed(() => {
+    const today = toISODate(new Date());
+    return this.progressService.calculateDayProgress(
+      today,
+      this.mealPlanService.todayEntries()
+    );
+  });
 
   ngOnInit(): void {
     void this.facade.loadDashboardData();

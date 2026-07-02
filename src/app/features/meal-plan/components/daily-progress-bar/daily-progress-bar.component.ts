@@ -5,12 +5,20 @@ import { DayMealProgress } from '../../models/day-meal-progress.model';
   selector: 'app-daily-progress-bar',
   standalone: true,
   template: `
-    <section class="card bg-cream/60 p-4" aria-labelledby="daily-progress-title">
-      <h3 id="daily-progress-title" class="text-base font-semibold text-stone-900">
-        {{ title() }}
-      </h3>
+    <section
+      class="card bg-cream/60"
+      [class.p-3]="compact()"
+      [class.p-4]="!compact()"
+      [attr.aria-labelledby]="hideTitle() ? null : 'daily-progress-title'"
+      [attr.aria-label]="hideTitle() ? title() : null"
+    >
+      @if (!hideTitle()) {
+        <h3 id="daily-progress-title" class="text-base font-semibold text-stone-900">
+          {{ title() }}
+        </h3>
+      }
 
-      <p class="mt-1 text-sm text-stone-600">
+      <p [class.mt-1]="!hideTitle()" class="text-sm text-stone-600">
         @if (progress().plannedCount === 0) {
           No meals planned for this day
         } @else {
@@ -20,7 +28,9 @@ import { DayMealProgress } from '../../models/day-meal-progress.model';
 
       <div class="mt-3 flex items-center gap-3">
         <div
-          class="h-2.5 flex-1 overflow-hidden rounded-full bg-stone-200"
+          class="flex-1 overflow-hidden rounded-full bg-stone-200"
+          [class.h-2]="compact()"
+          [class.h-2.5]="!compact()"
           role="progressbar"
           [attr.aria-valuenow]="progress().percentage"
           aria-valuemin="0"
@@ -37,7 +47,9 @@ import { DayMealProgress } from '../../models/day-meal-progress.model';
         </span>
       </div>
 
-      <p class="mt-2 text-sm font-medium text-brand-700">{{ progress().message }}</p>
+      @if (!compact()) {
+        <p class="mt-2 text-sm font-medium text-brand-700">{{ progress().message }}</p>
+      }
     </section>
   `,
   styles: `
@@ -55,6 +67,8 @@ import { DayMealProgress } from '../../models/day-meal-progress.model';
 export class DailyProgressBarComponent {
   readonly title = input.required<string>();
   readonly progress = input.required<DayMealProgress>();
+  readonly compact = input(false);
+  readonly hideTitle = input(false);
 
   readonly progressLabel = computed(
     () => `${this.progress().percentage} percent of planned meals completed`
