@@ -210,7 +210,11 @@ interface WeekStats {
           <div class="space-y-6">
             @for (mealType of mealTypes; track mealType) {
               <section>
-                <div class="mb-3 flex items-center gap-3">
+                <div class="mb-3 flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <h3 class="text-base font-semibold text-stone-900">{{ mealTypeLabel(mealType) }}</h3>
+                    <p class="text-sm text-stone-600">{{ mealTypeTimeRange(mealType) }}</p>
+                  </div>
                   @if (itemsFor(selectedDate(), mealType).length > 0) {
                     <app-meal-slot-completion-button
                       [mealType]="mealType"
@@ -219,10 +223,6 @@ interface WeekStats {
                       (toggled)="onToggleSlotCompletion(selectedDate(), mealType)"
                     />
                   }
-                  <div class="min-w-0">
-                    <h3 class="text-base font-semibold text-stone-900">{{ mealTypeLabel(mealType) }}</h3>
-                    <p class="text-sm text-stone-600">{{ mealTypeTimeRange(mealType) }}</p>
-                  </div>
                 </div>
 
                 @if (itemsFor(selectedDate(), mealType).length > 0) {
