@@ -210,28 +210,30 @@ interface WeekStats {
           <div class="space-y-6">
             @for (mealType of mealTypes; track mealType) {
               <section>
-                <div class="mb-3">
-                  <h3 class="text-base font-semibold text-stone-900">{{ mealTypeLabel(mealType) }}</h3>
-                  <p class="text-sm text-stone-600">{{ mealTypeTimeRange(mealType) }}</p>
-                </div>
-
-                @if (itemsFor(selectedDate(), mealType).length > 0) {
-                  <div class="space-y-3">
-                    <app-meal-slot-items
-                      [items]="itemsFor(selectedDate(), mealType)"
-                      [removingId]="removingId()"
-                      [canAdd]="canAddToSelectedDate()"
-                      [completed]="isSlotCompletedFor(selectedDate(), mealType)"
-                      (addItem)="openPicker(selectedDate(), mealType)"
-                      (removeItem)="onRemoveItem($event)"
-                    />
+                <div class="mb-3 flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <h3 class="text-base font-semibold text-stone-900">{{ mealTypeLabel(mealType) }}</h3>
+                    <p class="text-sm text-stone-600">{{ mealTypeTimeRange(mealType) }}</p>
+                  </div>
+                  @if (itemsFor(selectedDate(), mealType).length > 0) {
                     <app-meal-slot-completion-button
                       [mealType]="mealType"
                       [completed]="isSlotCompletedFor(selectedDate(), mealType)"
                       [loading]="isSlotCompleting(selectedDate(), mealType)"
                       (toggled)="onToggleSlotCompletion(selectedDate(), mealType)"
                     />
-                  </div>
+                  }
+                </div>
+
+                @if (itemsFor(selectedDate(), mealType).length > 0) {
+                  <app-meal-slot-items
+                    [items]="itemsFor(selectedDate(), mealType)"
+                    [removingId]="removingId()"
+                    [canAdd]="canAddToSelectedDate()"
+                    [completed]="isSlotCompletedFor(selectedDate(), mealType)"
+                    (addItem)="openPicker(selectedDate(), mealType)"
+                    (removeItem)="onRemoveItem($event)"
+                  />
                 } @else if (isPastDate(selectedDate())) {
                   <div
                     class="flex w-full items-center gap-3 rounded-xl border border-dashed border-stone-200 bg-stone-50/40 p-4 text-left"
