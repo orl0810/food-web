@@ -78,7 +78,7 @@ import { MealStreakService } from '../../../core/services/meal-streak.service';
         </div>
       </header>
 
-      <main class="mx-auto max-w-5xl px-4 py-6 pb-20 md:pb-6">
+      <main class="mx-auto max-w-5xl px-4 py-6 pb-28 md:pb-6">
         <router-outlet />
       </main>
 
