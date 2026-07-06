@@ -25,7 +25,19 @@ export interface MealSlotItem {
   status: MealSlotItemStatus;
   completed_at: string | null;
   created_at: string;
-  recipe?: Pick<Recipe, 'id' | 'title' | 'description' | 'tags' | 'prep_time_minutes'>;
+  recipe?: Pick<
+    Recipe,
+    | 'id'
+    | 'title'
+    | 'description'
+    | 'tags'
+    | 'prep_time_minutes'
+    | 'image_url'
+    | 'image_status'
+    | 'image_storage_key'
+    | 'meal_type'
+    | 'category'
+  >;
   prepared_portion?: Pick<PreparedPortion, 'id' | 'name' | 'available_portions' | 'expires_at' | 'storage_location'>;
   inventory_item?: Pick<FoodItem, 'id' | 'name' | 'quantity' | 'unit' | 'location' | 'expiration_date'>;
 }

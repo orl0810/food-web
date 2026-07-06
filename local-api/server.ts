@@ -347,6 +347,11 @@ function serializeRecipeSummary(row: RecipeRow | undefined) {
     description: row.description,
     tags,
     prep_time_minutes: row.prep_time_minutes,
+    image_url: row.image_url,
+    image_status: row.image_status,
+    image_storage_key: row.image_storage_key,
+    meal_type: row.meal_type,
+    category: row.category,
   };
 }
 

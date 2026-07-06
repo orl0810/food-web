@@ -69,6 +69,11 @@ function makeSlotItem(overrides: Partial<MealSlotItem> = {}): MealSlotItem {
       description: null,
       tags: [],
       prep_time_minutes: 15,
+      image_url: null,
+      image_status: 'pending',
+      image_storage_key: null,
+      meal_type: null,
+      category: null,
     },
     ...overrides,
   };
