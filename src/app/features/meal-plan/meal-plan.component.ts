@@ -16,6 +16,7 @@ import {
   formatDayShort,
   formatFullDayHeading,
   formatWeekRangeCompact,
+  addDays,
   isPastDate,
   isToday,
   toISODate,
@@ -24,17 +25,23 @@ import {
   getIngredientAvailability,
   IngredientAvailability,
 } from '../../shared/utils/recipe-availability.utils';
+import { MealSlotItemStatus } from '../../core/models/meal-slot-item.model';
 import { ConfettiCelebrationComponent } from './components/confetti-celebration/confetti-celebration.component';
 import { DailyProgressBarComponent } from './components/daily-progress-bar/daily-progress-bar.component';
-import { MealSlotCompletionButtonComponent } from './components/meal-slot-completion-button/meal-slot-completion-button.component';
+import { MealStatusControlComponent } from './components/meal-status-control/meal-status-control.component';
+import { PendingMealsComponent } from './components/pending-meals/pending-meals.component';
 import { MealPlanProgressService } from './services/meal-plan-progress.service';
 import { MealSlotItemsComponent } from './meal-slot-items.component';
 import { MealSlotItemPickerComponent } from './meal-slot-item-picker.component';
 import { getMealSlotItemDisplayName } from '../../shared/utils/prepared-portion.utils';
+import { DayMealProgress } from './models/day-meal-progress.model';
 import {
   getDayProgressTitle,
-  isSlotCompleted,
 } from './utils/meal-slot-completion.utils';
+import {
+  countReadySlotsForDay,
+  getSlotDisplayStatus,
+} from './utils/meal-slot-status.utils';
 
 interface SelectedSlot {
   date: string;
@@ -56,7 +63,8 @@ interface WeekStats {
     MealSlotItemsComponent,
     MealSlotItemPickerComponent,
     DailyProgressBarComponent,
-    MealSlotCompletionButtonComponent,
+    MealStatusControlComponent,
+    PendingMealsComponent,
     ConfettiCelebrationComponent,
   ],
   template: `
@@ -195,6 +203,17 @@ interface WeekStats {
             class="mb-5 block"
             [title]="dayProgressTitle()"
             [progress]="dayProgress()"
+            [readyCount]="dayReadyCount()"
+          />
+
+          <app-pending-meals
+            class="mb-5 block"
+            [slots]="pendingMeals()"
+            [loading]="pendingMealsLoading()"
+            [error]="pendingMealsError()"
+            [markingKey]="completingSlotKey()"
+            (markReady)="onPendingMarkReady($event.date, $event.mealType)"
+            (retry)="refreshPendingMeals()"
           />
 
           @if (streakFeedbackMessage()) {
@@ -216,11 +235,11 @@ interface WeekStats {
                     <p class="text-sm text-stone-600">{{ mealTypeTimeRange(mealType) }}</p>
                   </div>
                   @if (itemsFor(selectedDate(), mealType).length > 0) {
-                    <app-meal-slot-completion-button
+                    <app-meal-status-control
                       [mealType]="mealType"
-                      [completed]="isSlotCompletedFor(selectedDate(), mealType)"
+                      [displayStatus]="slotDisplayStatus(selectedDate(), mealType)"
                       [loading]="isSlotCompleting(selectedDate(), mealType)"
-                      (toggled)="onToggleSlotCompletion(selectedDate(), mealType)"
+                      (statusChange)="onSlotStatusChange(selectedDate(), mealType, $event)"
                     />
                   }
                 </div>
@@ -230,7 +249,7 @@ interface WeekStats {
                     [items]="itemsFor(selectedDate(), mealType)"
                     [removingId]="removingId()"
                     [canAdd]="canAddToSelectedDate()"
-                    [completed]="isSlotCompletedFor(selectedDate(), mealType)"
+                    [status]="slotDisplayStatus(selectedDate(), mealType)"
                     (addItem)="openPicker(selectedDate(), mealType)"
                     (removeItem)="onRemoveItem($event)"
                   />
@@ -298,6 +317,9 @@ export class MealPlanComponent implements OnInit {
   readonly duplicating = signal(false);
   readonly completingSlotKey = signal<string | null>(null);
   readonly showConfetti = signal(false);
+  readonly pendingMealsItems = signal<MealSlotItem[]>([]);
+  readonly pendingMealsLoading = signal(false);
+  readonly pendingMealsError = signal(false);
   private readonly celebrationArmed = signal(false);
 
   readonly weekRangeLabel = computed(() =>
@@ -310,6 +332,18 @@ export class MealPlanComponent implements OnInit {
     this.progressService.calculateDayProgress(
       this.selectedDate(),
       this.mealPlanService.entries()
+    )
+  );
+
+  readonly dayReadyCount = computed(() =>
+    countReadySlotsForDay(this.selectedDate(), this.mealPlanService.entries())
+  );
+
+  readonly pendingMeals = computed(() =>
+    this.progressService.getPendingMealsToPrepare(
+      this.pendingMealsItems(),
+      toISODate(),
+      addDays(toISODate(), 6)
     )
   );
 
@@ -377,30 +411,81 @@ export class MealPlanComponent implements OnInit {
     ]).then(() => {
       this.syncSelectedDateToWeek();
       this.armCelebrationTracking();
+      void this.refreshPendingMeals();
     });
   }
 
-  isSlotCompletedFor(date: string, mealType: MealType): boolean {
-    return isSlotCompleted(this.itemsFor(date, mealType));
+  slotDisplayStatus(date: string, mealType: MealType) {
+    return getSlotDisplayStatus(this.itemsFor(date, mealType));
   }
 
   isSlotCompleting(date: string, mealType: MealType): boolean {
     return this.completingSlotKey() === this.slotKey(date, mealType);
   }
 
-  async onToggleSlotCompletion(date: string, mealType: MealType): Promise<void> {
+  async onSlotStatusChange(
+    date: string,
+    mealType: MealType,
+    status: MealSlotItemStatus
+  ): Promise<void> {
     const previous = this.dayProgress();
     const key = this.slotKey(date, mealType);
     this.completingSlotKey.set(key);
 
-    const { error } = await this.progressService.toggleMealSlotCompletion(date, mealType);
+    const { error } = await this.progressService.setMealSlotStatus(date, mealType, status);
     this.completingSlotKey.set(null);
 
     if (error) {
       return;
     }
 
-    await this.mealPlanService.getTodayMeals();
+    await this.afterSlotStatusUpdated(previous);
+  }
+
+  async onPendingMarkReady(date: string, mealType: MealType): Promise<void> {
+    const slot = this.pendingMeals().find(
+      (entry) => entry.date === date && entry.mealType === mealType
+    );
+    const previous = this.dayProgress();
+    const key = this.slotKey(date, mealType);
+    this.completingSlotKey.set(key);
+
+    const { error } = await this.progressService.setMealSlotStatus(
+      date,
+      mealType,
+      'prepared',
+      slot?.items
+    );
+    this.completingSlotKey.set(null);
+
+    if (error) {
+      return;
+    }
+
+    await this.afterSlotStatusUpdated(previous);
+  }
+
+  async refreshPendingMeals(): Promise<void> {
+    const startDate = toISODate();
+    const endDate = addDays(startDate, 6);
+    this.pendingMealsLoading.set(true);
+    this.pendingMealsError.set(false);
+
+    try {
+      const items = await this.mealPlanService.fetchMealPlanForDateRange(startDate, endDate);
+      this.pendingMealsItems.set(items);
+    } catch {
+      this.pendingMealsError.set(true);
+    } finally {
+      this.pendingMealsLoading.set(false);
+    }
+  }
+
+  private async afterSlotStatusUpdated(previous: DayMealProgress): Promise<void> {
+    await Promise.all([
+      this.mealPlanService.getTodayMeals(),
+      this.refreshPendingMeals(),
+    ]);
 
     const current = this.dayProgress();
     if (
@@ -457,7 +542,10 @@ export class MealPlanComponent implements OnInit {
 
   async onItemAdded(): Promise<void> {
     this.selectedSlot.set(null);
-    await this.mealPlanService.getTodayMeals();
+    await Promise.all([
+      this.mealPlanService.getTodayMeals(),
+      this.refreshPendingMeals(),
+    ]);
   }
 
   async onRemoveItem(item: MealSlotItem): Promise<void> {
@@ -469,7 +557,10 @@ export class MealPlanComponent implements OnInit {
     this.removingId.set(item.id);
     await this.mealPlanService.removeSlotItem(item.id);
     this.removingId.set(null);
-    await this.mealPlanService.getTodayMeals();
+    await Promise.all([
+      this.mealPlanService.getTodayMeals(),
+      this.refreshPendingMeals(),
+    ]);
   }
 
   selectDate(date: string): void {

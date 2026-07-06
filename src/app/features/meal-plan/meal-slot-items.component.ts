@@ -1,10 +1,14 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MealSlotItem } from '../../core/models/meal-slot-item.model';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import {
   getMealSlotItemDisplayName,
 } from '../../shared/utils/prepared-portion.utils';
+import {
+  getMealStatusUiConfig,
+  MealSlotDisplayStatus,
+} from './utils/meal-slot-status.utils';
 
 @Component({
   selector: 'app-meal-slot-items',
@@ -13,9 +17,7 @@ import {
   template: `
     <article
       class="card overflow-hidden p-4 transition-colors"
-      [class.ring-1]="completed()"
-      [class.ring-brand-200]="completed()"
-      [class.bg-brand-50/30]="completed()"
+      [class]="cardClasses()"
     >
       <ul class="divide-y divide-stone-100">
         @for (item of items(); track item.id) {
@@ -31,9 +33,20 @@ import {
                   <p class="font-medium text-stone-900">{{ displayName(item) }}</p>
                   <div class="mt-0.5 flex flex-wrap items-center gap-2">
                     <p class="text-xs text-stone-500">{{ itemTypeLabel(item) }}</p>
+                    @if (item.status === 'prepared') {
+                      <span class="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-2.5 w-2.5" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.87c1.355 0 2.697.055 4.024.165C17.155 8.51 18 9.473 18 10.608v2.513m-3-4.87v-1.5m-6 1.5v-1.5m12 9.75-1.5.75a3.354 3.354 0 0 1-3 0 3.354 3.354 0 0 0-3 0 3.354 3.354 0 0 1-3 0 3.354 3.354 0 0 0-3 0 3.354 3.354 0 0 1-3 0L3 16.5m15-3.38a48.474 48.474 0 0 0-6-.37c-2.032 0-3.963.175-5.771.48M3 16.5V18.75A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5" />
+                        </svg>
+                        Ready
+                      </span>
+                    }
                     @if (item.status === 'eaten') {
-                      <span class="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
-                        Eaten
+                      <span class="inline-flex items-center gap-0.5 rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-2.5 w-2.5" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                        </svg>
+                        Consumed
                       </span>
                     }
                   </div>
@@ -86,10 +99,15 @@ export class MealSlotItemsComponent {
   readonly items = input.required<MealSlotItem[]>();
   readonly removingId = input<string | null>(null);
   readonly canAdd = input(true);
-  readonly completed = input(false);
+  readonly status = input<MealSlotDisplayStatus>('planned');
 
   readonly addItem = output<void>();
   readonly removeItem = output<MealSlotItem>();
+
+  readonly cardClasses = computed(() => {
+    const config = getMealStatusUiConfig(this.status());
+    return config?.cardClass ?? '';
+  });
 
   displayName(item: MealSlotItem): string {
     return getMealSlotItemDisplayName(item);

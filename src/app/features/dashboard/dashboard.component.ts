@@ -15,7 +15,6 @@ import { DashboardFacadeService } from './services/dashboard-facade.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
-import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
 import { RecipeImageComponent } from '../../shared/components/recipe-image/recipe-image.component';
 import { DailyProgressBarComponent } from '../meal-plan/components/daily-progress-bar/daily-progress-bar.component';
 import { MealPlanProgressService } from '../meal-plan/services/meal-plan-progress.service';
@@ -38,7 +37,6 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
   selector: 'app-dashboard',
   standalone: true,
   imports: [
-    StatCardComponent,
     EmptyStateComponent,
     FoodIconBadgeComponent,
     LoadingStateComponent,
@@ -105,45 +103,6 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
           (actionClick)="goToInventory()"
         />
       } @else {
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-          <app-stat-card
-            label="Total Items"
-            icon="basket"
-            variant="success"
-            [value]="inventoryService.totalCount()"
-          />
-          <app-stat-card
-            label="Expiring Soon"
-            icon="clock"
-            variant="warning"
-            [value]="inventoryService.expiringSoonCount()"
-          />
-          <app-stat-card
-            label="Expired"
-            icon="warning"
-            variant="danger"
-            [value]="inventoryService.expiredCount()"
-          />
-          <app-stat-card
-            label="Fridge"
-            icon="fridge"
-            [value]="inventoryService.locationCounts().fridge"
-            unit=" items"
-          />
-          <app-stat-card
-            label="Freezer"
-            icon="freezer"
-            [value]="inventoryService.locationCounts().freezer"
-            unit=" items"
-          />
-          <app-stat-card
-            label="Pantry"
-            icon="pantry"
-            [value]="inventoryService.locationCounts().pantry"
-            unit=" items"
-          />
-        </div>
-
         <section class="card-featured overflow-hidden">
           <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
             <h2 class="section-title">Use These First</h2>
