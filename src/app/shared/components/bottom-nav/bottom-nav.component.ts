@@ -12,11 +12,9 @@ interface NavItem {
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
-    <nav
-      class="bottom-nav fixed inset-x-0 bottom-0 z-50 border-t border-stone-200 bg-card md:hidden"
-      aria-label="Main navigation"
-    >
-      <div class="grid grid-cols-5">
+    <nav class="bottom-nav md:hidden" aria-label="Main navigation">
+      <div class="bottom-nav-pill">
+        <div class="bottom-nav-items">
         @for (item of navItems; track item.route) {
           <a
             [routerLink]="item.route"
@@ -55,6 +53,7 @@ interface NavItem {
             <span class="bottom-nav-label">{{ item.label }}</span>
           </a>
         }
+        </div>
       </div>
     </nav>
   `,

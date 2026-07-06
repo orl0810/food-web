@@ -20,7 +20,7 @@
 
 html {
   scroll-padding-top: 4.5rem;
-  scroll-padding-bottom: 5rem;
+  scroll-padding-bottom: 7rem;
 }
 
 body {
@@ -131,15 +131,31 @@ textarea {
   }
 
   .bottom-nav {
-    padding-bottom: env(safe-area-inset-bottom);
+    position: fixed;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    z-index: 50;
+    width: calc(100% - 2rem);
+    max-width: 24rem;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .bottom-nav-pill {
+    @apply rounded-full border border-stone-200/80 bg-card/90 px-2 py-1 shadow-[0_4px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-xl;
+    pointer-events: auto;
+  }
+
+  .bottom-nav-items {
+    @apply grid grid-cols-5;
   }
 
   .bottom-nav-item {
-    @apply flex flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-stone-500 transition-colors;
+    @apply flex flex-col items-center gap-0.5 rounded-2xl px-1 py-2 text-[10px] font-medium text-stone-500 transition-colors;
   }
 
   .bottom-nav-item-active {
-    @apply text-brand-700;
+    @apply bg-stone-100 text-brand-700;
   }
 
   .bottom-nav-icon {
