@@ -2,6 +2,7 @@ import { Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MealSlotItem } from '../../core/models/meal-slot-item.model';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
+import { RecipeImageComponent } from '../../shared/components/recipe-image/recipe-image.component';
 import {
   getMealSlotItemDisplayName,
 } from '../../shared/utils/prepared-portion.utils';
@@ -13,7 +14,7 @@ import {
 @Component({
   selector: 'app-meal-slot-items',
   standalone: true,
-  imports: [RouterLink, FoodIconBadgeComponent],
+  imports: [RouterLink, FoodIconBadgeComponent, RecipeImageComponent],
   template: `
     <article
       class="card overflow-hidden p-4 transition-colors"
@@ -22,10 +23,14 @@ import {
       <ul class="divide-y divide-stone-100">
         @for (item of items(); track item.id) {
           <li class="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-            <app-food-icon-badge
-              [name]="displayName(item)"
-              [category]="itemTypeCategory(item)"
-            />
+            @if (item.item_type === 'recipe' && item.recipe) {
+              <app-recipe-image [recipe]="item.recipe" variant="thumbnail" />
+            } @else {
+              <app-food-icon-badge
+                [name]="displayName(item)"
+                [category]="itemTypeCategory(item)"
+              />
+            }
 
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-start justify-between gap-2">

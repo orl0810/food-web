@@ -5,6 +5,11 @@ import {
   RecipeImageUrlService,
 } from '../../../core/services/recipe-image-url.service';
 
+export type RecipeImageSource = Pick<
+  Recipe,
+  'title' | 'image_url' | 'image_storage_key' | 'image_status' | 'meal_type' | 'category'
+>;
+
 @Component({
   selector: 'app-recipe-image',
   standalone: true,
@@ -61,7 +66,7 @@ import {
 export class RecipeImageComponent {
   private readonly recipeImageUrlService = inject(RecipeImageUrlService);
 
-  readonly recipe = input.required<Recipe>();
+  readonly recipe = input.required<RecipeImageSource>();
   readonly variant = input<'thumbnail' | 'hero'>('hero');
   readonly alt = input<string | null>(null);
 

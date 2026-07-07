@@ -115,5 +115,31 @@ describe('meal-slot-status.utils', () => {
         '2026-06-26|dinner',
       ]);
     });
+
+    it('keeps recipe image metadata on pending slot items', () => {
+      const items = [
+        slotItem({
+          date: '2026-06-25',
+          meal_type: 'lunch',
+          status: 'planned',
+          recipe: {
+            id: 'r1',
+            title: 'Pasta',
+            description: null,
+            tags: [],
+            prep_time_minutes: 15,
+            image_url: 'https://cdn.example.com/pasta.jpg',
+            image_status: 'completed',
+            image_storage_key: 'recipes/pasta.jpg',
+            meal_type: 'lunch',
+            category: 'Pasta',
+          },
+        }),
+      ];
+
+      const pending = getPendingMealsToPrepare(items, '2026-06-25', '2026-06-30');
+      expect(pending[0].items[0].recipe?.image_url).toBe('https://cdn.example.com/pasta.jpg');
+      expect(pending[0].items[0].recipe?.image_status).toBe('completed');
+    });
   });
 });
