@@ -1,7 +1,7 @@
 import { FoodItem } from './food-item.model';
 import { MealType } from './meal-plan.model';
 import { PreparedPortion } from './prepared-portion.model';
-import { Recipe } from './recipe.model';
+import { RecipeMealPlanSummary } from './recipe.model';
 
 export type MealSlotItemType = 'recipe' | 'prepared_portion' | 'inventory_item' | 'custom';
 
@@ -25,7 +25,7 @@ export interface MealSlotItem {
   status: MealSlotItemStatus;
   completed_at: string | null;
   created_at: string;
-  recipe?: Pick<Recipe, 'id' | 'title' | 'description' | 'tags' | 'prep_time_minutes'>;
+  recipe?: RecipeMealPlanSummary;
   prepared_portion?: Pick<PreparedPortion, 'id' | 'name' | 'available_portions' | 'expires_at' | 'storage_location'>;
   inventory_item?: Pick<FoodItem, 'id' | 'name' | 'quantity' | 'unit' | 'location' | 'expiration_date'>;
 }

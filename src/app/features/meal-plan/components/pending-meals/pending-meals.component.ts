@@ -1,10 +1,13 @@
 import { Component, computed, input, output } from '@angular/core';
 import { MealType } from '../../../../core/models/meal-plan.model';
+import { MealSlotItem } from '../../../../core/models/meal-slot-item.model';
+import { RecipeImageComponent } from '../../../../shared/components/recipe-image/recipe-image.component';
 import { PendingMealSlot } from '../../utils/meal-slot-status.utils';
 
 @Component({
   selector: 'app-pending-meals',
   standalone: true,
+  imports: [RecipeImageComponent],
   template: `
   @if (loading()) {
     <section class="card p-4" aria-busy="true" aria-label="Loading meals to cook">
@@ -37,17 +40,29 @@ import { PendingMealSlot } from '../../utils/meal-slot-status.utils';
           <li
             class="flex flex-col gap-3 rounded-xl border border-stone-200 bg-stone-50/50 p-3 sm:flex-row sm:items-center sm:justify-between"
           >
-            <div class="min-w-0">
-              <p class="font-medium text-stone-900">{{ slotTitle(slot) }}</p>
-              <p class="mt-0.5 text-sm text-stone-600">
-                {{ slot.dateLabel }} · {{ slot.mealTypeLabel }}
-              </p>
-              <span class="mt-1.5 inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3 w-3" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                </svg>
-                Planned
-              </span>
+            <div class="flex min-w-0 items-start gap-3">
+              @if (recipeItems(slot).length > 0) {
+                <div class="flex shrink-0 gap-1.5">
+                  @for (item of recipeItems(slot); track item.id) {
+                    @if (item.recipe) {
+                      <app-recipe-image [recipe]="item.recipe" variant="thumbnail" />
+                    }
+                  }
+                </div>
+              }
+
+              <div class="min-w-0">
+                <p class="font-medium text-stone-900">{{ slotTitle(slot) }}</p>
+                <p class="mt-0.5 text-sm text-stone-600">
+                  {{ slot.dateLabel }} · {{ slot.mealTypeLabel }}
+                </p>
+                <span class="mt-1.5 inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-700">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3 w-3" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                  </svg>
+                  Planned
+                </span>
+              </div>
             </div>
 
             <button
@@ -88,5 +103,9 @@ export class PendingMealsComponent {
 
   slotTitle(slot: PendingMealSlot): string {
     return slot.displayNames.join(', ');
+  }
+
+  recipeItems(slot: PendingMealSlot): MealSlotItem[] {
+    return slot.items.filter((item) => item.item_type === 'recipe' && item.recipe);
   }
 }
