@@ -2,7 +2,7 @@ import { Component, computed, inject, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MealType } from '../../../../core/models/meal-plan.model';
 import { MealSlotItem } from '../../../../core/models/meal-slot-item.model';
-import { Recipe } from '../../../../core/models/recipe.model';
+import { RecipeMealPlanSummary } from '../../../../core/models/recipe.model';
 import { RecipeService } from '../../../../core/services/recipe.service';
 import { FoodIconBadgeComponent } from '../../../../shared/components/food-icon-badge/food-icon-badge.component';
 import { RecipeImageComponent } from '../../../../shared/components/recipe-image/recipe-image.component';
@@ -257,18 +257,18 @@ export class PendingMealsComponent {
   }
 
   recipeItems(slot: PendingMealSlot): MealSlotItem[] {
-    return slot.items.filter((item) => item.item_type === 'recipe' && !!item.recipe_id);
+    return slot.items.filter((item) => item.item_type === 'recipe' && item.recipe);
   }
 
   otherItems(slot: PendingMealSlot): MealSlotItem[] {
-    return slot.items.filter((item) => item.item_type !== 'recipe' || !item.recipe_id);
+    return slot.items.filter((item) => item.item_type !== 'recipe' || !item.recipe);
   }
 
   displayName(item: MealSlotItem): string {
     return getMealSlotItemDisplayName(item);
   }
 
-  resolveRecipe(item: MealSlotItem): Recipe | null {
+  resolveRecipe(item: MealSlotItem): RecipeMealPlanSummary | null {
     if (item.item_type !== 'recipe' || !item.recipe_id) {
       return null;
     }
@@ -278,31 +278,6 @@ export class PendingMealsComponent {
       return cached;
     }
 
-    const embedded = item.recipe;
-    if (!embedded) {
-      return null;
-    }
-
-    return {
-      id: embedded.id,
-      user_id: null,
-      title: embedded.title,
-      description: embedded.description ?? null,
-      prep_time_minutes: embedded.prep_time_minutes ?? null,
-      cook_time_minutes: null,
-      portions: null,
-      tags: embedded.tags ?? [],
-      rating: null,
-      image_url: embedded.image_url ?? null,
-      image_status: embedded.image_status ?? 'pending',
-      image_storage_key: embedded.image_storage_key ?? null,
-      is_base_recipe: false,
-      base_recipe_id: null,
-      meal_type: embedded.meal_type ?? null,
-      category: embedded.category ?? null,
-      difficulty: null,
-      instructions: [],
-      created_at: '',
-    };
+    return item.recipe ?? null;
   }
 }

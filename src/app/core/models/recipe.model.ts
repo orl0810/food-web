@@ -126,6 +126,20 @@ export interface Recipe {
   ingredients?: RecipeIngredient[];
 }
 
+export type RecipeMealPlanSummary = Pick<
+  Recipe,
+  | 'id'
+  | 'title'
+  | 'description'
+  | 'tags'
+  | 'prep_time_minutes'
+  | 'image_url'
+  | 'image_status'
+  | 'image_storage_key'
+  | 'meal_type'
+  | 'category'
+>;
+
 export interface RecipeInput {
   title: string;
   description?: string | null;
