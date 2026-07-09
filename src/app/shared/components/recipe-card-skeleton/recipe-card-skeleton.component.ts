@@ -20,7 +20,6 @@ import { Component } from '@angular/core';
       <div class="mt-3 flex gap-2">
         <div class="skeleton-shimmer h-9 flex-1 rounded-lg"></div>
         <div class="skeleton-shimmer h-9 flex-1 rounded-lg"></div>
-        <div class="skeleton-shimmer h-9 flex-1 rounded-lg"></div>
       </div>
     </article>
   `,

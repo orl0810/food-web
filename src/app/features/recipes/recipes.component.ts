@@ -11,7 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   MEAL_TYPE_LABELS,
   MEAL_TYPES,
@@ -33,6 +33,7 @@ import { RecipeImageComponent } from '../../shared/components/recipe-image/recip
 import { AiRecipeDialogComponent } from './ai-recipe-generator/ai-recipe-dialog.component';
 import { RecipeFormDialogComponent } from './recipe-form/recipe-form-dialog.component';
 import { RecipeFiltersDialogComponent } from './recipe-filters-dialog.component';
+import { AddToMealPlanDialogComponent } from './recipe-suggestions/add-to-meal-plan-dialog.component';
 
 const RECIPE_BATCH_SIZE = 7;
 const SKELETON_CARD_COUNT = 4;
@@ -50,6 +51,7 @@ const SKELETON_CARD_COUNT = 4;
     RecipeFormDialogComponent,
     AiRecipeDialogComponent,
     RecipeFiltersDialogComponent,
+    AddToMealPlanDialogComponent,
   ],
   template: `
     <div class="page">
@@ -276,16 +278,8 @@ const SKELETON_CARD_COUNT = 4;
                   [disabled]="actionInProgressId() === recipe.id"
                   (click)="planMeal(recipe)"
                 >
-                  Plan meal
-                </button>
-                <button
-                  type="button"
-                  class="btn-secondary flex-1"
-                  [disabled]="actionInProgressId() === recipe.id"
-                  (click)="editRecipe(recipe)"
-                >
                   {{
-                    actionInProgressId() === recipe.id ? 'Creating your copy...' : 'Edit'
+                    actionInProgressId() === recipe.id ? 'Preparing recipe...' : 'Plan meal'
                   }}
                 </button>
                 <a [routerLink]="viewLink(recipe)" class="btn-secondary flex-1 text-center">
@@ -321,13 +315,19 @@ const SKELETON_CARD_COUNT = 4;
         (closed)="showFiltersDialog.set(false)"
       />
     }
+    @if (mealPlanRecipe()) {
+      <app-add-to-meal-plan-dialog
+        [recipe]="mealPlanRecipe()!"
+        (saved)="onAddedToMealPlan()"
+        (cancelled)="mealPlanRecipe.set(null)"
+      />
+    }
   `,
 })
 export class RecipesComponent implements OnInit, OnDestroy {
   readonly recipeService = inject(RecipeService);
   readonly inventoryService = inject(FoodInventoryService);
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
 
   private readonly loadMoreSentinel = viewChild<ElementRef<HTMLElement>>('loadMoreSentinel');
   private observer: IntersectionObserver | null = null;
@@ -349,6 +349,7 @@ export class RecipesComponent implements OnInit, OnDestroy {
   readonly showCreateDialog = signal(false);
   readonly showAiDialog = signal(false);
   readonly showFiltersDialog = signal(false);
+  readonly mealPlanRecipe = signal<Recipe | null>(null);
 
   readonly hasSecondaryFilters = computed(
     () => !!this.search().trim() || this.activeTagFilters().length > 0
@@ -516,21 +517,16 @@ export class RecipesComponent implements OnInit, OnDestroy {
   }
 
   async planMeal(recipe: Recipe): Promise<void> {
-    const target = await this.ensureUserRecipe(recipe);
+    const target = recipe.is_base_recipe ? await this.ensureUserRecipe(recipe) : recipe;
     if (!target) {
       return;
     }
 
-    await this.router.navigate(['/meal-plan'], { queryParams: { recipe: target.id } });
+    this.mealPlanRecipe.set(target);
   }
 
-  async editRecipe(recipe: Recipe): Promise<void> {
-    if (recipe.is_base_recipe) {
-      await this.customizeRecipe(recipe);
-      return;
-    }
-
-    await this.router.navigate(['/recipes', recipe.id, 'edit']);
+  onAddedToMealPlan(): void {
+    this.mealPlanRecipe.set(null);
   }
 
   async ensureUserRecipe(recipe: Recipe): Promise<Recipe | null> {
@@ -547,15 +543,6 @@ export class RecipesComponent implements OnInit, OnDestroy {
     }
 
     return copy;
-  }
-
-  async customizeRecipe(recipe: Recipe): Promise<void> {
-    const copy = await this.ensureUserRecipe(recipe);
-    if (!copy) {
-      return;
-    }
-
-    await this.router.navigate(['/recipes', copy.id, 'edit']);
   }
 
   async onRatingChange(recipeId: string, rating: number | null): Promise<void> {
