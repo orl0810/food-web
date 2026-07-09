@@ -44,6 +44,8 @@ const CATEGORY_COLORS: Record<RecipeCategory, string> = {
 };
 
 const LOOP_COPIES = 3;
+const AUTO_SCROLL_INTERVAL_MS = 3000;
+const AUTO_SCROLL_RESUME_DELAY_MS = 2000;
 
 @Component({
   selector: 'app-meal-inspiration-slider',
@@ -58,6 +60,11 @@ const LOOP_COPIES = 3;
         class="meal-inspiration-scroll -mx-1 flex gap-3 overflow-x-auto px-1 pb-1"
         role="list"
         (scroll)="onScroll()"
+        (pointerenter)="onUserInteractionStart()"
+        (pointerdown)="onUserInteractionStart()"
+        (pointerleave)="onUserInteractionEnd()"
+        (pointerup)="onUserInteractionEnd()"
+        (pointercancel)="onUserInteractionEnd()"
       >
         @for (category of loopedCategories(); track $index) {
           <a
@@ -107,8 +114,24 @@ export class MealInspirationSliderComponent {
     viewChild<ElementRef<HTMLElement>>('scrollContainer');
 
   private readonly categories = [...SLIDER_RECIPE_CATEGORIES];
+  private readonly onVisibilityChange = (): void => {
+    if (document.hidden) {
+      this.stopAutoScroll();
+      return;
+    }
+
+    if (!this.isUserInteracting && !this.isPaused) {
+      this.startAutoScroll();
+    }
+  };
+
   private setWidth = 0;
+  private stepPx = 0;
   private isAdjustingScroll = false;
+  private isPaused = false;
+  private isUserInteracting = false;
+  private autoScrollTimer: ReturnType<typeof setInterval> | null = null;
+  private resumeTimer: ReturnType<typeof setTimeout> | null = null;
   private iconObserver: IntersectionObserver | null = null;
 
   readonly loadedCategories = signal<ReadonlySet<RecipeCategory>>(new Set());
@@ -123,8 +146,13 @@ export class MealInspirationSliderComponent {
       this.setupIconObserver();
     });
 
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+
     this.destroyRef.onDestroy(() => {
       this.isAdjustingScroll = false;
+      this.stopAutoScroll();
+      this.clearResumeTimer();
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
       this.iconObserver?.disconnect();
       this.iconObserver = null;
     });
@@ -142,7 +170,21 @@ export class MealInspirationSliderComponent {
     return this.loadedCategories().has(category);
   }
 
+  onUserInteractionStart(): void {
+    this.isUserInteracting = true;
+    this.pauseAutoScroll();
+  }
+
+  onUserInteractionEnd(): void {
+    this.isUserInteracting = false;
+    this.scheduleResume();
+  }
+
   onScroll(): void {
+    if (!this.isAdjustingScroll && this.isUserInteracting) {
+      this.pauseAutoScroll();
+    }
+
     if (this.isAdjustingScroll || this.setWidth <= 0) {
       return;
     }
@@ -172,9 +214,93 @@ export class MealInspirationSliderComponent {
     }
 
     this.setWidth = container.scrollWidth / LOOP_COPIES;
+    this.stepPx = this.measureStepPx(container);
+
     if (this.setWidth > 0) {
       this.jumpScroll(container, this.setWidth);
     }
+
+    if (this.stepPx > 0 && !this.prefersReducedMotion()) {
+      this.startAutoScroll();
+    }
+  }
+
+  private measureStepPx(container: HTMLElement): number {
+    const firstTile = container.querySelector<HTMLElement>('[data-category-tile]');
+    if (!firstTile) {
+      return 0;
+    }
+
+    const tileWidth = firstTile.getBoundingClientRect().width;
+    const gapValue = getComputedStyle(container).columnGap || getComputedStyle(container).gap;
+    const gap = Number.parseFloat(gapValue) || 0;
+
+    return tileWidth + gap;
+  }
+
+  private prefersReducedMotion(): boolean {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  private startAutoScroll(): void {
+    if (this.autoScrollTimer || this.isPaused || this.isUserInteracting || document.hidden) {
+      return;
+    }
+
+    this.autoScrollTimer = setInterval(() => {
+      this.advanceOneStep();
+    }, AUTO_SCROLL_INTERVAL_MS);
+  }
+
+  private stopAutoScroll(): void {
+    if (!this.autoScrollTimer) {
+      return;
+    }
+
+    clearInterval(this.autoScrollTimer);
+    this.autoScrollTimer = null;
+  }
+
+  private pauseAutoScroll(): void {
+    this.isPaused = true;
+    this.stopAutoScroll();
+    this.clearResumeTimer();
+  }
+
+  private scheduleResume(): void {
+    this.clearResumeTimer();
+
+    this.resumeTimer = setTimeout(() => {
+      this.resumeTimer = null;
+      if (this.isUserInteracting || document.hidden) {
+        return;
+      }
+
+      this.isPaused = false;
+      this.startAutoScroll();
+    }, AUTO_SCROLL_RESUME_DELAY_MS);
+  }
+
+  private clearResumeTimer(): void {
+    if (!this.resumeTimer) {
+      return;
+    }
+
+    clearTimeout(this.resumeTimer);
+    this.resumeTimer = null;
+  }
+
+  private advanceOneStep(): void {
+    if (this.isPaused || this.isUserInteracting || this.stepPx <= 0 || document.hidden) {
+      return;
+    }
+
+    const container = this.scrollContainer()?.nativeElement;
+    if (!container) {
+      return;
+    }
+
+    container.scrollBy({ left: this.stepPx, behavior: 'smooth' });
   }
 
   private jumpScroll(container: HTMLElement, targetLeft: number): void {
