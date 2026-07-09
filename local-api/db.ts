@@ -75,6 +75,20 @@ if (tableExists('meal_plan_items') && !tableHasColumn('meal_plan_items', 'comple
   db.exec('alter table meal_plan_items add column completed_at text');
 }
 
+if (tableExists('meal_plan_items') && !tableHasColumn('meal_plan_items', 'source')) {
+  db.exec(
+    "alter table meal_plan_items add column source text check (source is null or source in ('manual', 'voice', 'photo'))"
+  );
+}
+
+if (tableExists('meal_plan_items') && !tableHasColumn('meal_plan_items', 'image_url')) {
+  db.exec('alter table meal_plan_items add column image_url text');
+}
+
+if (tableExists('meal_plan_items') && !tableHasColumn('meal_plan_items', 'transcript')) {
+  db.exec('alter table meal_plan_items add column transcript text');
+}
+
 if (tableExists('recipes') && !tableHasColumn('recipes', 'rating')) {
   db.exec('alter table recipes add column rating integer check (rating is null or (rating >= 1 and rating <= 5))');
 }

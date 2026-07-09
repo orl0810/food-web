@@ -24,6 +24,9 @@ function slotItem(overrides: Partial<MealSlotItem>): MealSlotItem {
     sort_order: 0,
     status: 'planned',
     completed_at: null,
+    source: null,
+    image_url: null,
+    transcript: null,
     created_at: '',
     ...overrides,
   };

@@ -1,6 +1,6 @@
 import { Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { MealSlotItem } from '../../core/models/meal-slot-item.model';
+import { MealSlotItem, FoodLogSource } from '../../core/models/meal-slot-item.model';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { RecipeImageComponent } from '../../shared/components/recipe-image/recipe-image.component';
 import {
@@ -25,6 +25,12 @@ import {
           <li class="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
             @if (item.item_type === 'recipe' && item.recipe) {
               <app-recipe-image [recipe]="item.recipe" variant="thumbnail" />
+            } @else if (item.image_url) {
+              <img
+                [src]="item.image_url"
+                [alt]="displayName(item) + ' photo'"
+                class="h-12 w-12 shrink-0 rounded-lg object-cover ring-1 ring-stone-200"
+              />
             } @else {
               <app-food-icon-badge
                 [name]="displayName(item)"
@@ -38,6 +44,11 @@ import {
                   <p class="font-medium text-stone-900">{{ displayName(item) }}</p>
                   <div class="mt-0.5 flex flex-wrap items-center gap-2">
                     <p class="text-xs text-stone-500">{{ itemTypeLabel(item) }}</p>
+                    @if (sourceLabel(item); as label) {
+                      <span class="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-600">
+                        {{ label }}
+                      </span>
+                    }
                     @if (item.status === 'prepared') {
                       <span class="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-2.5 w-2.5" aria-hidden="true">
@@ -119,6 +130,9 @@ export class MealSlotItemsComponent {
   }
 
   itemTypeLabel(item: MealSlotItem): string {
+    if (item.source) {
+      return 'Logged food';
+    }
     switch (item.item_type) {
       case 'recipe':
         return 'Recipe';
@@ -131,6 +145,15 @@ export class MealSlotItemsComponent {
       default:
         return '';
     }
+  }
+
+  sourceLabel(item: MealSlotItem): string | null {
+    const labels: Record<FoodLogSource, string> = {
+      manual: 'Manual log',
+      voice: 'Voice log',
+      photo: 'Photo log',
+    };
+    return item.source ? labels[item.source] : null;
   }
 
   itemTypeCategory(item: MealSlotItem): string | null {

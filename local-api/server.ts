@@ -1,10 +1,19 @@
 import cors from 'cors';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { signToken, verifyToken } from './auth.js';
 
 const PORT = Number(process.env['LOCAL_API_PORT'] ?? 3001);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOADS_DIR = path.join(__dirname, 'data', 'uploads');
+
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -232,6 +241,9 @@ interface MealPlanItemRow {
   sort_order: number;
   status: string;
   completed_at: string | null;
+  source: string | null;
+  image_url: string | null;
+  transcript: string | null;
   created_at: string;
 }
 
@@ -318,7 +330,7 @@ function getMealPlanItemRow(id: string, userId: string): MealPlanItemRow | undef
     .prepare(
       `select id, user_id, date, meal_type, item_type, recipe_id, prepared_portion_id,
               inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order,
-              status, completed_at, created_at
+              status, completed_at, source, image_url, transcript, created_at
        from meal_plan_items
        where id = ? and user_id = ?`
     )
@@ -327,6 +339,8 @@ function getMealPlanItemRow(id: string, userId: string): MealPlanItemRow | undef
 
 const VALID_MEAL_TYPES = new Set(['breakfast', 'lunch', 'dinner', 'snack']);
 const VALID_ITEM_TYPES = new Set(['recipe', 'prepared_portion', 'inventory_item', 'custom']);
+const VALID_FOOD_LOG_SOURCES = new Set(['manual', 'voice', 'photo']);
+const VALID_SLOT_ITEM_STATUSES = new Set(['planned', 'prepared', 'eaten', 'skipped']);
 
 function serializeRecipeSummary(row: RecipeRow | undefined) {
   if (!row) {
@@ -397,7 +411,8 @@ function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunc
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '8mb' }));
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', database: 'sqlite' });
@@ -1076,7 +1091,7 @@ app.get('/meal-plan-items/today', authMiddleware, (req: AuthenticatedRequest, re
     .prepare(
       `select id, user_id, date, meal_type, item_type, recipe_id, prepared_portion_id,
               inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order,
-              status, completed_at, created_at
+              status, completed_at, source, image_url, transcript, created_at
        from meal_plan_items
        where user_id = ? and date = ?
        order by meal_type asc, sort_order asc`
@@ -1099,7 +1114,7 @@ app.get('/meal-plan-items', authMiddleware, (req: AuthenticatedRequest, res) => 
     .prepare(
       `select id, user_id, date, meal_type, item_type, recipe_id, prepared_portion_id,
               inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order,
-              status, completed_at, created_at
+              status, completed_at, source, image_url, transcript, created_at
        from meal_plan_items
        where user_id = ? and date >= ? and date <= ?
        order by date asc, meal_type asc, sort_order asc`
@@ -1127,12 +1142,26 @@ app.post('/meal-plan-items', authMiddleware, (req: AuthenticatedRequest, res) =>
   const id = crypto.randomUUID();
   const sortOrder = toIntOrNull(req.body?.sort_order) ?? 0;
   const portionsUsed = Math.max(1, toIntOrNull(req.body?.portions_used) ?? 1);
+  const status = req.body?.status ? String(req.body.status) : 'planned';
+  if (!VALID_SLOT_ITEM_STATUSES.has(status)) {
+    res.status(400).json({ error: 'Invalid status.' });
+    return;
+  }
+  const source = req.body?.source ? String(req.body.source) : null;
+  if (source && !VALID_FOOD_LOG_SOURCES.has(source)) {
+    res.status(400).json({ error: 'Invalid food log source.' });
+    return;
+  }
+  const completedAt = req.body?.completed_at ?? (status === 'eaten' ? new Date().toISOString() : null);
+  const imageUrl = req.body?.image_url?.trim?.() || null;
+  const transcript = req.body?.transcript?.trim?.() || null;
 
   db.prepare(
     `insert into meal_plan_items (
        id, user_id, date, meal_type, item_type, recipe_id, prepared_portion_id,
-       inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order
-     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       inventory_item_id, custom_name, quantity, unit, portions_used, notes, sort_order,
+       status, completed_at, source, image_url, transcript
+     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     req.userId,
@@ -1147,7 +1176,12 @@ app.post('/meal-plan-items', authMiddleware, (req: AuthenticatedRequest, res) =>
     req.body?.unit?.trim?.() || null,
     portionsUsed,
     req.body?.notes?.trim?.() || null,
-    sortOrder
+    sortOrder,
+    status,
+    completedAt,
+    source,
+    imageUrl,
+    transcript
   );
 
   const row = getMealPlanItemRow(id, req.userId!);
@@ -1231,8 +1265,6 @@ app.post('/meal-plan-items/duplicate-week', authMiddleware, (req: AuthenticatedR
   res.json({ data: { copiedCount } });
 });
 
-const VALID_SLOT_ITEM_STATUSES = new Set(['planned', 'prepared', 'eaten', 'skipped']);
-
 app.patch('/meal-plan-items/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
   const existing = getMealPlanItemRow(req.params['id']!, req.userId!);
   if (!existing) {
@@ -1288,6 +1320,49 @@ app.delete('/meal-plan-items/:id', authMiddleware, (req: AuthenticatedRequest, r
   }
 
   res.status(204).send();
+});
+
+app.post('/food-photos', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const filename = String(req.body?.filename ?? '').trim();
+  const dataBase64 = String(req.body?.dataBase64 ?? '').trim();
+
+  if (!filename || !dataBase64) {
+    res.status(400).json({ error: 'Filename and image data are required.' });
+    return;
+  }
+
+  const extension = path.extname(filename).toLowerCase();
+  const allowedExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp', '.heic']);
+  if (!allowedExtensions.has(extension)) {
+    res.status(400).json({ error: 'Unsupported image type.' });
+    return;
+  }
+
+  const base64Data = dataBase64.replace(/^data:image\/[a-z+]+;base64,/, '');
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(base64Data, 'base64');
+  } catch {
+    res.status(400).json({ error: 'Invalid image data.' });
+    return;
+  }
+
+  if (buffer.length > 5 * 1024 * 1024) {
+    res.status(400).json({ error: 'Image is too large. Maximum size is 5 MB.' });
+    return;
+  }
+
+  const userDir = path.join(UPLOADS_DIR, req.userId!);
+  if (!fs.existsSync(userDir)) {
+    fs.mkdirSync(userDir, { recursive: true });
+  }
+
+  const storedName = `${crypto.randomUUID()}${extension}`;
+  const storedPath = path.join(userDir, storedName);
+  fs.writeFileSync(storedPath, buffer);
+
+  const url = `http://localhost:${PORT}/uploads/${req.userId}/${storedName}`;
+  res.json({ data: { url } });
 });
 
 app.get('/shopping-items', authMiddleware, (req: AuthenticatedRequest, res) => {

@@ -267,6 +267,15 @@ export class LocalApiService {
     return response.data;
   }
 
+  async uploadFoodPhoto(filename: string, dataBase64: string): Promise<string> {
+    const response = await this.request<{ data: { url: string } }>('/food-photos', {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify({ filename, dataBase64 }),
+    });
+    return response.data.url;
+  }
+
   async getPreparedPortions(): Promise<unknown[]> {
     const response = await this.request<{ data: unknown[] }>('/prepared-portions', {
       method: 'GET',

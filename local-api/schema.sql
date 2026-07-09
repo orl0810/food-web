@@ -167,6 +167,9 @@ create table if not exists meal_plan_items (
   sort_order integer not null default 0,
   status text not null default 'planned' check (status in ('planned', 'prepared', 'eaten', 'skipped')),
   completed_at text,
+  source text check (source is null or source in ('manual', 'voice', 'photo')),
+  image_url text,
+  transcript text,
   created_at text not null default (datetime('now'))
 );
 
