@@ -1,12 +1,15 @@
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../../environments/environment';
-import { MealSlotItem } from '../models/meal-slot-item.model';
+import { FoodPhotoAnalysisResult } from '../models/photo-food-capture.model';
 import { AuthService } from './auth.service';
 import { LocalApiService } from './local-api.service';
 import { SupabaseService } from './supabase.service';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const MAX_DISPLAY_WIDTH = 1200;
 const ALLOWED_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/heic']);
+
+type FoodPhotoBucket = 'food-log-photos' | 'recipe-images';
 
 @Injectable({ providedIn: 'root' })
 export class FoodLogPhotoService {
@@ -15,11 +18,77 @@ export class FoodLogPhotoService {
   private readonly authService = inject(AuthService);
 
   async uploadFoodPhoto(file: File): Promise<string> {
-    this.validatePhotoFile(file);
+    return this.uploadPhoto(file, 'food-log-photos', (userId) => `users/${userId}/${crypto.randomUUID()}`);
+  }
+
+  async uploadRecipePhoto(file: File): Promise<string> {
+    return this.uploadPhoto(file, 'recipe-images', (userId) => `users/${userId}/uploads/${crypto.randomUUID()}`);
+  }
+
+  /**
+   * Future hook for AI-based food recognition from photos.
+   * Returns null when AI is not configured (MVP).
+   */
+  async analyzeFoodPhoto(_file: File): Promise<FoodPhotoAnalysisResult | null> {
+    // TODO: connect to vision/AI service when available
+    return null;
+  }
+
+  async optimizeImage(file: File): Promise<File> {
+    if (file.type === 'image/heic' || !this.canOptimizeInBrowser(file.type)) {
+      return file;
+    }
+
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, MAX_DISPLAY_WIDTH / bitmap.width);
+      if (scale >= 1 && file.type === 'image/webp' && file.size <= MAX_PHOTO_BYTES) {
+        bitmap.close();
+        return file;
+      }
+
+      const width = Math.round(bitmap.width * scale);
+      const height = Math.round(bitmap.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        bitmap.close();
+        return file;
+      }
+
+      context.drawImage(bitmap, 0, 0, width, height);
+      bitmap.close();
+
+      const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, outputType, outputType === 'image/jpeg' ? 0.85 : undefined)
+      );
+
+      if (!blob) {
+        return file;
+      }
+
+      const extension = outputType === 'image/png' ? '.png' : '.jpg';
+      const baseName = file.name.replace(/\.[^.]+$/, '') || 'food-photo';
+      return new File([blob], `${baseName}${extension}`, { type: outputType });
+    } catch {
+      return file;
+    }
+  }
+
+  private async uploadPhoto(
+    file: File,
+    bucket: FoodPhotoBucket,
+    buildPath: (userId: string) => string
+  ): Promise<string> {
+    const optimized = await this.optimizeImage(file);
+    this.validatePhotoFile(optimized);
 
     if (environment.useLocalApi) {
-      const dataBase64 = await this.readFileAsDataUrl(file);
-      return this.localApiService.uploadFoodPhoto(file.name, dataBase64);
+      const dataBase64 = await this.readFileAsDataUrl(optimized);
+      return this.localApiService.uploadFoodPhoto(optimized.name, dataBase64);
     }
 
     const client = this.supabaseService.getClient();
@@ -29,39 +98,34 @@ export class FoodLogPhotoService {
       throw new Error('You must be signed in to upload a photo.');
     }
 
-    const extension = this.getExtension(file);
-    const storagePath = `users/${userId}/${crypto.randomUUID()}${extension}`;
+    const extension = this.getExtension(optimized);
+    const storagePath = `${buildPath(userId)}${extension}`;
 
-    const { error } = await client.storage.from('food-log-photos').upload(storagePath, file, {
+    const { error } = await client.storage.from(bucket).upload(storagePath, optimized, {
       cacheControl: '3600',
       upsert: false,
-      contentType: file.type || undefined,
+      contentType: optimized.type || undefined,
     });
 
     if (error) {
       throw new Error('Photo upload failed. Please try another image.');
     }
 
-    const { data } = client.storage.from('food-log-photos').getPublicUrl(storagePath);
+    const { data } = client.storage.from(bucket).getPublicUrl(storagePath);
     return data.publicUrl;
-  }
-
-  /**
-   * Future hook for AI-based food recognition from photos.
-   * Not implemented in MVP.
-   */
-  async analyzeFoodPhoto(_file: File): Promise<Partial<MealSlotItem>> {
-    // TODO: connect to vision/AI service when available
-    throw new Error('Photo analysis is not implemented yet.');
   }
 
   private validatePhotoFile(file: File): void {
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      throw new Error('Please choose a PNG, JPEG, or WebP image.');
+      throw new Error('This image format is not supported. Please choose a PNG, JPEG, or WebP image.');
     }
     if (file.size > MAX_PHOTO_BYTES) {
-      throw new Error('Image is too large. Maximum size is 5 MB.');
+      throw new Error('The image is too large. Please choose a smaller one (max 5 MB).');
     }
+  }
+
+  private canOptimizeInBrowser(mimeType: string): boolean {
+    return mimeType === 'image/png' || mimeType === 'image/jpeg' || mimeType === 'image/webp';
   }
 
   private getExtension(file: File): string {
@@ -74,6 +138,9 @@ export class FoodLogPhotoService {
     }
     if (file.type === 'image/webp') {
       return '.webp';
+    }
+    if (file.type === 'image/heic') {
+      return '.heic';
     }
     return '.jpg';
   }

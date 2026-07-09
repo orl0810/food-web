@@ -1,5 +1,7 @@
-import { Component, OnDestroy, OnInit, output } from '@angular/core';
+import { Component, OnDestroy, OnInit, input, output } from '@angular/core';
 import { Recipe } from '../../../core/models/recipe.model';
+import { RecipeVoiceDraft } from '../../../core/models/voice-recipe.model';
+import { RecipePhotoDraft } from '../../../core/models/photo-food-capture.model';
 import { RecipeFormComponent } from './recipe-form.component';
 
 @Component({
@@ -26,6 +28,8 @@ import { RecipeFormComponent } from './recipe-form.component';
           <app-recipe-form
             #recipeForm
             [embedded]="true"
+            [initialDraft]="initialDraft()"
+            [photoDraft]="photoDraft()"
             titleId="create-recipe-title"
             (saved)="saved.emit($event)"
             (cancelled)="cancelled.emit()"
@@ -48,6 +52,8 @@ import { RecipeFormComponent } from './recipe-form.component';
   `,
 })
 export class RecipeFormDialogComponent implements OnInit, OnDestroy {
+  readonly initialDraft = input<RecipeVoiceDraft | null>(null);
+  readonly photoDraft = input<RecipePhotoDraft | null>(null);
   readonly saved = output<Recipe>();
   readonly cancelled = output<void>();
 

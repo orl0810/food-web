@@ -19,7 +19,7 @@ type PickerTab = 'recipes' | 'portions' | 'inventory' | 'custom';
   imports: [RouterLink],
   template: `
     <div
-      class="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/40 p-4 sm:items-center"
+      class="fixed inset-0 z-[60] flex items-end justify-center bg-stone-900/40 p-4 sm:items-center"
       (click)="cancelled.emit()"
     >
       <div
@@ -29,10 +29,17 @@ type PickerTab = 'recipes' | 'portions' | 'inventory' | 'custom';
         <div class="border-b border-stone-100 p-4">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h2 class="text-base font-semibold text-stone-900">Add to meal</h2>
+              <h2 class="text-base font-semibold text-stone-900">
+                {{ isReplacingRecipe() ? 'Change recipe' : 'Add to meal' }}
+              </h2>
               <p class="mt-0.5 text-sm text-stone-600">
                 {{ formatDayLabel(date()) }} · {{ mealTypeLabel() }}
               </p>
+              @if (isReplacingRecipe()) {
+                <p class="mt-1 text-xs text-stone-500">
+                  Choose a new recipe — your current pick will be replaced.
+                </p>
+              }
             </div>
             <button
               type="button"
@@ -43,19 +50,21 @@ type PickerTab = 'recipes' | 'portions' | 'inventory' | 'custom';
             </button>
           </div>
 
-          <div class="mt-3 flex flex-wrap gap-2">
-            @for (tab of tabs; track tab.id) {
-              <button
-                type="button"
-                class="filter-pill"
-                [class.filter-pill-active]="activeTab() === tab.id"
-                [class.filter-pill-inactive]="activeTab() !== tab.id"
-                (click)="activeTab.set(tab.id)"
-              >
-                {{ tab.label }}
-              </button>
-            }
-          </div>
+          @if (!isReplacingRecipe()) {
+            <div class="mt-3 flex flex-wrap gap-2">
+              @for (tab of tabs; track tab.id) {
+                <button
+                  type="button"
+                  class="filter-pill"
+                  [class.filter-pill-active]="activeTab() === tab.id"
+                  [class.filter-pill-inactive]="activeTab() !== tab.id"
+                  (click)="activeTab.set(tab.id)"
+                >
+                  {{ tab.label }}
+                </button>
+              }
+            </div>
+          }
         </div>
 
         <div class="flex-1 overflow-y-auto p-4">
@@ -83,11 +92,19 @@ type PickerTab = 'recipes' | 'portions' | 'inventory' | 'custom';
                     <li>
                       <button
                         type="button"
-                        class="w-full rounded-lg border border-stone-200 px-3 py-2 text-left hover:border-brand-300 hover:bg-brand-50/50 disabled:opacity-50"
-                        [disabled]="saving()"
+                        class="w-full rounded-lg border px-3 py-2 text-left transition-colors disabled:opacity-50"
+                        [class.border-brand-300]="isCurrentRecipe(recipe.id)"
+                        [class.bg-brand-50]="isCurrentRecipe(recipe.id)"
+                        [class.border-stone-200]="!isCurrentRecipe(recipe.id)"
+                        [class.hover:border-brand-300]="!isCurrentRecipe(recipe.id)"
+                        [class.hover:bg-brand-50/50]="!isCurrentRecipe(recipe.id)"
+                        [disabled]="saving() || isCurrentRecipe(recipe.id)"
                         (click)="addRecipe(recipe.id)"
                       >
                         <span class="block text-sm font-medium text-stone-900">{{ recipe.title }}</span>
+                        @if (isCurrentRecipe(recipe.id)) {
+                          <span class="mt-0.5 block text-xs font-medium text-brand-700">Currently planned</span>
+                        }
                         @if (recipe.tags.length > 0) {
                           <span class="mt-0.5 block text-xs text-stone-500">
                             {{ formatTagsList(recipe.tags) }}
@@ -238,6 +255,7 @@ type PickerTab = 'recipes' | 'portions' | 'inventory' | 'custom';
 export class MealSlotItemPickerComponent implements OnInit {
   readonly date = input.required<string>();
   readonly mealType = input.required<MealType>();
+  readonly replaceItemId = input<string | null>(null);
 
   readonly added = output<void>();
   readonly cancelled = output<void>();
@@ -283,6 +301,16 @@ export class MealSlotItemPickerComponent implements OnInit {
     );
   });
 
+  readonly isReplacingRecipe = computed(() => !!this.replaceItemId());
+
+  readonly replacingRecipeId = computed(() => {
+    const itemId = this.replaceItemId();
+    if (!itemId) {
+      return null;
+    }
+    return this.mealPlanService.getItemById(itemId)?.recipe_id ?? null;
+  });
+
   ngOnInit(): void {
     void Promise.all([
       this.recipeService.loadRecipes(),
@@ -326,7 +354,20 @@ export class MealSlotItemPickerComponent implements OnInit {
     this.portionsUsed.set(Math.max(1, parseInt((event.target as HTMLInputElement).value, 10) || 1));
   }
 
+  isCurrentRecipe(recipeId: string): boolean {
+    return this.replacingRecipeId() === recipeId;
+  }
+
   async addRecipe(recipeId: string): Promise<void> {
+    const replaceItemId = this.replaceItemId();
+    if (replaceItemId) {
+      const { error: removeError } = await this.mealPlanService.removeSlotItem(replaceItemId);
+      if (removeError) {
+        this.error.set(removeError);
+        return;
+      }
+    }
+
     await this.submit({
       item_type: 'recipe',
       recipe_id: recipeId,
