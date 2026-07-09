@@ -215,7 +215,17 @@ export class MealPlanService {
   async addSlotItem(
     input: MealSlotItemInput
   ): Promise<{ item: MealSlotItem | null; error: string | null }> {
-    if (isPastDate(input.date)) {
+    const today = toISODate(new Date());
+    const status = input.status ?? 'planned';
+
+    if (status === 'eaten') {
+      if (input.date > today) {
+        return {
+          item: null,
+          error: 'You cannot log food for a future date.',
+        };
+      }
+    } else if (isPastDate(input.date)) {
       return {
         item: null,
         error: 'You can only plan meals for today and upcoming days.',
@@ -276,6 +286,9 @@ export class MealPlanService {
 
     const item = this.normalizeItem(data);
     this.addItemToSignals(item);
+    if (status === 'eaten') {
+      this.notifyStreakIfNeeded(item, status, null);
+    }
     return { item, error: null };
   }
 
@@ -493,6 +506,11 @@ export class MealPlanService {
     input: MealSlotItemInput,
     sortOrder: number
   ): Record<string, unknown> {
+    const status = input.status ?? 'planned';
+    const completedAt =
+      input.completed_at ??
+      (status === 'eaten' ? new Date().toISOString() : null);
+
     return {
       user_id: userId,
       date: input.date,
@@ -509,6 +527,11 @@ export class MealPlanService {
       portions_used: input.portions_used ?? 1,
       notes: input.notes?.trim() ?? null,
       sort_order: input.sort_order ?? sortOrder,
+      status,
+      completed_at: completedAt,
+      source: input.source ?? null,
+      image_url: input.image_url?.trim() ?? null,
+      transcript: input.transcript?.trim() ?? null,
     };
   }
 
@@ -609,6 +632,9 @@ export class MealPlanService {
       });
       const item = this.normalizeItem(data);
       this.addItemToSignals(item);
+      if ((input.status ?? 'planned') === 'eaten') {
+        this.notifyStreakIfNeeded(item, 'eaten', null);
+      }
       return { item, error: null };
     } catch (err) {
       if (input.item_type === 'prepared_portion' && input.prepared_portion_id) {
@@ -747,6 +773,9 @@ export class MealPlanService {
       sort_order: Number(item.sort_order ?? 0),
       status: item.status ?? 'planned',
       completed_at: item.completed_at ?? null,
+      source: item.source ?? null,
+      image_url: item.image_url ?? null,
+      transcript: item.transcript ?? null,
       recipe: recipeData
         ? {
             id: recipeData.id,

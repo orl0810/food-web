@@ -7,6 +7,8 @@ export type MealSlotItemType = 'recipe' | 'prepared_portion' | 'inventory_item' 
 
 export type MealSlotItemStatus = 'planned' | 'prepared' | 'eaten' | 'skipped';
 
+export type FoodLogSource = 'manual' | 'voice' | 'photo';
+
 export interface MealSlotItem {
   id: string;
   user_id: string;
@@ -24,6 +26,9 @@ export interface MealSlotItem {
   sort_order: number;
   status: MealSlotItemStatus;
   completed_at: string | null;
+  source: FoodLogSource | null;
+  image_url: string | null;
+  transcript: string | null;
   created_at: string;
   recipe?: RecipeMealPlanSummary;
   prepared_portion?: Pick<PreparedPortion, 'id' | 'name' | 'available_portions' | 'expires_at' | 'storage_location'>;
@@ -43,6 +48,11 @@ export interface MealSlotItemInput {
   portions_used?: number;
   notes?: string | null;
   sort_order?: number;
+  status?: MealSlotItemStatus;
+  completed_at?: string | null;
+  source?: FoodLogSource | null;
+  image_url?: string | null;
+  transcript?: string | null;
   /** Skip expired-portion warning when user confirmed */
   allow_expired?: boolean;
 }

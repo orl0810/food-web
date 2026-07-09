@@ -33,6 +33,10 @@ import { PendingMealsComponent } from './components/pending-meals/pending-meals.
 import { MealPlanProgressService } from './services/meal-plan-progress.service';
 import { MealSlotItemsComponent } from './meal-slot-items.component';
 import { MealSlotItemPickerComponent } from './meal-slot-item-picker.component';
+import { AddFoodActionMenuComponent, FoodActionChoice } from './components/add-food-action-menu/add-food-action-menu.component';
+import { ManualFoodLogDialogComponent } from './components/manual-food-log-dialog/manual-food-log-dialog.component';
+import { VoiceFoodLogDialogComponent } from './components/voice-food-log-dialog/voice-food-log-dialog.component';
+import { PhotoFoodLogDialogComponent } from './components/photo-food-log-dialog/photo-food-log-dialog.component';
 import { getMealSlotItemDisplayName } from '../../shared/utils/prepared-portion.utils';
 import { DayMealProgress } from './models/day-meal-progress.model';
 import {
@@ -62,6 +66,10 @@ interface WeekStats {
     StatCardComponent,
     MealSlotItemsComponent,
     MealSlotItemPickerComponent,
+    AddFoodActionMenuComponent,
+    ManualFoodLogDialogComponent,
+    VoiceFoodLogDialogComponent,
+    PhotoFoodLogDialogComponent,
     DailyProgressBarComponent,
     MealStatusControlComponent,
     PendingMealsComponent,
@@ -183,6 +191,35 @@ interface WeekStats {
         />
       }
 
+      @if (showAddFoodMenu()) {
+        <app-add-food-action-menu
+          (selected)="onFoodActionSelected($event)"
+          (cancelled)="showAddFoodMenu.set(false)"
+        />
+      }
+
+      @if (showManualFoodLog()) {
+        <app-manual-food-log-dialog
+          (saved)="onFoodLogSaved()"
+          (cancelled)="showManualFoodLog.set(false)"
+        />
+      }
+
+      @if (showVoiceFoodLog()) {
+        <app-voice-food-log-dialog
+          (saved)="onFoodLogSaved()"
+          (cancelled)="showVoiceFoodLog.set(false)"
+          (switchToManual)="openManualFromVoice()"
+        />
+      }
+
+      @if (showPhotoFoodLog()) {
+        <app-photo-food-log-dialog
+          (saved)="onFoodLogSaved()"
+          (cancelled)="showPhotoFoodLog.set(false)"
+        />
+      }
+
       @if (mealPlanService.loading()) {
         <app-loading-state message="Loading meal plan..." />
       } @else if (mealPlanService.error()) {
@@ -194,9 +231,14 @@ interface WeekStats {
         <div>
           <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 class="text-lg font-semibold text-stone-900">{{ selectedDayHeading() }}</h2>
-            @if (isTodayDate(selectedDate())) {
-              <span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">Today</span>
-            }
+            <div class="flex flex-wrap items-center gap-2">
+              @if (isTodayDate(selectedDate())) {
+                <span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">Today</span>
+              }
+              <button type="button" class="btn-primary-sm" (click)="showAddFoodMenu.set(true)">
+                Add food
+              </button>
+            </div>
           </div>
 
           <app-daily-progress-bar
@@ -312,6 +354,10 @@ export class MealPlanComponent implements OnInit {
 
   readonly mealTypes = MEAL_TYPES;
   readonly selectedSlot = signal<SelectedSlot | null>(null);
+  readonly showAddFoodMenu = signal(false);
+  readonly showManualFoodLog = signal(false);
+  readonly showVoiceFoodLog = signal(false);
+  readonly showPhotoFoodLog = signal(false);
   readonly selectedDate = signal(toISODate(new Date()));
   readonly removingId = signal<string | null>(null);
   readonly duplicating = signal(false);
@@ -538,6 +584,34 @@ export class MealPlanComponent implements OnInit {
       return;
     }
     this.selectedSlot.set({ date, mealType });
+  }
+
+  onFoodActionSelected(choice: FoodActionChoice): void {
+    this.showAddFoodMenu.set(false);
+    switch (choice) {
+      case 'manual':
+        this.showManualFoodLog.set(true);
+        break;
+      case 'voice':
+        this.showVoiceFoodLog.set(true);
+        break;
+      case 'photo':
+        this.showPhotoFoodLog.set(true);
+        break;
+    }
+  }
+
+  openManualFromVoice(): void {
+    this.showVoiceFoodLog.set(false);
+    this.showManualFoodLog.set(true);
+  }
+
+  async onFoodLogSaved(): Promise<void> {
+    this.showManualFoodLog.set(false);
+    this.showVoiceFoodLog.set(false);
+    this.showPhotoFoodLog.set(false);
+    await this.mealPlanService.loadWeekAndToday(this.mealPlanService.weekStart());
+    await this.refreshPendingMeals();
   }
 
   async onItemAdded(): Promise<void> {
