@@ -67,7 +67,7 @@ export class RecipeImageComponent {
   private readonly recipeImageUrlService = inject(RecipeImageUrlService);
 
   readonly recipe = input.required<RecipeImageSource>();
-  readonly variant = input<'thumbnail' | 'hero'>('hero');
+  readonly variant = input<'thumbnail' | 'hero' | 'card'>('hero');
   readonly alt = input<string | null>(null);
 
   readonly imageLoadError = signal(false);
@@ -89,11 +89,16 @@ export class RecipeImageComponent {
     () => this.alt() ?? `${this.recipe().title} recipe image`
   );
 
-  readonly containerClass = computed(() =>
-    this.variant() === 'hero'
-      ? 'w-full rounded-2xl aspect-[16/10]'
-      : 'h-14 w-14 shrink-0 rounded-xl'
-  );
+  readonly containerClass = computed(() => {
+    switch (this.variant()) {
+      case 'hero':
+        return 'w-full rounded-2xl aspect-[16/10]';
+      case 'card':
+        return 'h-full w-full rounded-none';
+      default:
+        return 'h-14 w-14 shrink-0 rounded-xl';
+    }
+  });
 
   readonly placeholderKey = computed(() =>
     this.recipeImageUrlService.getFallbackImageForRecipe(this.recipe())
