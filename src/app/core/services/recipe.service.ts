@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import {
   Recipe,
+  RecipeCategory,
   RecipeImageMetadataUpdate,
   RecipeImageStatus,
   RecipeIngredientInput,
@@ -9,6 +10,10 @@ import {
   RecipeNutrition,
   RecipeSearchFilters,
 } from '../models/recipe.model';
+import {
+  buildRecipeCategoryIndex,
+  getCategoriesWithRecipes,
+} from '../../shared/utils/recipe-category-match.utils';
 import { normalizeTags } from '../../shared/utils/tag.utils';
 import { AuthService } from './auth.service';
 import { LocalApiService } from './local-api.service';
@@ -132,29 +137,41 @@ export class RecipeService {
     return this.allVisibleRecipes();
   }
 
+  getRecipesForSourceTab(sourceTab: RecipeSearchFilters['sourceTab'] = 'all'): Recipe[] {
+    if (sourceTab === 'mine') {
+      return this.recipesSignal();
+    }
+    if (sourceTab === 'starter') {
+      return this.baseRecipesSignal();
+    }
+    return this.allVisibleRecipes();
+  }
+
+  getAvailableCategories(sourceTab: RecipeSearchFilters['sourceTab'] = 'all'): RecipeCategory[] {
+    const list = this.getRecipesForSourceTab(sourceTab);
+    return getCategoriesWithRecipes(list);
+  }
+
   searchRecipes(filters: RecipeSearchFilters): Recipe[] {
     const sourceTab = filters.sourceTab ?? 'all';
-    let list: Recipe[];
-
-    if (sourceTab === 'mine') {
-      list = this.recipesSignal();
-    } else if (sourceTab === 'starter') {
-      list = this.baseRecipesSignal();
-    } else {
-      list = this.allVisibleRecipes();
-    }
+    const list = this.getRecipesForSourceTab(sourceTab);
 
     const search = filters.search?.trim().toLowerCase() ?? '';
     const mealType = filters.mealType ?? null;
     const category = filters.category ?? null;
     const tagFilters = filters.tags ?? [];
+    const categoryIndex =
+      category !== null ? buildRecipeCategoryIndex(list) : null;
 
     return list.filter((recipe) => {
       if (mealType && recipe.meal_type !== mealType) {
         return false;
       }
-      if (category && recipe.category !== category) {
-        return false;
+      if (category) {
+        const matchingIds = categoryIndex?.get(category as RecipeCategory);
+        if (!matchingIds?.has(recipe.id)) {
+          return false;
+        }
       }
       if (tagFilters.length > 0) {
         const recipeTags = new Set(recipe.tags ?? []);

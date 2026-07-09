@@ -25,7 +25,7 @@ import {
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { RecipeService } from '../../core/services/recipe.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
-import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
+import { RecipeCardSkeletonComponent } from '../../shared/components/recipe-card-skeleton/recipe-card-skeleton.component';
 import { FormatTagPipe } from '../../shared/pipes/format-tag.pipe';
 import { countAvailableIngredients } from '../../shared/utils/recipe-availability.utils';
 import { StarRatingComponent } from '../../shared/components/star-rating/star-rating.component';
@@ -35,6 +35,7 @@ import { RecipeFormDialogComponent } from './recipe-form/recipe-form-dialog.comp
 import { RecipeFiltersDialogComponent } from './recipe-filters-dialog.component';
 
 const RECIPE_BATCH_SIZE = 7;
+const SKELETON_CARD_COUNT = 4;
 
 @Component({
   selector: 'app-recipes',
@@ -42,7 +43,7 @@ const RECIPE_BATCH_SIZE = 7;
   imports: [
     RouterLink,
     EmptyStateComponent,
-    LoadingStateComponent,
+    RecipeCardSkeletonComponent,
     FormatTagPipe,
     StarRatingComponent,
     RecipeImageComponent,
@@ -64,7 +65,7 @@ const RECIPE_BATCH_SIZE = 7;
       <div>
         <h2 class="section-title">Recipe library</h2>
         <p class="mt-1 text-sm text-stone-600">
-          Browse starter recipes or manage your saved versions.
+          Browse all recipes or manage your own.
         </p>
       </div>
 
@@ -111,47 +112,31 @@ const RECIPE_BATCH_SIZE = 7;
             </button>
           }
 
-          <button
-            type="button"
-            class="filter-pill shrink-0"
-            [class.filter-pill-active]="mealTypeFilter() === null"
-            [class.filter-pill-inactive]="mealTypeFilter() !== null"
-            (click)="mealTypeFilter.set(null)"
+          <label class="sr-only" for="meal-type-filter">Meal type</label>
+          <select
+            id="meal-type-filter"
+            class="filter-select"
+            [value]="mealTypeFilter() ?? ''"
+            (change)="onMealTypeChange($event)"
           >
-            All meals
-          </button>
-          @for (mealType of mealTypes; track mealType) {
-            <button
-              type="button"
-              class="filter-pill shrink-0"
-              [class.filter-pill-active]="mealTypeFilter() === mealType"
-              [class.filter-pill-inactive]="mealTypeFilter() !== mealType"
-              (click)="mealTypeFilter.set(mealType)"
-            >
-              {{ mealTypeLabel(mealType) }}
-            </button>
-          }
+            <option value="">All meals</option>
+            @for (mealType of mealTypes; track mealType) {
+              <option [value]="mealType">{{ mealTypeLabel(mealType) }}</option>
+            }
+          </select>
 
-          <button
-            type="button"
-            class="filter-pill shrink-0"
-            [class.filter-pill-active]="categoryFilter() === null"
-            [class.filter-pill-inactive]="categoryFilter() !== null"
-            (click)="categoryFilter.set(null)"
+          <label class="sr-only" for="category-filter">Category</label>
+          <select
+            id="category-filter"
+            class="filter-select"
+            [value]="categoryFilter() ?? ''"
+            (change)="onCategoryChange($event)"
           >
-            All categories
-          </button>
-          @for (category of categories; track category) {
-            <button
-              type="button"
-              class="filter-pill shrink-0"
-              [class.filter-pill-active]="categoryFilter() === category"
-              [class.filter-pill-inactive]="categoryFilter() !== category"
-              (click)="categoryFilter.set(category)"
-            >
-              {{ category }}
-            </button>
-          }
+            <option value="">All categories</option>
+            @for (category of availableCategories(); track category) {
+              <option [value]="category">{{ category }}</option>
+            }
+          </select>
         </div>
 
         @if (hasClearableFilters()) {
@@ -198,16 +183,20 @@ const RECIPE_BATCH_SIZE = 7;
         </div>
       }
 
-      @if (isLoading()) {
-        <app-loading-state message="Loading recipes..." />
-      } @else if (loadError()) {
+      @if (showInitialLoading()) {
+        <div class="flex flex-col gap-4" aria-busy="true" aria-label="Loading recipes">
+          @for (_ of skeletonItems; track $index) {
+            <app-recipe-card-skeleton />
+          }
+        </div>
+      } @else if (loadError() && !hasRecipeData()) {
         <p class="alert-error">{{ loadError() }}</p>
       } @else if (showEmptyLibrary()) {
         <app-empty-state
           title="No recipes yet"
-          description="Start from a starter recipe template, or add your own recipe from scratch."
-          actionLabel="Browse starter recipes"
-          (actionClick)="sourceTab.set('starter')"
+          description="Add your own recipe or browse the full library with the All tab."
+          actionLabel="Create recipe"
+          (actionClick)="showCreateDialog.set(true)"
         />
       } @else if (filteredRecipes().length === 0) {
         <app-empty-state
@@ -226,13 +215,6 @@ const RECIPE_BATCH_SIZE = 7;
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-center gap-2">
                     <h2 class="text-base font-semibold text-stone-900">{{ recipe.title }}</h2>
-                    @if (recipe.is_base_recipe) {
-                      <span
-                        class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200"
-                      >
-                        Starter recipe
-                      </span>
-                    }
                   </div>
 
                   @if (recipe.description) {
@@ -288,38 +270,27 @@ const RECIPE_BATCH_SIZE = 7;
               }
 
               <div class="mt-3 flex gap-2">
-                @if (recipe.is_base_recipe) {
-                  <button
-                    type="button"
-                    class="btn-primary flex-1"
-                    [disabled]="customizingId() === recipe.id"
-                    (click)="customizeRecipe(recipe)"
-                  >
-                    {{ customizingId() === recipe.id ? 'Creating your copy...' : 'Customize' }}
-                  </button>
-                  <a
-                    [routerLink]="['/recipes/starter', recipe.id]"
-                    class="btn-secondary flex-1 text-center"
-                  >
-                    View template
-                  </a>
-                } @else {
-                  <button type="button" class="btn-primary flex-1" (click)="planMeal(recipe)">
-                    Plan meal
-                  </button>
-                  <a
-                    [routerLink]="['/recipes', recipe.id, 'edit']"
-                    class="btn-secondary flex-1 text-center"
-                  >
-                    Edit
-                  </a>
-                  <a
-                    [routerLink]="['/recipes', recipe.id]"
-                    class="btn-secondary flex-1 text-center"
-                  >
-                    View
-                  </a>
-                }
+                <button
+                  type="button"
+                  class="btn-primary flex-1"
+                  [disabled]="actionInProgressId() === recipe.id"
+                  (click)="planMeal(recipe)"
+                >
+                  Plan meal
+                </button>
+                <button
+                  type="button"
+                  class="btn-secondary flex-1"
+                  [disabled]="actionInProgressId() === recipe.id"
+                  (click)="editRecipe(recipe)"
+                >
+                  {{
+                    actionInProgressId() === recipe.id ? 'Creating your copy...' : 'Edit'
+                  }}
+                </button>
+                <a [routerLink]="viewLink(recipe)" class="btn-secondary flex-1 text-center">
+                  View
+                </a>
               </div>
             </article>
           }
@@ -362,11 +333,10 @@ export class RecipesComponent implements OnInit, OnDestroy {
   private observer: IntersectionObserver | null = null;
 
   readonly mealTypes = MEAL_TYPES;
-  readonly categories = RECIPE_CATEGORIES;
+  readonly skeletonItems = Array.from({ length: SKELETON_CARD_COUNT });
   readonly sourceTabs: { id: RecipeSourceTab; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'mine', label: 'My recipes' },
-    { id: 'starter', label: 'Starter recipes' },
   ];
 
   readonly search = signal('');
@@ -374,7 +344,7 @@ export class RecipesComponent implements OnInit, OnDestroy {
   readonly mealTypeFilter = signal<MealType | null>(null);
   readonly categoryFilter = signal<string | null>(null);
   readonly activeTagFilters = signal<string[]>([]);
-  readonly customizingId = signal<string | null>(null);
+  readonly actionInProgressId = signal<string | null>(null);
   readonly visibleCount = signal(RECIPE_BATCH_SIZE);
   readonly showCreateDialog = signal(false);
   readonly showAiDialog = signal(false);
@@ -409,6 +379,17 @@ export class RecipesComponent implements OnInit, OnDestroy {
     () => this.visibleCount() < this.filteredRecipes().length
   );
 
+  readonly hasRecipeData = computed(
+    () =>
+      this.recipeService.recipes().length > 0 || this.recipeService.baseRecipes().length > 0
+  );
+
+  readonly showInitialLoading = computed(() => this.isLoading() && !this.hasRecipeData());
+
+  readonly availableCategories = computed(() =>
+    this.recipeService.getAvailableCategories(this.sourceTab())
+  );
+
   readonly isLoading = computed(
     () => this.recipeService.loading() || this.recipeService.baseLoading()
   );
@@ -418,19 +399,32 @@ export class RecipesComponent implements OnInit, OnDestroy {
   );
 
   readonly showEmptyLibrary = computed(() => {
-    if (this.sourceTab() === 'starter') {
-      return this.recipeService.baseRecipes().length === 0;
-    }
     if (this.sourceTab() === 'mine') {
       return this.recipeService.recipes().length === 0;
     }
-    return (
-      this.recipeService.recipes().length === 0 &&
-      this.recipeService.baseRecipes().length === 0
-    );
+    return !this.hasRecipeData();
   });
 
   constructor() {
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const category = params.get('category');
+      if (category && (RECIPE_CATEGORIES as readonly string[]).includes(category)) {
+        this.categoryFilter.set(category);
+      }
+    });
+
+    effect(() => {
+      if (!this.hasRecipeData()) {
+        return;
+      }
+
+      const available = this.availableCategories();
+      const current = this.categoryFilter();
+      if (current && !available.includes(current as (typeof RECIPE_CATEGORIES)[number])) {
+        this.categoryFilter.set(null);
+      }
+    });
+
     effect(() => {
       this.search();
       this.sourceTab();
@@ -452,13 +446,6 @@ export class RecipesComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
-      const category = params.get('category');
-      if (category && (RECIPE_CATEGORIES as readonly string[]).includes(category)) {
-        this.categoryFilter.set(category);
-      }
-    });
-
     void Promise.all([
       this.recipeService.loadRecipes(),
       this.recipeService.loadBaseRecipes(),
@@ -473,6 +460,20 @@ export class RecipesComponent implements OnInit, OnDestroy {
 
   mealTypeLabel(mealType: MealType): string {
     return MEAL_TYPE_LABELS[mealType];
+  }
+
+  onMealTypeChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.mealTypeFilter.set(value ? (value as MealType) : null);
+  }
+
+  onCategoryChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.categoryFilter.set(value || null);
+  }
+
+  viewLink(recipe: Recipe): string[] {
+    return recipe.is_base_recipe ? ['/recipes/starter', recipe.id] : ['/recipes', recipe.id];
   }
 
   removeSearch(): void {
@@ -514,16 +515,43 @@ export class RecipesComponent implements OnInit, OnDestroy {
     return `${available}/${total} ingredients available`;
   }
 
-  planMeal(recipe: Recipe): void {
-    void this.router.navigate(['/meal-plan'], { queryParams: { recipe: recipe.id } });
+  async planMeal(recipe: Recipe): Promise<void> {
+    const target = await this.ensureUserRecipe(recipe);
+    if (!target) {
+      return;
+    }
+
+    await this.router.navigate(['/meal-plan'], { queryParams: { recipe: target.id } });
+  }
+
+  async editRecipe(recipe: Recipe): Promise<void> {
+    if (recipe.is_base_recipe) {
+      await this.customizeRecipe(recipe);
+      return;
+    }
+
+    await this.router.navigate(['/recipes', recipe.id, 'edit']);
+  }
+
+  async ensureUserRecipe(recipe: Recipe): Promise<Recipe | null> {
+    if (!recipe.is_base_recipe) {
+      return recipe;
+    }
+
+    this.actionInProgressId.set(recipe.id);
+    const { recipe: copy, error } = await this.recipeService.createRecipeFromTemplate(recipe.id);
+    this.actionInProgressId.set(null);
+
+    if (error || !copy) {
+      return null;
+    }
+
+    return copy;
   }
 
   async customizeRecipe(recipe: Recipe): Promise<void> {
-    this.customizingId.set(recipe.id);
-    const { recipe: copy, error } = await this.recipeService.createRecipeFromTemplate(recipe.id);
-    this.customizingId.set(null);
-
-    if (error || !copy) {
+    const copy = await this.ensureUserRecipe(recipe);
+    if (!copy) {
       return;
     }
 
