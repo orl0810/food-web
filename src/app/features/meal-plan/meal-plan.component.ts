@@ -6,12 +6,9 @@ import {
   MealType,
 } from '../../core/models/meal-plan.model';
 import { MealSlotItem } from '../../core/models/meal-slot-item.model';
-import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { MealPlanService } from '../../core/services/meal-plan.service';
 import { MealStreakService } from '../../core/services/meal-streak.service';
-import { RecipeService } from '../../core/services/recipe.service';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
-import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
 import {
   formatDayShort,
   formatFullDayHeading,
@@ -21,10 +18,6 @@ import {
   isToday,
   toISODate,
 } from '../../shared/utils/meal-plan.utils';
-import {
-  getIngredientAvailability,
-  IngredientAvailability,
-} from '../../shared/utils/recipe-availability.utils';
 import { MealSlotItemStatus } from '../../core/models/meal-slot-item.model';
 import { ConfettiCelebrationComponent } from './components/confetti-celebration/confetti-celebration.component';
 import { DailyProgressBarComponent } from './components/daily-progress-bar/daily-progress-bar.component';
@@ -38,7 +31,16 @@ import { ManualFoodLogDialogComponent } from './components/manual-food-log-dialo
 import { VoiceFoodLogDialogComponent } from './components/voice-food-log-dialog/voice-food-log-dialog.component';
 import { PhotoFoodLogDialogComponent } from './components/photo-food-log-dialog/photo-food-log-dialog.component';
 import { BarcodeProductDialogComponent } from './components/barcode-product-dialog.component';
+import {
+  PhotoCaptureContext,
+  PhotoCaptureSelection,
+  RecipePhotoDraft,
+} from '../../core/models/photo-food-capture.model';
+import { PhotoCaptureFlowComponent } from '../photo-food-capture/photo-capture-flow.component';
+import { PhotoMealPlanFormComponent } from '../photo-food-capture/photo-meal-plan-form.component';
+import { RecipeFormDialogComponent } from '../recipes/recipe-form/recipe-form-dialog.component';
 import { getMealSlotItemDisplayName } from '../../shared/utils/prepared-portion.utils';
+import { getDefaultMealTypeForNow } from '../../shared/utils/food-log.utils';
 import { DayMealProgress } from './models/day-meal-progress.model';
 import {
   getDayProgressTitle,
@@ -51,12 +53,7 @@ import {
 interface SelectedSlot {
   date: string;
   mealType: MealType;
-}
-
-interface WeekStats {
-  mealsPlanned: number;
-  ingredientsReadyPercent: number | null;
-  itemsNeeded: number;
+  replaceItemId?: string;
 }
 
 @Component({
@@ -64,7 +61,6 @@ interface WeekStats {
   standalone: true,
   imports: [
     LoadingStateComponent,
-    StatCardComponent,
     MealSlotItemsComponent,
     MealSlotItemPickerComponent,
     AddFoodActionMenuComponent,
@@ -72,6 +68,9 @@ interface WeekStats {
     VoiceFoodLogDialogComponent,
     PhotoFoodLogDialogComponent,
     BarcodeProductDialogComponent,
+    PhotoCaptureFlowComponent,
+    PhotoMealPlanFormComponent,
+    RecipeFormDialogComponent,
     DailyProgressBarComponent,
     MealStatusControlComponent,
     PendingMealsComponent,
@@ -157,37 +156,11 @@ interface WeekStats {
         }
       </div>
 
-      @if (!mealPlanService.loading() && !mealPlanService.error()) {
-        <!-- Week summary stats -->
-        <div class="grid grid-cols-3 gap-2 sm:gap-4">
-          <app-stat-card
-            label="Meals planned"
-            icon="basket"
-            variant="success"
-            layout="stacked"
-            [value]="weekStats().mealsPlanned"
-          />
-          <app-stat-card
-            label="Ingredients ready"
-            icon="clock"
-            variant="warning"
-            layout="stacked"
-            [value]="weekStats().ingredientsReadyPercent !== null ? weekStats().ingredientsReadyPercent! + '%' : '—'"
-          />
-          <app-stat-card
-            label="Items needed"
-            icon="warning"
-            variant="danger"
-            layout="stacked"
-            [value]="weekStats().itemsNeeded"
-          />
-        </div>
-      }
-
       @if (selectedSlot()) {
         <app-meal-slot-item-picker
           [date]="selectedSlot()!.date"
           [mealType]="selectedSlot()!.mealType"
+          [replaceItemId]="selectedSlot()!.replaceItemId ?? null"
           (added)="onItemAdded()"
           (cancelled)="selectedSlot.set(null)"
         />
@@ -215,10 +188,40 @@ interface WeekStats {
         />
       }
 
-      @if (showPhotoFoodLog()) {
+      @if (showPhotoCapture()) {
+        <app-photo-capture-flow
+          [context]="photoCaptureContext()"
+          (destinationChosen)="onPhotoCaptureChosen($event)"
+          (cancelled)="showPhotoCapture.set(false)"
+        />
+      }
+
+      @if (showPhotoRecipeForm() && photoDraft()) {
+        <app-recipe-form-dialog
+          [photoDraft]="photoDraft()"
+          (saved)="onPhotoRecipeCreated()"
+          (cancelled)="closePhotoRecipeForm()"
+        />
+      }
+      @if (showPhotoMealPlan() && photoSelection()) {
+        <app-photo-meal-plan-form
+          [file]="photoSelection()!.file"
+          [previewUrl]="photoSelection()!.previewUrl"
+          [context]="photoCaptureContext()"
+          [suggestedName]="photoSelection()!.analysis?.suggestedName ?? null"
+          (saved)="onPhotoFlowSaved()"
+          (cancelled)="closePhotoFlows()"
+        />
+      }
+
+      @if (showPhotoFoodLog() && photoSelection()) {
         <app-photo-food-log-dialog
-          (saved)="onFoodLogSaved()"
-          (cancelled)="showPhotoFoodLog.set(false)"
+          [initialFile]="photoSelection()!.file"
+          [initialPreviewUrl]="photoSelection()!.previewUrl"
+          [context]="photoCaptureContext()"
+          [suggestedName]="photoSelection()!.analysis?.suggestedName ?? null"
+          (saved)="onPhotoFlowSaved()"
+          (cancelled)="closePhotoFlows()"
         />
       }
       @if (showBarcodeProduct()) {
@@ -296,9 +299,11 @@ interface WeekStats {
                     [items]="itemsFor(selectedDate(), mealType)"
                     [removingId]="removingId()"
                     [canAdd]="canAddToSelectedDate()"
+                    [canChange]="canAddToSelectedDate()"
                     [status]="slotDisplayStatus(selectedDate(), mealType)"
                     (addItem)="openPicker(selectedDate(), mealType)"
                     (removeItem)="onRemoveItem($event)"
+                    (changeItem)="onChangeItem($event)"
                   />
                 } @else if (isPastDate(selectedDate())) {
                   <div
@@ -352,8 +357,6 @@ interface WeekStats {
 })
 export class MealPlanComponent implements OnInit {
   readonly mealPlanService = inject(MealPlanService);
-  private readonly recipeService = inject(RecipeService);
-  private readonly inventoryService = inject(FoodInventoryService);
   private readonly progressService = inject(MealPlanProgressService);
   private readonly mealStreakService = inject(MealStreakService);
 
@@ -362,9 +365,18 @@ export class MealPlanComponent implements OnInit {
   readonly showAddFoodMenu = signal(false);
   readonly showManualFoodLog = signal(false);
   readonly showVoiceFoodLog = signal(false);
+  readonly showPhotoCapture = signal(false);
+  readonly showPhotoMealPlan = signal(false);
   readonly showPhotoFoodLog = signal(false);
   readonly showBarcodeProduct = signal(false);
   readonly barcodeMealType = signal<MealType>('snack');
+  readonly showPhotoRecipeForm = signal(false);
+  readonly photoSelection = signal<PhotoCaptureSelection | null>(null);
+  readonly photoDraft = signal<RecipePhotoDraft | null>(null);
+  readonly photoCaptureContext = computed<PhotoCaptureContext>(() => ({
+    defaultDate: this.selectedDate(),
+    defaultMealType: getDefaultMealTypeForNow(),
+  }));
   readonly selectedDate = signal(toISODate(new Date()));
   readonly removingId = signal<string | null>(null);
   readonly duplicating = signal(false);
@@ -411,57 +423,8 @@ export class MealPlanComponent implements OnInit {
     return this.mealStreakService.lastFeedbackMessage();
   });
 
-  readonly weekStats = computed((): WeekStats => {
-    const inventory = this.inventoryService.items();
-    const recipes = this.recipeService.recipes();
-    const plannedSlots = new Set<string>();
-    let totalIngredients = 0;
-    let availableIngredients = 0;
-    const missingNames = new Set<string>();
-
-    for (const item of this.mealPlanService.entries()) {
-      if (item.item_type !== 'recipe' || !item.recipe_id) {
-        continue;
-      }
-
-      plannedSlots.add(`${item.date}|${item.meal_type}`);
-      const recipe = recipes.find((r) => r.id === item.recipe_id);
-      const ingredients = recipe?.ingredients ?? [];
-      const availability = getIngredientAvailability(ingredients, inventory);
-
-      totalIngredients += availability.total;
-      availableIngredients += availability.available;
-
-      if (recipe?.ingredients) {
-        const inventoryNames = inventory.map((entry) => entry.name.toLowerCase().trim());
-        for (const ingredient of recipe.ingredients) {
-          const name = ingredient.name.toLowerCase().trim();
-          const hasMatch = inventoryNames.some(
-            (inventoryName) => inventoryName.includes(name) || name.includes(inventoryName)
-          );
-          if (!hasMatch) {
-            missingNames.add(name);
-          }
-        }
-      }
-    }
-
-    return {
-      mealsPlanned: plannedSlots.size,
-      ingredientsReadyPercent:
-        totalIngredients > 0
-          ? Math.round((availableIngredients / totalIngredients) * 100)
-          : null,
-      itemsNeeded: missingNames.size,
-    };
-  });
-
   ngOnInit(): void {
-    void Promise.all([
-      this.mealPlanService.loadWeekAndToday(),
-      this.recipeService.loadRecipes(),
-      this.inventoryService.loadItems(),
-    ]).then(() => {
+    void this.mealPlanService.loadWeekAndToday().then(() => {
       this.syncSelectedDateToWeek();
       this.armCelebrationTracking();
       void this.refreshPendingMeals();
@@ -593,6 +556,17 @@ export class MealPlanComponent implements OnInit {
     this.selectedSlot.set({ date, mealType });
   }
 
+  onChangeItem(item: MealSlotItem): void {
+    if (isPastDate(item.date)) {
+      return;
+    }
+    this.selectedSlot.set({
+      date: item.date,
+      mealType: item.meal_type,
+      replaceItemId: item.id,
+    });
+  }
+
   onFoodActionSelected(choice: FoodActionChoice): void {
     this.showAddFoodMenu.set(false);
     switch (choice) {
@@ -603,6 +577,32 @@ export class MealPlanComponent implements OnInit {
         this.showVoiceFoodLog.set(true);
         break;
       case 'photo':
+        this.showPhotoCapture.set(true);
+        break;
+      case 'barcode':
+        this.barcodeMealType.set(this.selectedSlot()?.mealType ?? 'snack');
+        this.showBarcodeProduct.set(true);
+        break;
+    }
+  }
+
+  onPhotoCaptureChosen(selection: PhotoCaptureSelection): void {
+    this.showPhotoCapture.set(false);
+    this.photoSelection.set(selection);
+
+    switch (selection.destination) {
+      case 'recipe':
+        this.photoDraft.set({
+          file: selection.file,
+          previewUrl: selection.previewUrl,
+          analysis: selection.analysis,
+        });
+        this.showPhotoRecipeForm.set(true);
+        break;
+      case 'mealPlan':
+        this.showPhotoMealPlan.set(true);
+        break;
+      case 'foodLog':
         this.showPhotoFoodLog.set(true);
         break;
       case 'barcode':
@@ -610,6 +610,27 @@ export class MealPlanComponent implements OnInit {
         this.showBarcodeProduct.set(true);
         break;
     }
+  }
+
+  onPhotoRecipeCreated(): void {
+    this.closePhotoRecipeForm();
+  }
+
+  closePhotoRecipeForm(): void {
+    this.showPhotoRecipeForm.set(false);
+    this.photoDraft.set(null);
+    this.photoSelection.set(null);
+  }
+
+  async onPhotoFlowSaved(): Promise<void> {
+    this.closePhotoFlows();
+    await this.onFoodLogSaved();
+  }
+
+  closePhotoFlows(): void {
+    this.showPhotoMealPlan.set(false);
+    this.showPhotoFoodLog.set(false);
+    this.photoSelection.set(null);
   }
 
   openManualFromVoice(): void {
@@ -620,7 +641,7 @@ export class MealPlanComponent implements OnInit {
   async onFoodLogSaved(): Promise<void> {
     this.showManualFoodLog.set(false);
     this.showVoiceFoodLog.set(false);
-    this.showPhotoFoodLog.set(false);
+    this.closePhotoFlows();
     await this.mealPlanService.loadWeekAndToday(this.mealPlanService.weekStart());
     await this.refreshPendingMeals();
   }

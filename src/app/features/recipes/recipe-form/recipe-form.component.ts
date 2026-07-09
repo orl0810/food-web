@@ -23,12 +23,15 @@ import {
   RecipeInput,
   RECIPE_CATEGORIES,
 } from '../../../core/models/recipe.model';
+import { RecipeVoiceDraft } from '../../../core/models/voice-recipe.model';
+import { RecipePhotoDraft } from '../../../core/models/photo-food-capture.model';
 import { MEAL_TYPES, MEAL_TYPE_LABELS, MealType } from '../../../core/models/meal-plan.model';
 import { SearchSelectOption } from '../../../core/models/search-select-option.model';
 import { FoodCatalogService } from '../../../core/services/food-catalog.service';
 import { FoodIconService } from '../../../core/services/food-icon.service';
 import { FoodItemHistoryService } from '../../../core/services/food-item-history.service';
 import { RecipeService } from '../../../core/services/recipe.service';
+import { FoodLogPhotoService } from '../../../core/services/food-log-photo.service';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { FoodIconBadgeComponent } from '../../../shared/components/food-icon-badge/food-icon-badge.component';
 import { SearchSelectComponent } from '../../../shared/components/search-select/search-select.component';
@@ -39,6 +42,7 @@ import {
 } from '../../../shared/utils/food-unit.utils';
 import { normalizeNameKey } from '../../../shared/utils/name-normalization.utils';
 import { normalizeTag } from '../../../shared/utils/tag.utils';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-recipe-form',
@@ -69,6 +73,33 @@ import { normalizeTag } from '../../../shared/utils/tag.utils';
               Cancel
             </a>
           </div>
+        }
+
+        @if (photoPreviewUrl()) {
+          <section class="card overflow-hidden p-0">
+            <div class="relative">
+              <img
+                [src]="photoPreviewUrl()!"
+                alt="Recipe photo preview"
+                class="h-48 w-full object-cover"
+              />
+              @if (!isEdit()) {
+                <button
+                  type="button"
+                  class="absolute top-2 right-2 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium text-stone-700 shadow-sm hover:bg-white"
+                  (click)="removePhoto()"
+                >
+                  Remove photo
+                </button>
+              }
+            </div>
+          </section>
+        }
+
+        @if (photoWarning()) {
+          <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+            {{ photoWarning() }}
+          </p>
         }
 
         <section class="card space-y-4 p-5">
@@ -435,12 +466,15 @@ export class RecipeFormComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly recipeService = inject(RecipeService);
+  private readonly photoService = inject(FoodLogPhotoService);
   private readonly foodItemHistoryService = inject(FoodItemHistoryService);
   private readonly foodCatalogService = inject(FoodCatalogService);
   private readonly foodIconService = inject(FoodIconService);
 
   readonly embedded = input(false);
   readonly titleId = input('recipe-form-title');
+  readonly initialDraft = input<RecipeVoiceDraft | null>(null);
+  readonly photoDraft = input<RecipePhotoDraft | null>(null);
 
   readonly saved = output<Recipe>();
   readonly cancelled = output<void>();
@@ -448,6 +482,9 @@ export class RecipeFormComponent implements OnInit {
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
+  readonly photoWarning = signal<string | null>(null);
+  readonly photoPreviewUrl = signal<string | null>(null);
+  readonly activePhotoFile = signal<File | null>(null);
   readonly tags = signal<string[]>([]);
   readonly editingIndex = signal<number | null>(null);
   readonly showAddForm = signal(false);
@@ -541,6 +578,14 @@ export class RecipeFormComponent implements OnInit {
     this.recipeId = this.route.snapshot.paramMap.get('id');
 
     if (!this.recipeId) {
+      const draft = this.initialDraft();
+      if (draft) {
+        this.applyVoiceDraft(draft);
+      }
+      const photo = this.photoDraft();
+      if (photo) {
+        this.applyPhotoDraft(photo);
+      }
       return;
     }
 
@@ -757,14 +802,25 @@ export class RecipeFormComponent implements OnInit {
 
     const result = this.recipeId
       ? await this.recipeService.updateRecipe(this.recipeId, recipeData, ingredients)
-      : await this.recipeService.createRecipe(recipeData, ingredients);
-
-    this.saving.set(false);
+      : await this.recipeService.createRecipe(recipeData, ingredients, {
+          triggerImageGeneration: !this.activePhotoFile(),
+        });
 
     if (result.error || !result.recipe) {
+      this.saving.set(false);
       this.error.set(result.error ?? 'Could not save this recipe. Please try again.');
       return;
     }
+
+    const photoFile = this.activePhotoFile();
+    if (!this.recipeId && photoFile) {
+      const uploadWarning = await this.attachPhotoToRecipe(result.recipe.id, photoFile);
+      if (uploadWarning) {
+        this.photoWarning.set(uploadWarning);
+      }
+    }
+
+    this.saving.set(false);
 
     if (this.embedded()) {
       this.saved.emit(result.recipe);
@@ -772,6 +828,68 @@ export class RecipeFormComponent implements OnInit {
     }
 
     await this.router.navigate(['/recipes', result.recipe.id]);
+  }
+
+  removePhoto(): void {
+    this.activePhotoFile.set(null);
+    this.photoPreviewUrl.set(null);
+    this.photoWarning.set(null);
+  }
+
+  private async attachPhotoToRecipe(recipeId: string, file: File): Promise<string | null> {
+    try {
+      const imageUrl = await this.photoService.uploadRecipePhoto(file);
+      const { error } = await this.recipeService.updateRecipeImageMetadata(recipeId, {
+        image_url: imageUrl,
+        image_status: 'completed',
+        image_storage_provider: environment.useLocalApi ? null : 'supabase_storage',
+        image_error: null,
+      });
+      if (error) {
+        return 'Recipe saved, but the photo could not be attached. You can add an image later.';
+      }
+      return null;
+    } catch {
+      return 'Recipe saved, but the photo could not be uploaded. You can add an image later.';
+    }
+  }
+
+  private applyPhotoDraft(draft: RecipePhotoDraft): void {
+    this.activePhotoFile.set(draft.file);
+    this.photoPreviewUrl.set(draft.previewUrl);
+
+    const analysis = draft.analysis;
+    if (analysis?.suggestedName && !this.form.controls.title.value?.trim()) {
+      this.form.controls.title.setValue(analysis.suggestedName);
+    }
+    if (analysis?.suggestedMealType) {
+      this.form.controls.meal_type.setValue(analysis.suggestedMealType);
+    }
+    if (analysis?.possibleIngredients?.length) {
+      for (const ingredient of analysis.possibleIngredients) {
+        this.ingredients.push(this.buildIngredientGroup(ingredient));
+      }
+    }
+  }
+
+  private applyVoiceDraft(draft: RecipeVoiceDraft): void {
+    this.form.patchValue({
+      title: draft.title,
+      description: draft.description ?? '',
+      prep_time_minutes: draft.prep_time_minutes,
+      cook_time_minutes: draft.cook_time_minutes,
+      portions: draft.portions,
+    });
+
+    for (const ingredient of draft.ingredients) {
+      this.ingredients.push(
+        this.buildIngredientGroup(ingredient.name, ingredient.quantity ?? null, ingredient.unit ?? null)
+      );
+    }
+
+    for (const step of draft.instructions) {
+      this.instructions.push(this.buildInstructionGroup(step));
+    }
   }
 
   private buildInstructionGroup(text = ''): FormGroup {

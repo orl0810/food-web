@@ -31,6 +31,9 @@ export class FoodLogService {
       return { item: null, error: 'Food name is required.' };
     }
 
+    const status = this.resolvePhotoFoodLogStatus(input);
+    const completedAt = status === 'planned' ? null : new Date().toISOString();
+
     return this.mealPlanService.addSlotItem({
       date: input.date,
       meal_type: input.mealType,
@@ -41,9 +44,16 @@ export class FoodLogService {
       notes: input.notes?.trim() ?? null,
       source: 'photo',
       image_url: input.imageUrl,
-      status: input.markAsConsumed === false ? 'planned' : 'eaten',
-      completed_at: input.markAsConsumed === false ? null : new Date().toISOString(),
+      status,
+      completed_at: completedAt,
     });
+  }
+
+  private resolvePhotoFoodLogStatus(input: CreatePhotoFoodLogInput): MealSlotItem['status'] {
+    if (input.status) {
+      return input.status;
+    }
+    return input.markAsConsumed === false ? 'planned' : 'eaten';
   }
 
   getFoodLogsByDate(date: string): MealSlotItem[] {
