@@ -1,6 +1,7 @@
-import { Component, OnDestroy, OnInit, inject, output, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MEAL_TYPES, MEAL_TYPE_LABELS, MealType } from '../../../../core/models/meal-plan.model';
+import { PhotoCaptureContext } from '../../../../core/models/photo-food-capture.model';
 import { FoodLogPhotoService } from '../../../../core/services/food-log-photo.service';
 import { FoodLogService } from '../../../../core/services/food-log.service';
 import { getDefaultMealTypeForNow } from '../../../../shared/utils/food-log.utils';
@@ -23,8 +24,8 @@ import { toISODate } from '../../../../shared/utils/meal-plan.utils';
         (click)="$event.stopPropagation()"
       >
         <div class="border-b border-stone-100 p-4">
-          <h2 id="photo-food-log-title" class="text-base font-semibold text-stone-900">Log with photo</h2>
-          <p class="mt-0.5 text-sm text-stone-600">Upload a photo and name what you ate.</p>
+          <h2 id="photo-food-log-title" class="text-base font-semibold text-stone-900">Log as eaten</h2>
+          <p class="mt-0.5 text-sm text-stone-600">Quickly record what you ate.</p>
         </div>
 
         <form class="flex-1 space-y-4 overflow-y-auto p-4" [formGroup]="form">
@@ -107,6 +108,11 @@ export class PhotoFoodLogDialogComponent implements OnInit, OnDestroy {
   private readonly foodLogService = inject(FoodLogService);
   private readonly photoService = inject(FoodLogPhotoService);
 
+  readonly initialFile = input<File | null>(null);
+  readonly initialPreviewUrl = input<string | null>(null);
+  readonly suggestedName = input<string | null>(null);
+  readonly context = input<PhotoCaptureContext>({});
+
   readonly saved = output<void>();
   readonly cancelled = output<void>();
 
@@ -118,6 +124,7 @@ export class PhotoFoodLogDialogComponent implements OnInit, OnDestroy {
   readonly saving = signal(false);
   readonly uploadError = signal<string | null>(null);
   readonly saveError = signal<string | null>(null);
+  private ownsPreviewUrl = false;
 
   readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
@@ -128,12 +135,37 @@ export class PhotoFoodLogDialogComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     document.body.classList.add('overflow-hidden');
+
+    const ctx = this.context();
+    if (ctx.defaultDate) {
+      this.form.controls.date.setValue(ctx.defaultDate);
+    }
+    if (ctx.defaultMealType) {
+      this.form.controls.mealType.setValue(ctx.defaultMealType);
+    }
+
+    const suggested = this.suggestedName()?.trim();
+    if (suggested) {
+      this.form.controls.name.setValue(suggested);
+    }
+
+    const file = this.initialFile();
+    const preview = this.initialPreviewUrl();
+    if (file) {
+      this.selectedFile.set(file);
+    }
+    if (preview) {
+      this.previewUrl.set(preview);
+      this.ownsPreviewUrl = false;
+    }
   }
 
   ngOnDestroy(): void {
-    const preview = this.previewUrl();
-    if (preview) {
-      URL.revokeObjectURL(preview);
+    if (this.ownsPreviewUrl) {
+      const preview = this.previewUrl();
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
     }
     document.body.classList.remove('overflow-hidden');
   }
@@ -143,19 +175,23 @@ export class PhotoFoodLogDialogComponent implements OnInit, OnDestroy {
     const file = input.files?.[0] ?? null;
     this.uploadError.set(null);
 
-    const previousPreview = this.previewUrl();
-    if (previousPreview) {
-      URL.revokeObjectURL(previousPreview);
+    if (this.ownsPreviewUrl) {
+      const previousPreview = this.previewUrl();
+      if (previousPreview) {
+        URL.revokeObjectURL(previousPreview);
+      }
     }
 
     if (!file) {
       this.selectedFile.set(null);
       this.previewUrl.set(null);
+      this.ownsPreviewUrl = false;
       return;
     }
 
     this.selectedFile.set(file);
     this.previewUrl.set(URL.createObjectURL(file));
+    this.ownsPreviewUrl = true;
   }
 
   async save(): Promise<void> {
@@ -174,7 +210,7 @@ export class PhotoFoodLogDialogComponent implements OnInit, OnDestroy {
     } catch (err) {
       this.saving.set(false);
       this.uploadError.set(
-        err instanceof Error ? err.message : 'Photo upload failed. Please try another image.'
+        err instanceof Error ? err.message : 'We could not upload the photo. Please try again.'
       );
       return;
     }
@@ -186,7 +222,7 @@ export class PhotoFoodLogDialogComponent implements OnInit, OnDestroy {
       mealType: value.mealType,
       notes: value.notes || null,
       imageUrl,
-      markAsConsumed: true,
+      status: 'eaten',
     });
 
     this.saving.set(false);

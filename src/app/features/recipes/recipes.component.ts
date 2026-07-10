@@ -11,7 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   MEAL_TYPE_LABELS,
   MEAL_TYPES,
@@ -31,8 +31,19 @@ import { countAvailableIngredients } from '../../shared/utils/recipe-availabilit
 import { StarRatingComponent } from '../../shared/components/star-rating/star-rating.component';
 import { RecipeImageComponent } from '../../shared/components/recipe-image/recipe-image.component';
 import { AiRecipeDialogComponent } from './ai-recipe-generator/ai-recipe-dialog.component';
+import { AddRecipeByVoiceComponent } from './add-recipe-by-voice/add-recipe-by-voice.component';
+import { CreateRecipeMenuComponent } from './components/create-recipe-menu/create-recipe-menu.component';
 import { RecipeFormDialogComponent } from './recipe-form/recipe-form-dialog.component';
 import { RecipeFiltersDialogComponent } from './recipe-filters-dialog.component';
+import { AddToMealPlanDialogComponent } from './recipe-suggestions/add-to-meal-plan-dialog.component';
+import { RecipeVoiceDraft } from '../../core/models/voice-recipe.model';
+import {
+  PhotoCaptureSelection,
+  RecipePhotoDraft,
+} from '../../core/models/photo-food-capture.model';
+import { PhotoCaptureFlowComponent } from '../photo-food-capture/photo-capture-flow.component';
+import { PhotoMealPlanFormComponent } from '../photo-food-capture/photo-meal-plan-form.component';
+import { PhotoFoodLogDialogComponent } from '../meal-plan/components/photo-food-log-dialog/photo-food-log-dialog.component';
 
 const RECIPE_BATCH_SIZE = 7;
 const SKELETON_CARD_COUNT = 4;
@@ -49,12 +60,18 @@ const SKELETON_CARD_COUNT = 4;
     RecipeImageComponent,
     RecipeFormDialogComponent,
     AiRecipeDialogComponent,
+    CreateRecipeMenuComponent,
+    AddRecipeByVoiceComponent,
     RecipeFiltersDialogComponent,
+    AddToMealPlanDialogComponent,
+    PhotoCaptureFlowComponent,
+    PhotoMealPlanFormComponent,
+    PhotoFoodLogDialogComponent,
   ],
   template: `
     <div class="page">
       <div class="grid grid-cols-2 gap-3">
-        <button type="button" class="btn-primary" (click)="showCreateDialog.set(true)">
+        <button type="button" class="btn-primary" (click)="openCreateMenu()">
           Create recipe
         </button>
         <button type="button" class="btn-secondary" (click)="showAiDialog.set(true)">
@@ -196,7 +213,7 @@ const SKELETON_CARD_COUNT = 4;
           title="No recipes yet"
           description="Add your own recipe or browse the full library with the All tab."
           actionLabel="Create recipe"
-          (actionClick)="showCreateDialog.set(true)"
+          (actionClick)="openCreateMenu()"
         />
       } @else if (filteredRecipes().length === 0) {
         <app-empty-state
@@ -276,16 +293,8 @@ const SKELETON_CARD_COUNT = 4;
                   [disabled]="actionInProgressId() === recipe.id"
                   (click)="planMeal(recipe)"
                 >
-                  Plan meal
-                </button>
-                <button
-                  type="button"
-                  class="btn-secondary flex-1"
-                  [disabled]="actionInProgressId() === recipe.id"
-                  (click)="editRecipe(recipe)"
-                >
                   {{
-                    actionInProgressId() === recipe.id ? 'Creating your copy...' : 'Edit'
+                    actionInProgressId() === recipe.id ? 'Preparing recipe...' : 'Plan meal'
                   }}
                 </button>
                 <a [routerLink]="viewLink(recipe)" class="btn-secondary flex-1 text-center">
@@ -302,10 +311,48 @@ const SKELETON_CARD_COUNT = 4;
       }
     </div>
 
+    @if (showCreateMenu()) {
+      <app-create-recipe-menu
+        (selected)="onCreateMenuChoice($event)"
+        (cancelled)="showCreateMenu.set(false)"
+      />
+    }
+    @if (showVoiceDialog()) {
+      <app-add-recipe-by-voice
+        (continued)="onVoiceDraftReady($event)"
+        (cancelled)="showVoiceDialog.set(false)"
+      />
+    }
+    @if (showPhotoCapture()) {
+      <app-photo-capture-flow
+        (destinationChosen)="onPhotoCaptureChosen($event)"
+        (cancelled)="showPhotoCapture.set(false)"
+      />
+    }
+    @if (showPhotoMealPlan() && photoSelection()) {
+      <app-photo-meal-plan-form
+        [file]="photoSelection()!.file"
+        [previewUrl]="photoSelection()!.previewUrl"
+        [suggestedName]="photoSelection()!.analysis?.suggestedName ?? null"
+        (saved)="onPhotoFlowSaved()"
+        (cancelled)="closePhotoFlows()"
+      />
+    }
+    @if (showPhotoFoodLog() && photoSelection()) {
+      <app-photo-food-log-dialog
+        [initialFile]="photoSelection()!.file"
+        [initialPreviewUrl]="photoSelection()!.previewUrl"
+        [suggestedName]="photoSelection()!.analysis?.suggestedName ?? null"
+        (saved)="onPhotoFlowSaved()"
+        (cancelled)="closePhotoFlows()"
+      />
+    }
     @if (showCreateDialog()) {
       <app-recipe-form-dialog
+        [initialDraft]="voiceDraft()"
+        [photoDraft]="photoDraft()"
         (saved)="onRecipeCreated()"
-        (cancelled)="showCreateDialog.set(false)"
+        (cancelled)="closeCreateDialog()"
       />
     }
     @if (showAiDialog()) {
@@ -321,13 +368,19 @@ const SKELETON_CARD_COUNT = 4;
         (closed)="showFiltersDialog.set(false)"
       />
     }
+    @if (mealPlanRecipe()) {
+      <app-add-to-meal-plan-dialog
+        [recipe]="mealPlanRecipe()!"
+        (saved)="onAddedToMealPlan()"
+        (cancelled)="mealPlanRecipe.set(null)"
+      />
+    }
   `,
 })
 export class RecipesComponent implements OnInit, OnDestroy {
   readonly recipeService = inject(RecipeService);
   readonly inventoryService = inject(FoodInventoryService);
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
 
   private readonly loadMoreSentinel = viewChild<ElementRef<HTMLElement>>('loadMoreSentinel');
   private observer: IntersectionObserver | null = null;
@@ -346,9 +399,18 @@ export class RecipesComponent implements OnInit, OnDestroy {
   readonly activeTagFilters = signal<string[]>([]);
   readonly actionInProgressId = signal<string | null>(null);
   readonly visibleCount = signal(RECIPE_BATCH_SIZE);
+  readonly showCreateMenu = signal(false);
   readonly showCreateDialog = signal(false);
+  readonly showVoiceDialog = signal(false);
+  readonly showPhotoCapture = signal(false);
+  readonly showPhotoMealPlan = signal(false);
+  readonly showPhotoFoodLog = signal(false);
+  readonly voiceDraft = signal<RecipeVoiceDraft | null>(null);
+  readonly photoDraft = signal<RecipePhotoDraft | null>(null);
+  readonly photoSelection = signal<PhotoCaptureSelection | null>(null);
   readonly showAiDialog = signal(false);
   readonly showFiltersDialog = signal(false);
+  readonly mealPlanRecipe = signal<Recipe | null>(null);
 
   readonly hasSecondaryFilters = computed(
     () => !!this.search().trim() || this.activeTagFilters().length > 0
@@ -497,8 +559,74 @@ export class RecipesComponent implements OnInit, OnDestroy {
     this.activeTagFilters.set([]);
   }
 
-  onRecipeCreated(): void {
+  openCreateMenu(): void {
+    this.showCreateMenu.set(true);
+  }
+
+  onCreateMenuChoice(choice: 'manual' | 'voice' | 'photo'): void {
+    this.showCreateMenu.set(false);
+    if (choice === 'manual') {
+      this.voiceDraft.set(null);
+      this.photoDraft.set(null);
+      this.showCreateDialog.set(true);
+      return;
+    }
+    if (choice === 'voice') {
+      this.showVoiceDialog.set(true);
+      return;
+    }
+    if (choice === 'photo') {
+      this.showPhotoCapture.set(true);
+    }
+  }
+
+  onPhotoCaptureChosen(selection: PhotoCaptureSelection): void {
+    this.showPhotoCapture.set(false);
+    this.photoSelection.set(selection);
+
+    switch (selection.destination) {
+      case 'recipe':
+        this.voiceDraft.set(null);
+        this.photoDraft.set({
+          file: selection.file,
+          previewUrl: selection.previewUrl,
+          analysis: selection.analysis,
+        });
+        this.showCreateDialog.set(true);
+        break;
+      case 'mealPlan':
+        this.showPhotoMealPlan.set(true);
+        break;
+      case 'foodLog':
+        this.showPhotoFoodLog.set(true);
+        break;
+    }
+  }
+
+  onPhotoFlowSaved(): void {
+    this.closePhotoFlows();
+  }
+
+  closePhotoFlows(): void {
+    this.showPhotoMealPlan.set(false);
+    this.showPhotoFoodLog.set(false);
+    this.photoSelection.set(null);
+  }
+
+  onVoiceDraftReady(draft: RecipeVoiceDraft): void {
+    this.voiceDraft.set(draft);
+    this.showVoiceDialog.set(false);
+    this.showCreateDialog.set(true);
+  }
+
+  closeCreateDialog(): void {
     this.showCreateDialog.set(false);
+    this.voiceDraft.set(null);
+    this.photoDraft.set(null);
+  }
+
+  onRecipeCreated(): void {
+    this.closeCreateDialog();
   }
 
   availabilityLabel(recipe: Recipe): string {
@@ -516,21 +644,16 @@ export class RecipesComponent implements OnInit, OnDestroy {
   }
 
   async planMeal(recipe: Recipe): Promise<void> {
-    const target = await this.ensureUserRecipe(recipe);
+    const target = recipe.is_base_recipe ? await this.ensureUserRecipe(recipe) : recipe;
     if (!target) {
       return;
     }
 
-    await this.router.navigate(['/meal-plan'], { queryParams: { recipe: target.id } });
+    this.mealPlanRecipe.set(target);
   }
 
-  async editRecipe(recipe: Recipe): Promise<void> {
-    if (recipe.is_base_recipe) {
-      await this.customizeRecipe(recipe);
-      return;
-    }
-
-    await this.router.navigate(['/recipes', recipe.id, 'edit']);
+  onAddedToMealPlan(): void {
+    this.mealPlanRecipe.set(null);
   }
 
   async ensureUserRecipe(recipe: Recipe): Promise<Recipe | null> {
@@ -547,15 +670,6 @@ export class RecipesComponent implements OnInit, OnDestroy {
     }
 
     return copy;
-  }
-
-  async customizeRecipe(recipe: Recipe): Promise<void> {
-    const copy = await this.ensureUserRecipe(recipe);
-    if (!copy) {
-      return;
-    }
-
-    await this.router.navigate(['/recipes', copy.id, 'edit']);
   }
 
   async onRatingChange(recipeId: string, rating: number | null): Promise<void> {

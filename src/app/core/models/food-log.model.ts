@@ -1,4 +1,5 @@
-import { MealType } from '../models/meal-plan.model';
+import { MealSlotItemStatus } from './meal-slot-item.model';
+import { MealType } from './meal-plan.model';
 
 export interface CreateFoodLogInput {
   name: string;
@@ -16,4 +17,6 @@ export interface CreateVoiceFoodLogInput extends CreateFoodLogInput {
 
 export interface CreatePhotoFoodLogInput extends CreateFoodLogInput {
   imageUrl: string;
+  /** Explicit status; overrides markAsConsumed when set. */
+  status?: MealSlotItemStatus;
 }
