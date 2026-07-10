@@ -477,6 +477,19 @@ export class LocalApiService {
     return response.data;
   }
 
+  async submitFeedback(payload: {
+    rating: number;
+    comment?: string | null;
+    appContext?: string | null;
+  }): Promise<unknown> {
+    const response = await this.request<{ data: unknown }>('/feedback', {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
   async getOnboardingStatus(): Promise<{
     status: string;
     currentStep: string | null;

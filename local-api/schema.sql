@@ -270,6 +270,18 @@ create table if not exists user_allergies (
 
 create index if not exists user_allergies_user_id_idx on user_allergies (user_id);
 
+create table if not exists app_feedback (
+  id text primary key,
+  user_id text not null references users (id) on delete cascade,
+  rating integer not null check (rating between 1 and 5),
+  comment text,
+  app_context text,
+  created_at text not null default (datetime('now'))
+);
+
+create index if not exists app_feedback_user_id_idx on app_feedback (user_id);
+create index if not exists app_feedback_created_at_idx on app_feedback (created_at desc);
+
 create table if not exists food_categories (
   id text primary key,
   name text not null unique,

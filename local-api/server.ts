@@ -173,18 +173,6 @@ function normalizeTags(value: unknown): string[] {
   return [...tags];
 }
 
-function parseJsonArray(value: string | null | undefined): string[] {
-  if (!value) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
-  }
-}
-
 function serializeRecipe(row: RecipeRow) {
   const ingredients = db
     .prepare(
@@ -198,8 +186,8 @@ function serializeRecipe(row: RecipeRow) {
   return {
     ...row,
     is_base_recipe: row.is_base_recipe === 1,
-    tags: parseJsonArray(row.tags),
-    instructions: parseJsonArray(row.instructions),
+    tags: parseJsonArray(row.tags, []),
+    instructions: parseJsonArray(row.instructions, []),
     ingredients,
   };
 }
@@ -2127,6 +2115,35 @@ app.post('/user-food-profile/reset', authMiddleware, (req: AuthenticatedRequest,
   ).run(crypto.randomUUID(), userId, 'none');
 
   res.json({ data: mapProfileResponse(userId, req.userEmail) });
+});
+
+app.post('/feedback', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const rating = Number(req.body?.rating);
+  const comment =
+    typeof req.body?.comment === 'string' ? req.body.comment.trim().slice(0, 1000) || null : null;
+  const appContext =
+    typeof req.body?.appContext === 'string' ? req.body.appContext.trim().slice(0, 200) || null : null;
+
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    res.status(400).json({ error: 'Rating must be an integer between 1 and 5.' });
+    return;
+  }
+
+  const id = crypto.randomUUID();
+
+  db.prepare(
+    `insert into app_feedback (id, user_id, rating, comment, app_context)
+     values (?, ?, ?, ?, ?)`
+  ).run(id, req.userId, rating, comment, appContext);
+
+  const row = db
+    .prepare(
+      `select id, user_id, rating, comment, app_context, created_at
+       from app_feedback where id = ?`
+    )
+    .get(id);
+
+  res.status(201).json({ data: row });
 });
 
 function addDaysIso(date: string, days: number): string {

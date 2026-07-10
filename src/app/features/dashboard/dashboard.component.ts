@@ -8,6 +8,7 @@ import { RecentlyAddedSliderComponent } from './components/recently-added-slider
 import { SmartSuggestionsSliderComponent } from './components/smart-suggestions-slider/smart-suggestions-slider.component';
 import { CompleteActionDialogComponent } from './components/complete-action-dialog/complete-action-dialog.component';
 import { DashboardSmartActionCardComponent } from './components/dashboard-smart-action-card/dashboard-smart-action-card.component';
+import { DashboardFeedbackSectionComponent } from './components/dashboard-feedback-section/dashboard-feedback-section.component';
 import {
   ActionCompletionPayload,
   DashboardAction,
@@ -48,6 +49,7 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
     RecentlyAddedSliderComponent,
     SmartSuggestionsSliderComponent,
     CompleteActionDialogComponent,
+    DashboardFeedbackSectionComponent,
     RouterLink,
   ],
   template: `
@@ -225,6 +227,8 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
         </section>
       }
       </div>
+
+      <app-dashboard-feedback-section />
     </div>
   `,
 })
