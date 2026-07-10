@@ -27,8 +27,11 @@ export type RecipeImageSource = Pick<
           (error)="onImageError()"
         />
       } @else if (isLoading()) {
-        <div class="flex h-full w-full flex-col items-center justify-center gap-2 bg-cream animate-pulse">
-          <div class="h-8 w-8 rounded-full bg-stone-200/80"></div>
+        <div class="flex h-full w-full flex-col items-center justify-center gap-2 bg-cream">
+          <span
+            class="inline-block h-8 w-8 animate-spin rounded-full border-2 border-stone-300 border-t-brand-600"
+            aria-hidden="true"
+          ></span>
           <span class="sr-only">{{ loadingLabel() }}</span>
         </div>
       } @else {

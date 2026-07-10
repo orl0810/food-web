@@ -3,8 +3,9 @@ import { Router, RouterLink } from '@angular/router';
 import { STORAGE_LOCATION_LABELS } from '../../core/models/food-item.model';
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { MealPlanService } from '../../core/services/meal-plan.service';
-import { SmartSuggestionService } from '../../core/services/smart-suggestion.service';
 import { MealInspirationSliderComponent } from './components/meal-inspiration-slider/meal-inspiration-slider.component';
+import { RecentlyAddedSliderComponent } from './components/recently-added-slider/recently-added-slider.component';
+import { SmartSuggestionsSliderComponent } from './components/smart-suggestions-slider/smart-suggestions-slider.component';
 import { CompleteActionDialogComponent } from './components/complete-action-dialog/complete-action-dialog.component';
 import { DashboardSmartActionCardComponent } from './components/dashboard-smart-action-card/dashboard-smart-action-card.component';
 import {
@@ -15,7 +16,6 @@ import { DashboardFacadeService } from './services/dashboard-facade.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
-import { RecipeImageComponent } from '../../shared/components/recipe-image/recipe-image.component';
 import { DailyProgressBarComponent } from '../meal-plan/components/daily-progress-bar/daily-progress-bar.component';
 import { MealPlanProgressService } from '../meal-plan/services/meal-plan-progress.service';
 import { PreparedPortion } from '../../core/models/prepared-portion.model';
@@ -41,9 +41,10 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
     FoodIconBadgeComponent,
     LoadingStateComponent,
     DailyProgressBarComponent,
-    RecipeImageComponent,
     DashboardSmartActionCardComponent,
     MealInspirationSliderComponent,
+    RecentlyAddedSliderComponent,
+    SmartSuggestionsSliderComponent,
     CompleteActionDialogComponent,
     RouterLink,
   ],
@@ -214,58 +215,8 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
           </p>
         }
 
-        @if (topOverall().length > 0 || topExpiring().length > 0) {
-          <section class="card-featured overflow-hidden">
-            <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
-              <h2 class="section-title">Smart Suggestions</h2>
-              <a routerLink="/recipes" class="btn-primary-sm shrink-0">See all</a>
-            </div>
-            <div class="grid gap-0 divide-stone-200/60 sm:grid-cols-2 sm:divide-x">
-              <div class="divide-y divide-stone-200/60">
-                <p class="px-4 pt-3 text-xs font-medium uppercase tracking-wide text-stone-500 sm:px-5">
-                  Top picks
-                </p>
-                @for (suggestion of topOverall(); track suggestion.recipe.id) {
-                  <a
-                    [routerLink]="['/recipes', suggestion.recipe.id]"
-                    class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/40 sm:px-5"
-                  >
-                    <app-recipe-image [recipe]="suggestion.recipe" variant="thumbnail" />
-                    <div class="min-w-0 flex-1">
-                      <p class="text-sm font-semibold text-stone-900">{{ suggestion.recipe.title }}</p>
-                      @if (suggestion.reasons.length > 0) {
-                        <p class="mt-0.5 text-xs text-stone-500">{{ suggestion.reasons[0] }}</p>
-                      }
-                    </div>
-                  </a>
-                } @empty {
-                  <p class="px-4 py-3 text-sm text-stone-500 sm:px-5">No suggestions yet.</p>
-                }
-              </div>
-              <div class="divide-y divide-stone-200/60">
-                <p class="px-4 pt-3 text-xs font-medium uppercase tracking-wide text-stone-500 sm:px-5">
-                  Use expiring foods
-                </p>
-                @for (suggestion of topExpiring(); track suggestion.recipe.id) {
-                  <a
-                    [routerLink]="['/recipes', suggestion.recipe.id]"
-                    class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/40 sm:px-5"
-                  >
-                    <app-recipe-image [recipe]="suggestion.recipe" variant="thumbnail" />
-                    <div class="min-w-0 flex-1">
-                      <p class="text-sm font-semibold text-stone-900">{{ suggestion.recipe.title }}</p>
-                      @if (suggestion.reasons.length > 0) {
-                        <p class="mt-0.5 text-xs text-stone-500">{{ suggestion.reasons[0] }}</p>
-                      }
-                    </div>
-                  </a>
-                } @empty {
-                  <p class="px-4 py-3 text-sm text-stone-500 sm:px-5">Nothing expiring soon.</p>
-                }
-              </div>
-            </div>
-          </section>
-        }
+        <app-recently-added-slider class="block" />
+        <app-smart-suggestions-slider class="block" />
       }
       </div>
     </div>
@@ -275,7 +226,6 @@ export class DashboardComponent implements OnInit {
   readonly inventoryService = inject(FoodInventoryService);
   readonly mealPlanService = inject(MealPlanService);
   readonly preparedPortionService = inject(PreparedPortionService);
-  readonly suggestionService = inject(SmartSuggestionService);
   readonly facade = inject(DashboardFacadeService);
   private readonly progressService = inject(MealPlanProgressService);
   private readonly router = inject(Router);
@@ -284,13 +234,6 @@ export class DashboardComponent implements OnInit {
   readonly dialogAction = signal<DashboardAction | null>(null);
   readonly dialogDraft = signal<ActionCompletionPayload | null>(null);
   readonly todayProgressTitle = "Today's progress";
-
-  readonly topOverall = computed(() =>
-    this.suggestionService.getSmartSuggestions().slice(0, 3)
-  );
-  readonly topExpiring = computed(() =>
-    this.suggestionService.getSuggestionsForExpiringFoods().slice(0, 3)
-  );
 
   readonly batchInsight = computed(() =>
     getBatchCookingInsight(

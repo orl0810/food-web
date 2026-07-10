@@ -115,8 +115,10 @@ export const routes: Routes = [
       },
       {
         path: 'suggestions',
-        redirectTo: 'recipes',
-        pathMatch: 'full',
+        loadComponent: () =>
+          import('./features/recipes/smart-suggestions-page/smart-suggestions-page.component').then(
+            (m) => m.SmartSuggestionsPageComponent
+          ),
       },
     ],
   },
