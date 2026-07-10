@@ -605,10 +605,6 @@ export class MealPlanComponent implements OnInit {
       case 'foodLog':
         this.showPhotoFoodLog.set(true);
         break;
-      case 'barcode':
-        this.barcodeMealType.set(this.selectedSlot()?.mealType ?? 'snack');
-        this.showBarcodeProduct.set(true);
-        break;
     }
   }
 
