@@ -209,6 +209,20 @@ create table if not exists user_food_profiles (
   onboarding_draft_state text,
   onboarding_first_smart_action text,
   onboarding_completed_at text,
+  weight_kg real,
+  height_cm real,
+  age integer check (age is null or (age between 13 and 120)),
+  sex text check (sex is null or sex in ('male', 'female')),
+  activity_level text check (
+    activity_level is null or activity_level in (
+      'sedentary', 'lightly_active', 'moderately_active', 'very_active', 'athlete'
+    )
+  ),
+  nutrition_goal text check (
+    nutrition_goal is null or nutrition_goal in (
+      'maintain', 'fat_loss', 'muscle_gain', 'general_health'
+    )
+  ),
   created_at text not null default (datetime('now')),
   updated_at text not null default (datetime('now'))
 );

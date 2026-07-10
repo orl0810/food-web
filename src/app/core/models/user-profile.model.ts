@@ -23,6 +23,8 @@ export type AllergySeverity = 'low' | 'medium' | 'high';
 
 export type PreferredUnits = 'metric' | 'imperial';
 
+import type { ActivityLevel, NutritionGoal, NutritionSex } from './nutrition.model';
+
 export interface UserIngredientPreference {
   id: string;
   ingredientName: string;
@@ -74,6 +76,12 @@ export interface UserFoodProfile {
   dislikedIngredients: UserIngredientPreference[];
   allergies: UserAllergy[];
   mealPlanningSettings: MealPlanningUserSettings;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  age?: number | null;
+  sex?: NutritionSex | null;
+  activityLevel?: ActivityLevel | null;
+  nutritionGoal?: NutritionGoal | null;
   onboardingStatus?: OnboardingStatus;
   onboardingFirstSmartAction?: OnboardingSmartAction | null;
   createdAt: string;
@@ -119,6 +127,12 @@ export interface UserProfileUpdateInput {
   displayName?: string;
   avatarUrl?: string | null;
   mealPlanningSettings?: Partial<MealPlanningUserSettings>;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  age?: number | null;
+  sex?: NutritionSex | null;
+  activityLevel?: ActivityLevel | null;
+  nutritionGoal?: NutritionGoal | null;
 }
 
 export const DEFAULT_MEAL_PLANNING_SETTINGS: MealPlanningUserSettings = {

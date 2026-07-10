@@ -122,6 +122,13 @@ export class UserProfileFacadeService {
     return this.handleSaveResult(result.error);
   }
 
+  async saveNutritionProfile(
+    input: Parameters<UserProfileService['saveNutritionProfile']>[0]
+  ): Promise<boolean> {
+    const result = await this.profileService.saveNutritionProfile(input);
+    return this.handleSaveResult(result.error);
+  }
+
   async resetPreferences(): Promise<boolean> {
     const result = await this.profileService.resetProfile();
     return this.handleSaveResult(result.error);

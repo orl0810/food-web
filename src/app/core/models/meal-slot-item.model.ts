@@ -35,7 +35,13 @@ export interface MealSlotItem {
   product_name_snapshot:string|null; brand_snapshot:string|null; product_image_url_snapshot:string|null;
   created_at: string;
   recipe?: RecipeMealPlanSummary;
-  prepared_portion?: Pick<PreparedPortion, 'id' | 'name' | 'available_portions' | 'expires_at' | 'storage_location'>;
+  prepared_portion?: Pick<
+    PreparedPortion,
+    'id' | 'name' | 'available_portions' | 'expires_at' | 'storage_location'
+  > & {
+    recipe_id?: string | null;
+    recipe?: RecipeMealPlanSummary;
+  };
   inventory_item?: Pick<FoodItem, 'id' | 'name' | 'quantity' | 'unit' | 'location' | 'expiration_date'>;
 }
 

@@ -14,6 +14,7 @@ import {
   UserMealPlanningStats,
   UserProfileUpdateInput,
 } from '../models/user-profile.model';
+import { ActivityLevel, NutritionGoal, NutritionSex } from '../models/nutrition.model';
 import { MealSlotItem } from '../models/meal-slot-item.model';
 import { Recipe } from '../models/recipe.model';
 import {
@@ -49,6 +50,12 @@ interface ProfileRow {
   expiring_items_reminder_enabled: boolean;
   onboarding_status?: string;
   onboarding_first_smart_action?: Record<string, unknown> | null;
+  weight_kg?: number | null;
+  height_cm?: number | null;
+  age?: number | null;
+  sex?: NutritionSex | null;
+  activity_level?: ActivityLevel | null;
+  nutrition_goal?: NutritionGoal | null;
   created_at: string;
   updated_at: string;
 }
@@ -132,6 +139,15 @@ export class UserProfileService {
       return this.updateProfileLocal(input);
     }
     return this.updateProfileSupabase(input);
+  }
+
+  async saveNutritionProfile(
+    input: Pick<
+      UserProfileUpdateInput,
+      'weightKg' | 'heightCm' | 'age' | 'sex' | 'activityLevel' | 'nutritionGoal'
+    >
+  ): Promise<{ profile: UserFoodProfile | null; error: string | null }> {
+    return this.updateProfile(input);
   }
 
   async updateDietaryPreferences(
@@ -417,6 +433,12 @@ export class UserProfileService {
         displayName: input.displayName,
         avatarUrl: input.avatarUrl,
         mealPlanningSettings: input.mealPlanningSettings,
+        weightKg: input.weightKg,
+        heightCm: input.heightCm,
+        age: input.age,
+        sex: input.sex,
+        activityLevel: input.activityLevel,
+        nutritionGoal: input.nutritionGoal,
       });
       return this.normalizeProfile(data);
     });
@@ -467,6 +489,25 @@ export class UserProfileService {
         if (settings.expiringItemsReminderEnabled !== undefined) {
           updates['expiring_items_reminder_enabled'] = settings.expiringItemsReminderEnabled;
         }
+      }
+
+      if (input.weightKg !== undefined) {
+        updates['weight_kg'] = input.weightKg;
+      }
+      if (input.heightCm !== undefined) {
+        updates['height_cm'] = input.heightCm;
+      }
+      if (input.age !== undefined) {
+        updates['age'] = input.age;
+      }
+      if (input.sex !== undefined) {
+        updates['sex'] = input.sex;
+      }
+      if (input.activityLevel !== undefined) {
+        updates['activity_level'] = input.activityLevel;
+      }
+      if (input.nutritionGoal !== undefined) {
+        updates['nutrition_goal'] = input.nutritionGoal;
       }
 
       const { error } = await client.from('user_food_profiles').update(updates).eq('user_id', userId);
@@ -626,6 +667,12 @@ export class UserProfileService {
       },
       onboardingStatus: raw['onboardingStatus'] as UserFoodProfile['onboardingStatus'],
       onboardingFirstSmartAction: (raw['onboardingFirstSmartAction'] as UserFoodProfile['onboardingFirstSmartAction']) ?? null,
+      weightKg: this.toOptionalNumber(raw['weightKg']),
+      heightCm: this.toOptionalNumber(raw['heightCm']),
+      age: this.toOptionalInteger(raw['age']),
+      sex: (raw['sex'] as NutritionSex | null) ?? null,
+      activityLevel: (raw['activityLevel'] as ActivityLevel | null) ?? null,
+      nutritionGoal: (raw['nutritionGoal'] as NutritionGoal | null) ?? null,
       createdAt: String(raw['createdAt']),
       updatedAt: String(raw['updatedAt']),
     };
@@ -680,6 +727,12 @@ export class UserProfileService {
       onboardingFirstSmartAction: row.onboarding_first_smart_action
         ? (row.onboarding_first_smart_action as unknown as UserFoodProfile['onboardingFirstSmartAction'])
         : null,
+      weightKg: row.weight_kg ?? null,
+      heightCm: row.height_cm ?? null,
+      age: row.age ?? null,
+      sex: row.sex ?? null,
+      activityLevel: row.activity_level ?? null,
+      nutritionGoal: row.nutrition_goal ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -726,5 +779,18 @@ export class UserProfileService {
       throw new Error('Database is not configured.');
     }
     return client;
+  }
+
+  private toOptionalNumber(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  private toOptionalInteger(value: unknown): number | null {
+    const num = this.toOptionalNumber(value);
+    return num === null ? null : Math.trunc(num);
   }
 }

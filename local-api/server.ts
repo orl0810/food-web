@@ -302,23 +302,29 @@ function serializeMealPlanItem(row: MealPlanItemRow) {
   const recipe = row.recipe_id
     ? serializeRecipeSummary(getRecipeRow(row.recipe_id, row.user_id))
     : null;
-  const preparedPortion = row.prepared_portion_id
+  const preparedPortionRow = row.prepared_portion_id
     ? getPreparedPortionRow(row.prepared_portion_id, row.user_id)
     : undefined;
   const inventoryItem = row.inventory_item_id
     ? getFoodItemRow(row.inventory_item_id, row.user_id)
     : undefined;
 
+  const portionRecipe = preparedPortionRow?.recipe_id
+    ? serializeRecipeSummary(getRecipeRow(preparedPortionRow.recipe_id, row.user_id))
+    : null;
+
   return {
     ...row,
     recipe: recipe ?? undefined,
-    prepared_portion: preparedPortion
+    prepared_portion: preparedPortionRow
       ? {
-          id: preparedPortion.id,
-          name: preparedPortion.name,
-          available_portions: preparedPortion.available_portions,
-          expires_at: preparedPortion.expires_at,
-          storage_location: preparedPortion.storage_location,
+          id: preparedPortionRow.id,
+          name: preparedPortionRow.name,
+          available_portions: preparedPortionRow.available_portions,
+          expires_at: preparedPortionRow.expires_at,
+          storage_location: preparedPortionRow.storage_location,
+          recipe_id: preparedPortionRow.recipe_id,
+          recipe: portionRecipe ?? undefined,
         }
       : undefined,
     inventory_item: inventoryItem ?? undefined,
@@ -342,6 +348,38 @@ const VALID_ITEM_TYPES = new Set(['recipe', 'prepared_portion', 'inventory_item'
 const VALID_FOOD_LOG_SOURCES = new Set(['manual', 'voice', 'photo']);
 const VALID_SLOT_ITEM_STATUSES = new Set(['planned', 'prepared', 'eaten', 'skipped']);
 
+function serializeRecipeNutrition(row: RecipeRow) {
+  const calories = row.nutrition_calories ?? null;
+  const protein_g = row.nutrition_protein_g ?? null;
+  const fat_g = row.nutrition_fat_g ?? null;
+  const sugar_g = row.nutrition_sugar_g ?? null;
+  const carbs_g = row.nutrition_carbs_g ?? null;
+  const fiber_g = row.nutrition_fiber_g ?? null;
+
+  if (
+    calories === null &&
+    protein_g === null &&
+    fat_g === null &&
+    sugar_g === null &&
+    carbs_g === null &&
+    fiber_g === null
+  ) {
+    return null;
+  }
+
+  return {
+    calories,
+    fat_g,
+    cholesterol_mg: row.nutrition_cholesterol_mg ?? null,
+    protein_g,
+    sugar_g,
+    sodium_mg: row.nutrition_sodium_mg ?? null,
+    carbs_g,
+    fiber_g,
+    calculated_at: row.nutrition_calculated_at ?? null,
+  };
+}
+
 function serializeRecipeSummary(row: RecipeRow | undefined) {
   if (!row) {
     return null;
@@ -361,11 +399,13 @@ function serializeRecipeSummary(row: RecipeRow | undefined) {
     description: row.description,
     tags,
     prep_time_minutes: row.prep_time_minutes,
+    portions: row.portions ?? null,
     image_url: row.image_url ?? null,
     image_status: row.image_status ?? 'pending',
     image_storage_key: row.image_storage_key ?? null,
     meal_type: row.meal_type ?? null,
     category: row.category ?? null,
+    nutrition: serializeRecipeNutrition(row),
   };
 }
 
@@ -1695,6 +1735,12 @@ function mapProfileResponse(userId: string, email?: string) {
     onboardingFirstSmartAction: profile.onboarding_first_smart_action
       ? JSON.parse(profile.onboarding_first_smart_action)
       : null,
+    weightKg: profile.weight_kg ?? null,
+    heightCm: profile.height_cm ?? null,
+    age: profile.age ?? null,
+    sex: profile.sex ?? null,
+    activityLevel: profile.activity_level ?? null,
+    nutritionGoal: profile.nutrition_goal ?? null,
     createdAt: profile.created_at,
     updatedAt: profile.updated_at,
   };
@@ -1851,6 +1897,22 @@ app.put('/user-food-profile', authMiddleware, (req: AuthenticatedRequest, res) =
   if (settings['expiringItemsReminderEnabled'] !== undefined) {
     fields.push('expiring_items_reminder_enabled = ?');
     values.push(settings['expiringItemsReminderEnabled'] ? 1 : 0);
+  }
+
+  const nutritionFields: Array<[string, unknown]> = [
+    ['weight_kg', body['weightKg']],
+    ['height_cm', body['heightCm']],
+    ['age', body['age']],
+    ['sex', body['sex']],
+    ['activity_level', body['activityLevel']],
+    ['nutrition_goal', body['nutritionGoal']],
+  ];
+
+  for (const [column, value] of nutritionFields) {
+    if (value !== undefined) {
+      fields.push(`${column} = ?`);
+      values.push(value === null || value === '' ? null : value);
+    }
   }
 
   values.push(userId);

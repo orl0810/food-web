@@ -1,4 +1,5 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   MEAL_TYPES,
   MEAL_TYPE_LABELS,
@@ -20,7 +21,9 @@ import {
 } from '../../shared/utils/meal-plan.utils';
 import { MealSlotItemStatus } from '../../core/models/meal-slot-item.model';
 import { ConfettiCelebrationComponent } from './components/confetti-celebration/confetti-celebration.component';
-import { DailyProgressBarComponent } from './components/daily-progress-bar/daily-progress-bar.component';
+import { TodayProgressSwitcherComponent } from '../../shared/components/today-progress-switcher/today-progress-switcher.component';
+import { NutritionProgressService } from '../../core/services/nutrition-progress.service';
+import { NutritionTargetsService } from '../../core/services/nutrition-targets.service';
 import { MealStatusControlComponent } from './components/meal-status-control/meal-status-control.component';
 import { PendingMealsComponent } from './components/pending-meals/pending-meals.component';
 import { MealPlanProgressService } from './services/meal-plan-progress.service';
@@ -71,7 +74,7 @@ interface SelectedSlot {
     PhotoCaptureFlowComponent,
     PhotoMealPlanFormComponent,
     RecipeFormDialogComponent,
-    DailyProgressBarComponent,
+    TodayProgressSwitcherComponent,
     MealStatusControlComponent,
     PendingMealsComponent,
     ConfettiCelebrationComponent,
@@ -249,11 +252,15 @@ interface SelectedSlot {
             </div>
           </div>
 
-          <app-daily-progress-bar
+          <app-today-progress-switcher
             class="mb-5 block"
             [title]="dayProgressTitle()"
-            [progress]="dayProgress()"
+            [selectedDate]="selectedDate()"
+            [mealProgress]="dayProgress()"
+            [nutritionProgress]="dayNutritionProgress()"
+            [isNutritionProfileComplete]="nutritionTargetsService.hasRequiredProfileData()"
             [readyCount]="dayReadyCount()"
+            (completeProfileClicked)="goToNutritionProfile()"
           />
 
           <app-pending-meals
@@ -358,7 +365,10 @@ interface SelectedSlot {
 export class MealPlanComponent implements OnInit {
   readonly mealPlanService = inject(MealPlanService);
   private readonly progressService = inject(MealPlanProgressService);
+  private readonly nutritionProgressService = inject(NutritionProgressService);
+  readonly nutritionTargetsService = inject(NutritionTargetsService);
   private readonly mealStreakService = inject(MealStreakService);
+  private readonly router = inject(Router);
 
   readonly mealTypes = MEAL_TYPES;
   readonly selectedSlot = signal<SelectedSlot | null>(null);
@@ -400,6 +410,13 @@ export class MealPlanComponent implements OnInit {
     )
   );
 
+  readonly dayNutritionProgress = computed(() =>
+    this.nutritionProgressService.calculateDayNutritionProgress(
+      this.selectedDate(),
+      this.mealPlanService.entries()
+    )
+  );
+
   readonly dayReadyCount = computed(() =>
     countReadySlotsForDay(this.selectedDate(), this.mealPlanService.entries())
   );
@@ -424,11 +441,18 @@ export class MealPlanComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    void this.mealPlanService.loadWeekAndToday().then(() => {
-      this.syncSelectedDateToWeek();
-      this.armCelebrationTracking();
-      void this.refreshPendingMeals();
-    });
+    void Promise.all([
+      this.mealPlanService.loadWeekAndToday().then(() => {
+        this.syncSelectedDateToWeek();
+        this.armCelebrationTracking();
+        void this.refreshPendingMeals();
+      }),
+      this.nutritionTargetsService.ensureProfileLoaded(),
+    ]);
+  }
+
+  goToNutritionProfile(): void {
+    void this.router.navigate(['/profile'], { queryParams: { section: 'nutrition' } });
   }
 
   slotDisplayStatus(date: string, mealType: MealType) {

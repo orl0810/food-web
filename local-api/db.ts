@@ -228,6 +228,25 @@ if (tableExists('user_food_profiles') && !tableHasColumn('user_food_profiles', '
   `);
 }
 
+if (tableExists('user_food_profiles') && !tableHasColumn('user_food_profiles', 'weight_kg')) {
+  db.exec(`
+    alter table user_food_profiles add column weight_kg real;
+    alter table user_food_profiles add column height_cm real;
+    alter table user_food_profiles add column age integer check (age is null or (age between 13 and 120));
+    alter table user_food_profiles add column sex text check (sex is null or sex in ('male', 'female'));
+    alter table user_food_profiles add column activity_level text check (
+      activity_level is null or activity_level in (
+        'sedentary', 'lightly_active', 'moderately_active', 'very_active', 'athlete'
+      )
+    );
+    alter table user_food_profiles add column nutrition_goal text check (
+      nutrition_goal is null or nutrition_goal in (
+        'maintain', 'fat_loss', 'muscle_gain', 'general_health'
+      )
+    );
+  `);
+}
+
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
 

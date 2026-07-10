@@ -9,8 +9,9 @@ import { FavoriteIngredientsSectionComponent } from '../favorite-ingredients-sec
 import { DislikedIngredientsSectionComponent } from '../disliked-ingredients-section/disliked-ingredients-section.component';
 import { AllergiesSectionComponent } from '../allergies-section/allergies-section.component';
 import { MealPlanningProgressSectionComponent } from '../meal-planning-progress-section/meal-planning-progress-section.component';
+import { NutritionProfileSectionComponent } from '../nutrition-profile-section/nutrition-profile-section.component';
 
-type ProfileSection = 'summary' | 'preferences' | 'progress';
+type ProfileSection = 'summary' | 'preferences' | 'nutrition' | 'progress';
 
 @Component({
   selector: 'app-user-profile-page',
@@ -23,6 +24,7 @@ type ProfileSection = 'summary' | 'preferences' | 'progress';
     DislikedIngredientsSectionComponent,
     AllergiesSectionComponent,
     MealPlanningProgressSectionComponent,
+    NutritionProfileSectionComponent,
   ],
   template: `
     <div class="page">
@@ -60,6 +62,10 @@ type ProfileSection = 'summary' | 'preferences' | 'progress';
             <app-allergies-section />
           </div>
 
+          <div id="section-nutrition">
+            <app-nutrition-profile-section />
+          </div>
+
           <div id="section-progress">
             <app-meal-planning-progress-section />
           </div>
@@ -91,6 +97,7 @@ export class UserProfilePageComponent implements OnInit {
   readonly sections: { id: ProfileSection; label: string }[] = [
     { id: 'summary', label: 'Summary' },
     { id: 'preferences', label: 'Preferences' },
+    { id: 'nutrition', label: 'Nutrition' },
     { id: 'progress', label: 'Progress' },
   ];
 

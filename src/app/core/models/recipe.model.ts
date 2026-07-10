@@ -138,7 +138,10 @@ export type RecipeMealPlanSummary = Pick<
   | 'image_storage_key'
   | 'meal_type'
   | 'category'
->;
+> & {
+  portions?: number | null;
+  nutrition?: RecipeNutrition | null;
+};
 
 export interface RecipeInput {
   title: string;

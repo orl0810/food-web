@@ -16,8 +16,10 @@ import { DashboardFacadeService } from './services/dashboard-facade.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
-import { DailyProgressBarComponent } from '../meal-plan/components/daily-progress-bar/daily-progress-bar.component';
+import { TodayProgressSwitcherComponent } from '../../shared/components/today-progress-switcher/today-progress-switcher.component';
 import { MealPlanProgressService } from '../meal-plan/services/meal-plan-progress.service';
+import { NutritionProgressService } from '../../core/services/nutrition-progress.service';
+import { NutritionTargetsService } from '../../core/services/nutrition-targets.service';
 import { PreparedPortion } from '../../core/models/prepared-portion.model';
 import { PreparedPortionService } from '../../core/services/prepared-portion.service';
 import {
@@ -40,7 +42,7 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
     EmptyStateComponent,
     FoodIconBadgeComponent,
     LoadingStateComponent,
-    DailyProgressBarComponent,
+    TodayProgressSwitcherComponent,
     DashboardSmartActionCardComponent,
     MealInspirationSliderComponent,
     RecentlyAddedSliderComponent,
@@ -81,11 +83,15 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
             Go to meal plan
           </a>
         </div>
-        <app-daily-progress-bar
+        <app-today-progress-switcher
           [title]="todayProgressTitle"
-          [progress]="todayProgress()"
+          [selectedDate]="todayDate()"
+          [mealProgress]="todayProgress()"
+          [nutritionProgress]="todayNutritionProgress()"
+          [isNutritionProfileComplete]="nutritionTargetsService.hasRequiredProfileData()"
           [compact]="true"
           [hideTitle]="true"
+          (completeProfileClicked)="goToNutritionProfile()"
         />
       </section>
 
@@ -228,12 +234,15 @@ export class DashboardComponent implements OnInit {
   readonly preparedPortionService = inject(PreparedPortionService);
   readonly facade = inject(DashboardFacadeService);
   private readonly progressService = inject(MealPlanProgressService);
+  private readonly nutritionProgressService = inject(NutritionProgressService);
+  readonly nutritionTargetsService = inject(NutritionTargetsService);
   private readonly router = inject(Router);
   readonly locationLabels = STORAGE_LOCATION_LABELS;
 
   readonly dialogAction = signal<DashboardAction | null>(null);
   readonly dialogDraft = signal<ActionCompletionPayload | null>(null);
   readonly todayProgressTitle = "Today's progress";
+  readonly todayDate = computed(() => toISODate(new Date()));
 
   readonly batchInsight = computed(() =>
     getBatchCookingInsight(
@@ -247,15 +256,29 @@ export class DashboardComponent implements OnInit {
   );
 
   readonly todayProgress = computed(() => {
-    const today = toISODate(new Date());
+    const today = this.todayDate();
     return this.progressService.calculateDayProgress(
       today,
       this.mealPlanService.todayEntries()
     );
   });
 
+  readonly todayNutritionProgress = computed(() =>
+    this.nutritionProgressService.calculateDayNutritionProgress(
+      this.todayDate(),
+      this.mealPlanService.todayEntries()
+    )
+  );
+
   ngOnInit(): void {
-    void this.facade.loadDashboardData();
+    void Promise.all([
+      this.facade.loadDashboardData(),
+      this.nutritionTargetsService.ensureProfileLoaded(),
+    ]);
+  }
+
+  goToNutritionProfile(): void {
+    void this.router.navigate(['/profile'], { queryParams: { section: 'nutrition' } });
   }
 
   onSmartActionPrimary(action: DashboardAction): void {

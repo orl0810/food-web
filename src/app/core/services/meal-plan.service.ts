@@ -2,7 +2,7 @@ import { Injectable, Injector, computed, inject, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { MealType } from '../models/meal-plan.model';
 import { MealSlotItem, MealSlotItemInput, MealSlotItemStatus } from '../models/meal-slot-item.model';
-import { Recipe } from '../models/recipe.model';
+import { Recipe, RecipeMealPlanSummary } from '../models/recipe.model';
 import { FoodItem } from '../models/food-item.model';
 import { PreparedPortion } from '../models/prepared-portion.model';
 import {
@@ -26,10 +26,20 @@ import { SupabaseService } from './supabase.service';
 const MEAL_PLAN_ITEM_SELECT = `
   *,
   recipe:recipes(
-    id, title, description, tags, prep_time_minutes,
-    image_url, image_status, image_storage_key, meal_type, category
+    id, title, description, tags, prep_time_minutes, portions,
+    image_url, image_status, image_storage_key, meal_type, category,
+    nutrition_calories, nutrition_fat_g, nutrition_cholesterol_mg,
+    nutrition_protein_g, nutrition_sugar_g, nutrition_sodium_mg,
+    nutrition_carbs_g, nutrition_fiber_g, nutrition_calculated_at
   ),
-  prepared_portion:prepared_portions(id, name, available_portions, expires_at, storage_location),
+  prepared_portion:prepared_portions(
+    id, name, available_portions, expires_at, storage_location, recipe_id,
+    recipe:recipes(
+      id, title, portions,
+      nutrition_calories, nutrition_fat_g, nutrition_protein_g,
+      nutrition_sugar_g, nutrition_carbs_g, nutrition_fiber_g, nutrition_calculated_at
+    )
+  ),
   inventory_item:food_items(id, name, quantity, unit, location, expiration_date)
 `;
 
@@ -809,11 +819,13 @@ export class MealPlanService {
             description: recipeData.description ?? null,
             tags: normalizeTags(recipeData.tags ?? []),
             prep_time_minutes: recipeData.prep_time_minutes ?? null,
+            portions: recipeData.portions ?? null,
             image_url: recipeData.image_url ?? null,
             image_status: recipeData.image_status ?? 'pending',
             image_storage_key: recipeData.image_storage_key ?? null,
             meal_type: recipeData.meal_type ?? null,
             category: recipeData.category ?? null,
+            nutrition: this.normalizeRecipeNutrition(recipeData),
           }
         : undefined,
       prepared_portion: portionData
@@ -823,6 +835,12 @@ export class MealPlanService {
             available_portions: Number(portionData.available_portions),
             expires_at: portionData.expires_at ?? null,
             storage_location: portionData.storage_location ?? null,
+            recipe_id: portionData.recipe_id ?? null,
+            recipe: this.normalizePortionRecipe(
+              portionData as PreparedPortion & {
+                recipe?: Recipe | Recipe[] | RecipeMealPlanSummary | null;
+              }
+            ),
           }
         : undefined,
       inventory_item: inventoryData
@@ -836,5 +854,82 @@ export class MealPlanService {
           }
         : undefined,
     };
+  }
+
+  private normalizePortionRecipe(
+    portionData: PreparedPortion & { recipe?: Recipe | Recipe[] | RecipeMealPlanSummary | null }
+  ): MealSlotItem['recipe'] | undefined {
+    const recipeData = Array.isArray(portionData.recipe)
+      ? portionData.recipe[0]
+      : portionData.recipe;
+    if (!recipeData) {
+      return undefined;
+    }
+
+    return {
+      id: recipeData.id,
+      title: recipeData.title,
+      description: recipeData.description ?? null,
+      tags: normalizeTags(recipeData.tags ?? []),
+      prep_time_minutes: recipeData.prep_time_minutes ?? null,
+      portions: recipeData.portions ?? null,
+      image_url: recipeData.image_url ?? null,
+      image_status: recipeData.image_status ?? 'pending',
+      image_storage_key: recipeData.image_storage_key ?? null,
+      meal_type: recipeData.meal_type ?? null,
+      category: recipeData.category ?? null,
+      nutrition: this.normalizeRecipeNutrition(recipeData),
+    };
+  }
+
+  private normalizeRecipeNutrition(
+    recipeData: Recipe | Record<string, unknown>
+  ): Recipe['nutrition'] | null {
+    const row = recipeData as Record<string, unknown>;
+    const nutrition = row['nutrition'] as Recipe['nutrition'] | undefined;
+    if (nutrition) {
+      return nutrition;
+    }
+
+    const calories = this.toNutritionNumber(row['nutrition_calories']);
+    const protein_g = this.toNutritionNumber(row['nutrition_protein_g']);
+    const fat_g = this.toNutritionNumber(row['nutrition_fat_g']);
+    const sugar_g = this.toNutritionNumber(row['nutrition_sugar_g']);
+    const carbs_g = this.toNutritionNumber(row['nutrition_carbs_g']);
+    const fiber_g = this.toNutritionNumber(row['nutrition_fiber_g']);
+
+    if (
+      calories === null &&
+      protein_g === null &&
+      fat_g === null &&
+      sugar_g === null &&
+      carbs_g === null &&
+      fiber_g === null
+    ) {
+      return null;
+    }
+
+    return {
+      calories,
+      fat_g,
+      cholesterol_mg: this.toNutritionNumber(row['nutrition_cholesterol_mg']),
+      protein_g,
+      sugar_g,
+      sodium_mg: this.toNutritionNumber(row['nutrition_sodium_mg']),
+      carbs_g,
+      fiber_g,
+      calculated_at:
+        typeof row['nutrition_calculated_at'] === 'string'
+          ? row['nutrition_calculated_at']
+          : null,
+    };
+  }
+
+  private toNutritionNumber(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
   }
 }
