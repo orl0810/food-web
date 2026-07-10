@@ -16,6 +16,11 @@
   --color-sage-dark: #739f72;
   --color-tan: #ebe0d0;
   --color-cream: #fff9f1;
+  --color-pantry-charcoal: #243029;
+  --color-pantry-coral: #f36f5e;
+  --color-pantry-amber: #f6c453;
+  --color-pantry-mint: #dff3e4;
+  --color-pantry-beige: #eadcc8;
 }
 
 html {
@@ -27,6 +32,11 @@ body {
   @apply bg-surface text-stone-900 antialiased;
   margin: 0;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:focus-visible {
+  outline: 3px solid rgb(22 163 74 / 0.35);
+  outline-offset: 3px;
 }
 
 input,

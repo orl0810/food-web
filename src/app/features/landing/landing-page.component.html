@@ -1,0 +1,98 @@
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<header class="sticky top-0 z-50 border-b border-[#eadcc8]/80 bg-cream/95 backdrop-blur-md">
+  <nav class="landing-container flex h-18 items-center justify-between" aria-label="Public navigation">
+    <a routerLink="/" class="flex items-center gap-2 text-xl font-bold tracking-tight" aria-label="PantryFlow home">
+      <span class="brand-mark" aria-hidden="true"><span>⌂</span></span> PantryFlow
+    </a>
+    <div class="hidden items-center gap-7 text-sm font-medium lg:flex">
+      <a href="#how-it-works">How it works</a><a href="#features">Features</a><a href="#why-it-works">Why it works</a><a href="#faq">FAQ</a>
+    </div>
+    <div class="hidden items-center gap-3 sm:flex">
+      <button type="button" class="min-h-11 px-3 text-sm font-semibold" (click)="login()">Sign in</button>
+      <button type="button" class="landing-button" (click)="goToSignup('header')">Plan your first week</button>
+    </div>
+    <button type="button" class="grid size-11 place-items-center rounded-xl border border-[#ddcfbd] sm:hidden" [attr.aria-expanded]="menuOpen()" aria-controls="mobile-menu" aria-label="Toggle navigation" (click)="menuOpen.update(value => !value)">
+      <span aria-hidden="true">{{ menuOpen() ? '×' : '☰' }}</span>
+    </button>
+  </nav>
+  @if (menuOpen()) {
+    <div id="mobile-menu" class="border-t border-[#eadcc8] bg-cream px-5 py-5 sm:hidden">
+      <div class="flex flex-col gap-1 text-base font-semibold">
+        <a class="rounded-lg px-3 py-3" href="#how-it-works" (click)="closeMenu()">How it works</a><a class="rounded-lg px-3 py-3" href="#features" (click)="closeMenu()">Features</a><a class="rounded-lg px-3 py-3" href="#why-it-works" (click)="closeMenu()">Why it works</a><a class="rounded-lg px-3 py-3" href="#faq" (click)="closeMenu()">FAQ</a>
+        <button class="mt-2 min-h-11 text-left px-3" type="button" (click)="login()">Sign in</button>
+        <button class="landing-button mt-2" type="button" (click)="goToSignup('header')">Plan your first week</button>
+      </div>
+    </div>
+  }
+</header>
+
+<main id="main-content">
+  <section class="relative overflow-hidden border-b border-[#eadcc8] py-16 sm:py-20 lg:py-24">
+    <div class="landing-container grid items-center gap-12 lg:grid-cols-[.85fr_1.15fr]">
+      <div class="relative z-10">
+        <h1 class="max-w-xl text-[clamp(2.75rem,6vw,5.6rem)] font-bold leading-[.96] tracking-[-.055em]">Plan your meals.<br>Use what you have.<br><span class="text-brand-700">Cook fewer times.</span></h1>
+        <p class="mt-7 max-w-xl text-lg leading-8 text-stone-700">Turn the ingredients already in your kitchen into a practical weekly meal plan, reduce food waste, and stop deciding what to cook every day.</p>
+        <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <button type="button" class="landing-button landing-button-lg" (click)="goToSignup('hero')">Plan your first week <span aria-hidden="true">→</span></button>
+          <button type="button" class="min-h-12 px-5 text-left font-semibold text-brand-800" (click)="secondaryCta()">See how it works <span aria-hidden="true">↓</span></button>
+        </div>
+        <p class="mt-6 flex items-center gap-2 text-sm text-stone-600"><span class="text-brand-700" aria-hidden="true">✓</span> Built for busy people who want a simpler weekly food routine.</p>
+      </div>
+      <div class="relative"><div class="hero-blob" aria-hidden="true"></div><app-landing-product-preview /></div>
+    </div>
+  </section>
+
+  <section class="py-20 sm:py-28" aria-labelledby="problems-title">
+    <div class="landing-container grid gap-14 lg:grid-cols-2">
+      <div><p class="section-label">Sound familiar?</p><h2 id="problems-title" class="section-heading">Good intentions meet a busy week.</h2></div>
+      <ul class="divide-y divide-[#ddcfbd] border-y border-[#ddcfbd]">
+        @for (problem of ['You stare into a full fridge and still have no idea what to cook.', 'Food goes bad before you get to it.', 'You cook—and clean—more often than you planned.', 'One schedule change makes the whole plan fall apart.']; track problem; let i = $index) {
+          <li class="flex gap-5 py-5 text-lg leading-7"><span class="grid size-9 shrink-0 place-items-center rounded-full bg-[#ffe5df] font-bold text-pantry-coral">{{ i + 1 }}</span>{{ problem }}</li>
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="bg-white py-20 sm:py-28" aria-labelledby="benefits-title">
+    <div class="landing-container"><div class="max-w-2xl"><p class="section-label">A calmer food routine</p><h2 id="benefits-title" class="section-heading">A plan that saves decisions, not just recipes.</h2></div>
+      <div class="mt-12 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+        @for (benefit of benefits; track benefit.title) {
+          <article class="benefit-item"><span class="benefit-icon" aria-hidden="true">{{ benefit.icon === 'sun' ? '☀' : benefit.icon === 'leaf' ? '♧' : benefit.icon === 'pot' ? '♨' : benefit.icon === 'calendar' ? '▦' : '⌑' }}</span><h3 class="text-xl font-bold">{{ benefit.title }}</h3><p class="mt-2 leading-7 text-stone-600">{{ benefit.description }}</p></article>
+        }
+      </div>
+      <button type="button" class="landing-button mt-12" (click)="goToSignup('benefits')">Plan your first week</button>
+    </div>
+  </section>
+
+  <section id="how-it-works" class="py-20 sm:py-28" aria-labelledby="how-title">
+    <div class="landing-container"><div class="text-center"><p class="section-label">How it works</p><h2 id="how-title" class="section-heading mx-auto">From a full fridge to a week that makes sense.</h2></div>
+      <ol class="mt-14 grid gap-8 md:grid-cols-4">
+        @for (step of [['Add what you have','Keep a simple inventory of your fridge, freezer, and pantry.'],['Build your week','Choose meals or use suggestions based on your real ingredients.'],['Cook with confidence','Prepare extra portions and keep track of what is ready.'],['Eat, enjoy, repeat','Follow the plan, adjust when life changes, and use food in time.']]; track step[0]; let i = $index) {
+          <li class="relative"><span class="step-number">{{ i + 1 }}</span><h3 class="mt-5 text-lg font-bold">{{ step[0] }}</h3><p class="mt-2 text-sm leading-6 text-stone-600">{{ step[1] }}</p></li>
+        }
+      </ol>
+    </div>
+  </section>
+
+  <section id="features" class="border-y border-[#eadcc8] bg-[#f4eee4] py-20 sm:py-28" aria-labelledby="features-title">
+    <div class="landing-container"><p class="section-label">The plan, grounded in your kitchen</p><h2 id="features-title" class="section-heading max-w-3xl">See what is planned, what is ready, and what needs using next.</h2>
+      <div class="mt-16 space-y-20">
+        <article class="feature-row"><app-landing-product-preview /><div><span class="feature-kicker">Weekly plan</span><h3>A week that works for you</h3><p>Plan breakfast, lunch, dinner, and snacks in one practical view. Move meals as the week changes and see their status at a glance.</p><ul><li>Several foods in one meal</li><li>Planned, cooked, and consumed states</li><li>Daily guidance without rigid rules</li></ul></div></article>
+        <article class="feature-row feature-row-reverse"><div class="inventory-mockup"><div class="flex justify-between border-b border-stone-100 p-5"><strong>Inventory</strong><span class="rounded-lg bg-brand-700 px-3 py-1 text-xs text-white">+ Add item</span></div>@for (item of [['Spinach','Fridge','1 day'],['Chicken breasts','Fridge','2 days'],['Bell peppers','Fridge','3 days'],['Greek yogurt','Fridge','4 days']]; track item[0]) {<div class="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-stone-100 px-5 py-3 text-sm"><strong>{{ item[0] }}</strong><span class="text-stone-500">{{ item[1] }}</span><span class="text-pantry-coral">{{ item[2] }}</span></div>}</div><div><span class="feature-kicker">Inventory & freshness</span><h3>Use ingredients before they hide at the back of the fridge.</h3><p>Keep food in one clear inventory and bring expiring ingredients to the front of your plan.</p><ul><li>Fridge, freezer, and pantry filters</li><li>Expired and expiring-soon views</li><li>Suggestions connected to what you have</li></ul></div></article>
+        <article class="feature-row"><div class="portion-mockup"><div><span>Ready portions</span><strong>8</strong><small>in the fridge</small></div><div><span>Meals status</span><strong>12</strong><small>planned this week</small></div><div><span>Shopping list</span><strong>6</strong><small>items to pick up</small></div></div><div><span class="feature-kicker">Prepared portions</span><h3>Cook once. Stay ahead.</h3><p>Track food that is already prepared, reuse portions across the week, and turn your meal plan into a focused shopping list.</p></div></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="why-it-works" class="py-20 sm:py-28" aria-labelledby="difference-title"><div class="landing-container grid gap-10 lg:grid-cols-[.8fr_1.2fr]"><p class="section-label">Why it feels different</p><div><h2 id="difference-title" class="section-heading">Most meal planners start with recipes. This one starts with your real kitchen, your schedule, and the meals you can realistically prepare.</h2><p class="mt-7 max-w-2xl text-lg leading-8 text-stone-600">Recipes become useful when they connect to ingredients, time, portions, and the rest of your week. PantryFlow keeps those decisions together.</p></div></div></section>
+
+  <section class="bg-pantry-mint py-20 sm:py-28" aria-labelledby="use-case-title"><div class="landing-container"><p class="section-label">A realistic week</p><h2 id="use-case-title" class="section-heading">One Sunday prep. Three easier meals.</h2><div class="mt-12 grid gap-4 md:grid-cols-4">@for (day of [['Sunday','Roast vegetables and make couscous. Store extra portions.'],['Monday','Use both in a quick lunch bowl.'],['Tuesday','Add the vegetables to a warm grain bowl.'],['Wednesday','Serve the remaining couscous as a side.']]; track day[0]; let last = $last) {<article class="timeline-card"><span>{{ day[0] }}</span><p>{{ day[1] }}</p>@if (!last) {<b aria-hidden="true">→</b>}</article>}</div></div></section>
+
+  <section class="py-20 sm:py-28" aria-labelledby="principles-title"><div class="landing-container grid gap-12 lg:grid-cols-2"><div><p class="section-label">Early access, built honestly</p><h2 id="principles-title" class="section-heading">No invented reviews. Just a product built around real kitchen habits.</h2><p class="mt-6 text-lg leading-8 text-stone-600">PantryFlow is approaching MVP readiness. Early users can create an account, try the current planning flow, and help shape what becomes most useful.</p></div><div class="rounded-[2rem] bg-white p-7 shadow-sm ring-1 ring-[#ddcfbd]"><h3 class="text-xl font-bold">Our product principles</h3><ul class="mt-5 space-y-4 text-stone-700"><li>✓ Start with your real ingredients and time.</li><li>✓ Make the next meal clear, not complicated.</li><li>✓ Respect plans that change midweek.</li><li>✓ Keep food data out of landing-page analytics.</li></ul></div></div></section>
+
+  <section class="pb-20 sm:pb-28"><div class="landing-container"><div class="final-cta"><div><h2>Your week should not begin with seven separate decisions about what to cook.</h2><p>Plan around what you already have, prepare food more efficiently, and make the rest of the week easier.</p></div><button class="landing-button landing-button-light" type="button" (click)="goToSignup('final')">Plan your first week <span aria-hidden="true">→</span></button></div></div></section>
+
+  <section id="faq" class="border-t border-[#eadcc8] bg-white py-20 sm:py-28" aria-labelledby="faq-title"><div class="landing-container grid gap-12 lg:grid-cols-[.55fr_1fr]"><div><p class="section-label">FAQ</p><h2 id="faq-title" class="section-heading">Questions before your first plan.</h2></div><div class="divide-y divide-[#ddcfbd] border-y border-[#ddcfbd]">@for (faq of faqs; track faq.question; let i = $index) {<div><h3><button type="button" class="flex min-h-14 w-full items-center justify-between gap-5 py-4 text-left font-bold" [attr.aria-expanded]="openFaq() === i" [attr.aria-controls]="'faq-answer-' + i" (click)="toggleFaq(i)">{{ faq.question }}<span aria-hidden="true">{{ openFaq() === i ? '−' : '+' }}</span></button></h3>@if (openFaq() === i) {<div [id]="'faq-answer-' + i" class="pb-5 pr-10 leading-7 text-stone-600">{{ faq.answer }}</div>}</div>}</div></div></section>
+</main>
+
+<footer class="border-t border-[#eadcc8] bg-cream py-12"><div class="landing-container grid gap-10 md:grid-cols-4"><div class="md:col-span-2"><p class="text-xl font-bold">PantryFlow</p><p class="mt-3 max-w-sm text-sm leading-6 text-stone-600">The meal-planning app that starts with what you have, so you can cook fewer times and waste less food.</p></div><div><p class="text-sm font-bold">Account</p><div class="mt-3 flex flex-col items-start gap-3 text-sm"><button type="button" (click)="login()">Sign in</button><button type="button" class="font-semibold text-brand-800" (click)="goToSignup('final')">Plan your first week</button></div></div><div><p class="text-sm font-bold">Contact & legal</p><a class="mt-3 block text-sm underline decoration-[#b7a894] underline-offset-4" href="mailto:hello@pantryflow.app">hello&#64;pantryflow.app</a><p class="mt-3 text-xs leading-5 text-stone-500">Privacy, terms, and cookie pages are required before public launch.</p></div></div><div class="landing-container mt-10 border-t border-[#eadcc8] pt-6 text-xs text-stone-500">© {{ year }} PantryFlow. All rights reserved.</div></footer>

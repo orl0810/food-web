@@ -6,7 +6,8 @@ import { AppShellComponent } from './shared/components/app-shell/app-shell.compo
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'dashboard',
+    loadComponent: () =>
+      import('./features/landing/landing-page.component').then((m) => m.LandingPageComponent),
     pathMatch: 'full',
   },
   {

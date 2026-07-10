@@ -37,6 +37,7 @@ import { AddFoodActionMenuComponent, FoodActionChoice } from './components/add-f
 import { ManualFoodLogDialogComponent } from './components/manual-food-log-dialog/manual-food-log-dialog.component';
 import { VoiceFoodLogDialogComponent } from './components/voice-food-log-dialog/voice-food-log-dialog.component';
 import { PhotoFoodLogDialogComponent } from './components/photo-food-log-dialog/photo-food-log-dialog.component';
+import { BarcodeProductDialogComponent } from './components/barcode-product-dialog.component';
 import { getMealSlotItemDisplayName } from '../../shared/utils/prepared-portion.utils';
 import { DayMealProgress } from './models/day-meal-progress.model';
 import {
@@ -70,6 +71,7 @@ interface WeekStats {
     ManualFoodLogDialogComponent,
     VoiceFoodLogDialogComponent,
     PhotoFoodLogDialogComponent,
+    BarcodeProductDialogComponent,
     DailyProgressBarComponent,
     MealStatusControlComponent,
     PendingMealsComponent,
@@ -219,6 +221,9 @@ interface WeekStats {
           (cancelled)="showPhotoFoodLog.set(false)"
         />
       }
+      @if (showBarcodeProduct()) {
+        <app-barcode-product-dialog [date]="selectedDate()" [mealType]="barcodeMealType()" (saved)="onBarcodeSaved()" (cancelled)="showBarcodeProduct.set(false)" />
+      }
 
       @if (mealPlanService.loading()) {
         <app-loading-state message="Loading meal plan..." />
@@ -358,6 +363,8 @@ export class MealPlanComponent implements OnInit {
   readonly showManualFoodLog = signal(false);
   readonly showVoiceFoodLog = signal(false);
   readonly showPhotoFoodLog = signal(false);
+  readonly showBarcodeProduct = signal(false);
+  readonly barcodeMealType = signal<MealType>('snack');
   readonly selectedDate = signal(toISODate(new Date()));
   readonly removingId = signal<string | null>(null);
   readonly duplicating = signal(false);
@@ -598,6 +605,10 @@ export class MealPlanComponent implements OnInit {
       case 'photo':
         this.showPhotoFoodLog.set(true);
         break;
+      case 'barcode':
+        this.barcodeMealType.set(this.selectedSlot()?.mealType ?? 'snack');
+        this.showBarcodeProduct.set(true);
+        break;
     }
   }
 
@@ -613,6 +624,7 @@ export class MealPlanComponent implements OnInit {
     await this.mealPlanService.loadWeekAndToday(this.mealPlanService.weekStart());
     await this.refreshPendingMeals();
   }
+  async onBarcodeSaved():Promise<void>{this.showBarcodeProduct.set(false);await this.mealPlanService.loadWeekAndToday(this.mealPlanService.weekStart());}
 
   async onItemAdded(): Promise<void> {
     this.selectedSlot.set(null);

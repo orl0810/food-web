@@ -3,7 +3,7 @@ import { MealType } from './meal-plan.model';
 import { PreparedPortion } from './prepared-portion.model';
 import { RecipeMealPlanSummary } from './recipe.model';
 
-export type MealSlotItemType = 'recipe' | 'prepared_portion' | 'inventory_item' | 'custom';
+export type MealSlotItemType = 'recipe' | 'prepared_portion' | 'inventory_item' | 'custom' | 'product';
 
 export type MealSlotItemStatus = 'planned' | 'prepared' | 'eaten' | 'skipped';
 
@@ -18,6 +18,7 @@ export interface MealSlotItem {
   recipe_id: string | null;
   prepared_portion_id: string | null;
   inventory_item_id: string | null;
+  product_id: string | null;
   custom_name: string | null;
   quantity: number | null;
   unit: string | null;
@@ -29,6 +30,9 @@ export interface MealSlotItem {
   source: FoodLogSource | null;
   image_url: string | null;
   transcript: string | null;
+  grams_consumed: number|null; servings:number|null; calories_snapshot:number|null; protein_snapshot:number|null;
+  carbohydrates_snapshot:number|null; fat_snapshot:number|null; sugar_snapshot:number|null; fiber_snapshot:number|null; sodium_mg_snapshot:number|null;
+  product_name_snapshot:string|null; brand_snapshot:string|null; product_image_url_snapshot:string|null;
   created_at: string;
   recipe?: RecipeMealPlanSummary;
   prepared_portion?: Pick<PreparedPortion, 'id' | 'name' | 'available_portions' | 'expires_at' | 'storage_location'>;
@@ -42,6 +46,7 @@ export interface MealSlotItemInput {
   recipe_id?: string | null;
   prepared_portion_id?: string | null;
   inventory_item_id?: string | null;
+  product_id?: string|null;
   custom_name?: string | null;
   quantity?: number | null;
   unit?: string | null;
@@ -53,6 +58,9 @@ export interface MealSlotItemInput {
   source?: FoodLogSource | null;
   image_url?: string | null;
   transcript?: string | null;
+  grams_consumed?:number|null; servings?:number|null; calories_snapshot?:number|null; protein_snapshot?:number|null;
+  carbohydrates_snapshot?:number|null; fat_snapshot?:number|null; sugar_snapshot?:number|null; fiber_snapshot?:number|null; sodium_mg_snapshot?:number|null;
+  product_name_snapshot?:string|null; brand_snapshot?:string|null; product_image_url_snapshot?:string|null;
   /** Skip expired-portion warning when user confirmed */
   allow_expired?: boolean;
 }

@@ -77,6 +77,7 @@ export function getMealSlotItemDisplayName(item: {
   recipe?: { title: string } | null;
   prepared_portion?: { name: string } | null;
   inventory_item?: { name: string } | null;
+  product_name_snapshot?: string | null;
 }): string {
   switch (item.item_type) {
     case 'recipe':
@@ -87,6 +88,8 @@ export function getMealSlotItemDisplayName(item: {
       return item.inventory_item?.name ?? 'Item unavailable';
     case 'custom':
       return item.custom_name ?? 'Custom item';
+    case 'product':
+      return item.product_name_snapshot ?? item.custom_name ?? 'Product';
     default:
       return 'Unknown item';
   }

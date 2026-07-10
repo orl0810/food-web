@@ -6,7 +6,7 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../../environments/environment';
 import { AuthService } from '../../../../core/services/auth.service';
 import { LoginUiState } from '../../../../core/models/auth.model';
@@ -250,6 +250,7 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
   `,
 })
 export class LoginPageComponent implements OnInit, OnDestroy {
+  private readonly route = inject(ActivatedRoute);
   private readonly authService = inject(AuthService);
   private readonly authFacade = inject(AuthFacadeService);
   private readonly router = inject(Router);
@@ -283,6 +284,12 @@ export class LoginPageComponent implements OnInit, OnDestroy {
   readonly resendCooldownRemaining = signal(0);
 
   ngOnInit(): void {
+    if (this.route.snapshot.queryParamMap.get('mode') === 'signup') {
+      this.passwordMode.set(true);
+      this.signUpMode.set(true);
+      this.passwordForm.controls.confirmPassword.addValidators(Validators.required);
+      this.passwordForm.controls.confirmPassword.updateValueAndValidity();
+    }
     if (this.useLocalApi || environment.production) {
       this.passwordMode.set(true);
     }

@@ -521,7 +521,8 @@ export class MealPlanService {
         input.item_type === 'prepared_portion' ? input.prepared_portion_id ?? null : null,
       inventory_item_id:
         input.item_type === 'inventory_item' ? input.inventory_item_id ?? null : null,
-      custom_name: input.item_type === 'custom' ? input.custom_name?.trim() ?? null : null,
+      product_id: input.item_type === 'product' ? input.product_id ?? null : null,
+      custom_name: input.item_type === 'custom' || input.item_type === 'product' ? input.custom_name?.trim() ?? null : null,
       quantity: input.quantity ?? null,
       unit: input.unit?.trim() ?? null,
       portions_used: input.portions_used ?? 1,
@@ -532,6 +533,12 @@ export class MealPlanService {
       source: input.source ?? null,
       image_url: input.image_url?.trim() ?? null,
       transcript: input.transcript?.trim() ?? null,
+      grams_consumed: input.grams_consumed ?? null, servings: input.servings ?? null,
+      calories_snapshot: input.calories_snapshot ?? null, protein_snapshot: input.protein_snapshot ?? null,
+      carbohydrates_snapshot: input.carbohydrates_snapshot ?? null, fat_snapshot: input.fat_snapshot ?? null,
+      sugar_snapshot: input.sugar_snapshot ?? null, fiber_snapshot: input.fiber_snapshot ?? null,
+      sodium_mg_snapshot: input.sodium_mg_snapshot ?? null, product_name_snapshot: input.product_name_snapshot ?? null,
+      brand_snapshot: input.brand_snapshot ?? null, product_image_url_snapshot: input.product_image_url_snapshot ?? null,
     };
   }
 
