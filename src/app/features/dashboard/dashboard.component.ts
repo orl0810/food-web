@@ -104,62 +104,6 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
           (actionClick)="goToInventory()"
         />
       } @else {
-        <section class="card-featured overflow-hidden">
-          <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
-            <h2 class="section-title">Use These First</h2>
-            <a routerLink="/recipes" class="btn-primary-sm shrink-0">
-              Cook with these
-            </a>
-          </div>
-
-          @if (inventoryService.useFirstItems().length === 0) {
-            <p class="px-4 py-6 text-sm text-stone-600 sm:px-5">
-              No items with expiration dates yet. Add dates to see what to use first.
-            </p>
-          } @else {
-            <div class="divide-y divide-stone-200/60">
-              @for (item of inventoryService.useFirstItems(); track item.id) {
-                <article class="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-white/40 sm:items-center sm:gap-3 sm:px-5">
-                  <app-food-icon-badge [name]="item.name" [category]="item.category" />
-
-                  <div class="min-w-0 flex-1 sm:flex sm:items-center sm:gap-5">
-                    <p class="truncate text-sm font-semibold text-stone-900 sm:w-32 sm:shrink-0 lg:w-40">
-                      {{ item.name }}
-                    </p>
-
-                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-stone-500 sm:mt-0 sm:flex-1">
-                      <span
-                        class="font-medium"
-                        [class.text-red-600]="expirationUrgency(item.expiration_date) === 'today' || expirationUrgency(item.expiration_date) === 'soon'"
-                        [class.text-amber-600]="expirationUrgency(item.expiration_date) === 'tomorrow'"
-                        [class.text-stone-600]="expirationUrgency(item.expiration_date) === 'later'"
-                      >
-                        {{ expirationShortLabel(item.expiration_date) }}
-                      </span>
-                      <span class="text-stone-300" aria-hidden="true">·</span>
-                      <span>{{ locationLabels[item.location] }}</span>
-                      <span class="text-stone-300" aria-hidden="true">·</span>
-                      <span>{{ item.quantity }} {{ item.unit || 'units' }}</span>
-                    </p>
-                  </div>
-
-                  <span
-                    class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium leading-tight sm:self-center"
-                    [class.bg-red-50]="expirationUrgency(item.expiration_date) === 'today'"
-                    [class.text-red-700]="expirationUrgency(item.expiration_date) === 'today'"
-                    [class.bg-amber-50]="expirationUrgency(item.expiration_date) === 'tomorrow' || expirationUrgency(item.expiration_date) === 'soon'"
-                    [class.text-amber-700]="expirationUrgency(item.expiration_date) === 'tomorrow' || expirationUrgency(item.expiration_date) === 'soon'"
-                    [class.bg-stone-100]="expirationUrgency(item.expiration_date) === 'later'"
-                    [class.text-stone-600]="expirationUrgency(item.expiration_date) === 'later'"
-                  >
-                    {{ useFirstActionLabel(item.expiration_date) }}
-                  </span>
-                </article>
-              }
-            </div>
-          }
-        </section>
-
         @if (preparedPortionService.useFirstPortions().length > 0) {
           <section class="card-featured overflow-hidden">
             <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
@@ -217,6 +161,62 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
 
         <app-recently-added-slider class="block" />
         <app-smart-suggestions-slider class="block" />
+
+        <section class="card-featured overflow-hidden">
+          <div class="flex items-center justify-between gap-4 border-b border-stone-200/70 px-4 py-4 sm:px-5">
+            <h2 class="section-title">Use These First</h2>
+            <a routerLink="/recipes" class="btn-primary-sm shrink-0">
+              Cook with these
+            </a>
+          </div>
+
+          @if (inventoryService.useFirstItems().length === 0) {
+            <p class="px-4 py-6 text-sm text-stone-600 sm:px-5">
+              No items with expiration dates yet. Add dates to see what to use first.
+            </p>
+          } @else {
+            <div class="divide-y divide-stone-200/60">
+              @for (item of inventoryService.useFirstItems(); track item.id) {
+                <article class="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-white/40 sm:items-center sm:gap-3 sm:px-5">
+                  <app-food-icon-badge [name]="item.name" [category]="item.category" />
+
+                  <div class="min-w-0 flex-1 sm:flex sm:items-center sm:gap-5">
+                    <p class="truncate text-sm font-semibold text-stone-900 sm:w-32 sm:shrink-0 lg:w-40">
+                      {{ item.name }}
+                    </p>
+
+                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-stone-500 sm:mt-0 sm:flex-1">
+                      <span
+                        class="font-medium"
+                        [class.text-red-600]="expirationUrgency(item.expiration_date) === 'today' || expirationUrgency(item.expiration_date) === 'soon'"
+                        [class.text-amber-600]="expirationUrgency(item.expiration_date) === 'tomorrow'"
+                        [class.text-stone-600]="expirationUrgency(item.expiration_date) === 'later'"
+                      >
+                        {{ expirationShortLabel(item.expiration_date) }}
+                      </span>
+                      <span class="text-stone-300" aria-hidden="true">·</span>
+                      <span>{{ locationLabels[item.location] }}</span>
+                      <span class="text-stone-300" aria-hidden="true">·</span>
+                      <span>{{ item.quantity }} {{ item.unit || 'units' }}</span>
+                    </p>
+                  </div>
+
+                  <span
+                    class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium leading-tight sm:self-center"
+                    [class.bg-red-50]="expirationUrgency(item.expiration_date) === 'today'"
+                    [class.text-red-700]="expirationUrgency(item.expiration_date) === 'today'"
+                    [class.bg-amber-50]="expirationUrgency(item.expiration_date) === 'tomorrow' || expirationUrgency(item.expiration_date) === 'soon'"
+                    [class.text-amber-700]="expirationUrgency(item.expiration_date) === 'tomorrow' || expirationUrgency(item.expiration_date) === 'soon'"
+                    [class.bg-stone-100]="expirationUrgency(item.expiration_date) === 'later'"
+                    [class.text-stone-600]="expirationUrgency(item.expiration_date) === 'later'"
+                  >
+                    {{ useFirstActionLabel(item.expiration_date) }}
+                  </span>
+                </article>
+              }
+            </div>
+          }
+        </section>
       }
       </div>
     </div>

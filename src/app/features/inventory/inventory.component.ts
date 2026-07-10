@@ -54,29 +54,6 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
           <p class="page-subtitle">Track what you have at home.</p>
         </div>
 
-@if (!showVoiceForm() && activeFilter() !== 'ready_portions') {
-        <app-reusable-inventory-items
-          [reusableItems]="reusableItems()"
-          [selectedItem]="selectedReusableItem()"
-          [isLoading]="foodItemHistoryService.loading()"
-          [hasMore]="foodItemHistoryService.hasMore()"
-          [loadingMore]="foodItemHistoryService.loadingMore()"
-          (itemSelected)="onReusableItemSelected($event)"
-          (duplicateItemSelected)="onDuplicateItemSelected($event)"
-          (updateExistingClicked)="onUpdateExistingClicked($event)"
-          (addNewBatchClicked)="onAddNewBatchClicked($event)"
-          (loadMoreRequested)="onLoadMoreReusableItems()"
-        />
-      }
-
-
-
-
-
-
-
-
-
         @if (!showVoiceForm() && activeFilter() !== 'ready_portions') {
           <div class="flex flex-wrap gap-2">
             <button
@@ -92,6 +69,21 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
           </div>
         }
       </div>
+
+      @if (!showVoiceForm() && activeFilter() !== 'ready_portions') {
+        <app-reusable-inventory-items
+          [reusableItems]="reusableItems()"
+          [selectedItem]="selectedReusableItem()"
+          [isLoading]="foodItemHistoryService.loading()"
+          [hasMore]="foodItemHistoryService.hasMore()"
+          [loadingMore]="foodItemHistoryService.loadingMore()"
+          (itemSelected)="onReusableItemSelected($event)"
+          (duplicateItemSelected)="onDuplicateItemSelected($event)"
+          (updateExistingClicked)="onUpdateExistingClicked($event)"
+          (addNewBatchClicked)="onAddNewBatchClicked($event)"
+          (loadMoreRequested)="onLoadMoreReusableItems()"
+        />
+      }
 
       <div class="flex flex-wrap gap-2">
         @for (filter of filters; track filter.value) {

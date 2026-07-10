@@ -8,7 +8,7 @@ import { BrowserBarcodeScannerService } from '../../../core/services/barcode-sca
 import { calculateNutritionForGrams, isSupportedBarcode, normalizeBarcode } from '../../../shared/utils/barcode-product.utils';
 
 @Component({selector:'app-barcode-product-dialog',standalone:true,imports:[ReactiveFormsModule],template:`
-<div class="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/50 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="barcode-title">
+<div class="fixed inset-0 z-overlay flex items-end justify-center bg-stone-900/50 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="barcode-title">
  <div class="card flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden">
   <header class="flex items-start justify-between border-b p-4"><div><h2 id="barcode-title" class="font-semibold">{{ product() ? 'Add packaged food' : 'Scan barcode' }}</h2><p class="mt-1 text-sm text-stone-600">{{ product() ? labels[mealType()] + ' · ' + date() : 'Point the rear camera at the package barcode.' }}</p></div><button type="button" class="grid h-11 w-11 place-items-center" aria-label="Close scanner" (click)="cancelled.emit()">×</button></header>
   <div class="overflow-y-auto p-4">@if(error()){<p class="alert-error mb-4" role="alert">{{error()}}</p>}@if(loading()){<p class="alert-info" role="status">Looking up product…</p>}@else if(product();as p){

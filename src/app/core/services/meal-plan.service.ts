@@ -12,6 +12,10 @@ import {
   isPastDate,
   toISODate,
 } from '../../shared/utils/meal-plan.utils';
+import {
+  buildRecentMealPlanRecipes,
+  RecentMealPlanRecipe,
+} from '../../shared/utils/meal-plan-recipe-history.utils';
 import { isPortionExpired } from '../../shared/utils/prepared-portion.utils';
 import { normalizeTags } from '../../shared/utils/tag.utils';
 import { AuthService } from './auth.service';
@@ -42,12 +46,16 @@ export class MealPlanService {
   private readonly weekStartSignal = signal(getMondayOfWeek(new Date()));
   private readonly loadingSignal = signal(false);
   private readonly errorSignal = signal<string | null>(null);
+  private readonly recentRecipeHistorySignal = signal<RecentMealPlanRecipe[]>([]);
+  private readonly recentHistoryLoadingSignal = signal(false);
 
   readonly entries = this.itemsSignal.asReadonly();
   readonly todayEntries = this.todayItemsSignal.asReadonly();
   readonly weekStart = this.weekStartSignal.asReadonly();
   readonly loading = this.loadingSignal.asReadonly();
   readonly error = this.errorSignal.asReadonly();
+  readonly recentRecipeHistory = this.recentRecipeHistorySignal.asReadonly();
+  readonly recentHistoryLoading = this.recentHistoryLoadingSignal.asReadonly();
 
   readonly weekDates = computed(() => getWeekDates(this.weekStartSignal()));
 
@@ -171,6 +179,17 @@ export class MealPlanService {
     }
 
     return this.normalizeItems(data);
+  }
+
+  async loadRecentRecipeHistory(daysBack = 90): Promise<void> {
+    this.recentHistoryLoadingSignal.set(true);
+
+    const endDate = toISODate(new Date());
+    const startDate = addDays(endDate, -daysBack);
+    const items = await this.fetchMealPlanForDateRange(startDate, endDate);
+    this.recentRecipeHistorySignal.set(buildRecentMealPlanRecipes(items));
+
+    this.recentHistoryLoadingSignal.set(false);
   }
 
   async getTodayMeals(): Promise<void> {

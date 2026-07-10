@@ -1,161 +1,140 @@
 import {
   afterNextRender,
   Component,
+  computed,
   DestroyRef,
   effect,
   ElementRef,
   inject,
   input,
   output,
-  signal,
   viewChild,
 } from '@angular/core';
+import { FoodIconService } from '../../../core/services/food-icon.service';
 import { ReusableInventoryItem } from '../../../core/models/reusable-inventory-item.model';
-import { FoodIconBadgeComponent } from '../../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
+import { tileBackgroundColor } from '../../../shared/utils/tile-background-color.utils';
+
+const LOOP_COPIES = 3;
+const AUTO_SCROLL_INTERVAL_MS = 3000;
+const AUTO_SCROLL_RESUME_DELAY_MS = 2000;
 
 @Component({
   selector: 'app-reusable-inventory-items',
   standalone: true,
-  imports: [FoodIconBadgeComponent, LoadingStateComponent],
+  imports: [LoadingStateComponent],
   template: `
-    <section class="card overflow-hidden bg-cream/30">
-      <button
-        type="button"
-        class="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-stone-50/60 sm:px-5"
-        [attr.aria-expanded]="isExpanded()"
-        aria-controls="add-again-content"
-        (click)="toggleExpanded()"
-      >
-        <span
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-lg"
-          aria-hidden="true"
-        >
-          ↻
-        </span>
-        <span class="min-w-0 flex-1">
-          <span class="block text-base font-semibold text-stone-900">Add Again</span>
-          <span class="mt-0.5 block text-sm text-stone-600">
-            Quickly add items you use often without typing them again.
-          </span>
-        </span>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="2"
-          stroke="currentColor"
-          class="mt-1 h-5 w-5 shrink-0 text-stone-400 transition-transform duration-200"
-          [class.rotate-180]="isExpanded()"
-          aria-hidden="true"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-        </svg>
-      </button>
+    <section aria-label="Add again">
+      <h2 class="section-title mb-3">Add Again</h2>
 
-      @if (isExpanded()) {
+      @if (isLoading()) {
+        <app-loading-state message="Loading previous items..." />
+      } @else if (reusableItems().length === 0) {
         <div
-          id="add-again-content"
-          class="border-t border-stone-200/60 px-4 pb-4 pt-3 transition-opacity duration-200 sm:px-5"
+          class="rounded-lg border border-dashed border-stone-300 bg-stone-50/80 px-4 py-8 text-center text-sm text-stone-500"
         >
-          @if (isLoading()) {
-            <app-loading-state message="Loading previous items..." />
-          } @else if (reusableItems().length === 0) {
-            <div
-              class="rounded-lg border border-dashed border-stone-300 bg-stone-50/80 px-4 py-8 text-center text-sm text-stone-500"
+          Your recently added items will appear here.
+        </div>
+      } @else {
+        <div
+          #scrollContainer
+          class="add-again-scroll -mx-1 flex gap-3 overflow-x-auto px-1 pb-1"
+          role="list"
+          (scroll)="onScroll()"
+          (pointerenter)="onUserInteractionStart()"
+          (pointerdown)="onUserInteractionStart()"
+          (pointerleave)="onUserInteractionEnd()"
+          (pointerup)="onUserInteractionEnd()"
+          (pointercancel)="onUserInteractionEnd()"
+        >
+          @for (item of loopedItems(); track $index) {
+            <button
+              type="button"
+              class="group block w-[76px] shrink-0 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+              [class.ring-2]="isSelected(item)"
+              [class.ring-brand-500]="isSelected(item)"
+              [class.ring-offset-2]="isSelected(item)"
+              role="listitem"
+              data-reusable-tile
+              [attr.aria-label]="'Add ' + item.name + ' again'"
+              (click)="onAddAgain(item)"
             >
-              Your recently added items will appear here.
-            </div>
-          } @else {
+              <div
+                class="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl transition-transform group-hover:scale-[1.03] group-active:scale-[0.98]"
+                [style.background-color]="colorFor(item)"
+                aria-hidden="true"
+              >
+                <span class="text-3xl leading-none">{{ iconFor(item) }}</span>
+              </div>
+              <p class="mt-1.5 truncate text-center text-xs font-medium text-stone-700">
+                {{ item.name }}
+              </p>
+            </button>
+          }
+
+          @if (hasMore()) {
             <div
-              #scrollContainer
-              class="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 sm:gap-3"
+              #loadMoreSentinel
+              class="flex w-8 shrink-0 items-center justify-center"
+              aria-hidden="true"
+            ></div>
+          }
+
+          @if (loadingMore()) {
+            <div
+              class="flex w-16 shrink-0 items-center justify-center text-xs text-stone-500"
+              aria-live="polite"
             >
-              @for (item of reusableItems(); track item.id) {
-                <article
-                  class="flex w-[30%] min-w-[100px] shrink-0 snap-start flex-col items-center rounded-xl border bg-white p-2 text-center shadow-sm transition-all sm:min-w-[110px] sm:p-3"
-                  [class.border-brand-500]="isSelected(item)"
-                  [class.bg-brand-50/40]="isSelected(item)"
-                  [class.border-stone-200]="!isSelected(item)"
-                  [class.ring-2]="isSelected(item)"
-                  [class.ring-brand-100]="isSelected(item)"
-                >
-                  <app-food-icon-badge
-                    [name]="item.name"
-                    [category]="item.category"
-                    size="lg"
-                  />
-
-                  <p class="mt-2 w-full truncate text-xs font-semibold text-stone-900 sm:text-sm">
-                    {{ item.name }}
-                  </p>
-
-                  <p class="mt-0.5 w-full truncate text-[11px] text-stone-500 sm:text-xs">
-                    {{ item.category || '—' }}
-                  </p>
-
-                  <button
-                    type="button"
-                    class="btn-primary-sm mt-2 w-full px-1 py-2 text-[11px] sm:mt-3 sm:px-2 sm:py-2 sm:text-xs"
-                    (click)="onAddAgain(item)"
-                  >
-                    Add again
-                  </button>
-
-                  @if (isSelected(item) && item.currentlyInInventory) {
-                    <div
-                      class="mt-2 w-full rounded-lg border border-amber-200 bg-amber-50/80 p-2 text-left"
-                    >
-                      <p class="text-[10px] leading-snug text-amber-900 sm:text-xs">
-                        <span class="font-medium">{{ item.name }}</span>
-                        already exists. Update it or add a new batch.
-                      </p>
-                      <div class="mt-1.5 flex flex-col gap-1">
-                        <button
-                          type="button"
-                          class="btn-primary-sm w-full px-1 py-1.5 text-[10px] sm:text-xs"
-                          (click)="updateExistingClicked.emit(item)"
-                        >
-                          Update existing
-                        </button>
-                        <button
-                          type="button"
-                          class="btn-secondary-sm w-full px-1 py-1.5 text-[10px] sm:text-xs"
-                          (click)="addNewBatchClicked.emit(item)"
-                        >
-                          Add new batch
-                        </button>
-                      </div>
-                    </div>
-                  }
-                </article>
-              }
-
-              @if (hasMore()) {
-                <div
-                  #loadMoreSentinel
-                  class="flex w-8 shrink-0 items-center justify-center"
-                  aria-hidden="true"
-                ></div>
-              }
-
-              @if (loadingMore()) {
-                <div
-                  class="flex w-16 shrink-0 items-center justify-center text-xs text-stone-500"
-                  aria-live="polite"
-                >
-                  Loading...
-                </div>
-              }
+              Loading...
             </div>
           }
         </div>
+
+        @if (selectedItem(); as duplicate) {
+          @if (duplicate.currentlyInInventory) {
+            <div
+              class="mt-3 flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p class="text-sm text-amber-900">
+                <span class="font-medium">{{ duplicate.name }}</span>
+                already exists. Update it or add a new batch.
+              </p>
+              <div class="flex shrink-0 flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="btn-primary-sm"
+                  (click)="updateExistingClicked.emit(duplicate)"
+                >
+                  Update existing
+                </button>
+                <button
+                  type="button"
+                  class="btn-secondary-sm"
+                  (click)="addNewBatchClicked.emit(duplicate)"
+                >
+                  Add new batch
+                </button>
+              </div>
+            </div>
+          }
+        }
       }
     </section>
+  `,
+  styles: `
+    .add-again-scroll {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .add-again-scroll::-webkit-scrollbar {
+      display: none;
+    }
   `,
 })
 export class ReusableInventoryItemsComponent {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly foodIconService = inject(FoodIconService);
 
   readonly reusableItems = input.required<ReusableInventoryItem[]>();
   readonly selectedItem = input<ReusableInventoryItem | null>(null);
@@ -169,45 +148,75 @@ export class ReusableInventoryItemsComponent {
   readonly addNewBatchClicked = output<ReusableInventoryItem>();
   readonly loadMoreRequested = output<void>();
 
-  readonly isExpanded = signal(false);
-
   private readonly scrollContainer = viewChild<ElementRef<HTMLElement>>('scrollContainer');
   private readonly loadMoreSentinel = viewChild<ElementRef<HTMLElement>>('loadMoreSentinel');
 
-  private observer: IntersectionObserver | null = null;
+  private readonly onVisibilityChange = (): void => {
+    if (document.hidden) {
+      this.stopAutoScroll();
+      return;
+    }
+
+    if (!this.isUserInteracting && !this.isPaused) {
+      this.startAutoScroll();
+    }
+  };
+
+  private setWidth = 0;
+  private stepPx = 0;
+  private isAdjustingScroll = false;
+  private isPaused = false;
+  private isUserInteracting = false;
+  private autoScrollTimer: ReturnType<typeof setInterval> | null = null;
+  private resumeTimer: ReturnType<typeof setTimeout> | null = null;
+  private loadMoreObserver: IntersectionObserver | null = null;
+
+  readonly loopedItems = computed(() => {
+    const items = this.reusableItems();
+    if (items.length < LOOP_COPIES) {
+      return items;
+    }
+    return Array.from({ length: LOOP_COPIES }, () => items).flat();
+  });
+
+  readonly shouldLoop = computed(() => this.reusableItems().length >= LOOP_COPIES);
 
   constructor() {
     afterNextRender(() => {
-      const isMobile = window.matchMedia('(max-width: 639px)').matches;
-      if (!isMobile && this.reusableItems().length > 0) {
-        this.isExpanded.set(true);
-      }
+      this.measureAndCenter();
     });
 
     effect(() => {
-      this.isExpanded();
-      this.hasMore();
-      this.loadingMore();
       this.reusableItems().length;
+      this.isLoading();
+      this.loadingMore();
+      this.hasMore();
 
-      queueMicrotask(() => this.setupLoadMoreObserver());
+      queueMicrotask(() => {
+        this.measureAndCenter();
+        this.setupLoadMoreObserver();
+      });
     });
 
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+
     this.destroyRef.onDestroy(() => {
-      this.observer?.disconnect();
-      this.observer = null;
+      this.isAdjustingScroll = false;
+      this.stopAutoScroll();
+      this.clearResumeTimer();
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
+      this.loadMoreObserver?.disconnect();
+      this.loadMoreObserver = null;
     });
   }
 
-  toggleExpanded(): void {
-    this.isExpanded.update((value) => !value);
+  colorFor(item: ReusableInventoryItem): string {
+    return tileBackgroundColor(item.category, item.name);
+  }
 
-    if (this.isExpanded()) {
-      queueMicrotask(() => this.setupLoadMoreObserver());
-    } else {
-      this.observer?.disconnect();
-      this.observer = null;
-    }
+  iconFor(item: ReusableInventoryItem): string {
+    this.foodIconService.iconDataVersion();
+    return this.foodIconService.resolveIcon(item.name, item.category);
   }
 
   isSelected(item: ReusableInventoryItem): boolean {
@@ -223,11 +232,180 @@ export class ReusableInventoryItemsComponent {
     this.itemSelected.emit(item);
   }
 
-  private setupLoadMoreObserver(): void {
-    this.observer?.disconnect();
-    this.observer = null;
+  onUserInteractionStart(): void {
+    this.isUserInteracting = true;
+    this.pauseAutoScroll();
+  }
 
-    if (!this.isExpanded() || !this.hasMore()) {
+  onUserInteractionEnd(): void {
+    this.isUserInteracting = false;
+    this.scheduleResume();
+  }
+
+  onScroll(): void {
+    if (!this.isAdjustingScroll && this.isUserInteracting) {
+      this.pauseAutoScroll();
+    }
+
+    if (this.isAdjustingScroll || this.setWidth <= 0 || !this.shouldLoop()) {
+      return;
+    }
+
+    const container = this.scrollContainer()?.nativeElement;
+    if (!container) {
+      return;
+    }
+
+    const { scrollLeft } = container;
+    const buffer = 4;
+
+    if (scrollLeft <= buffer) {
+      this.jumpScroll(container, scrollLeft + this.setWidth);
+      return;
+    }
+
+    if (scrollLeft >= this.setWidth * 2 - buffer) {
+      this.jumpScroll(container, scrollLeft - this.setWidth);
+    }
+  }
+
+  private measureAndCenter(): void {
+    const container = this.scrollContainer()?.nativeElement;
+    if (!container) {
+      return;
+    }
+
+    this.stopAutoScroll();
+
+    if (this.shouldLoop()) {
+      this.setWidth = container.scrollWidth / LOOP_COPIES;
+    } else {
+      this.setWidth = 0;
+    }
+
+    this.stepPx = this.measureStepPx(container);
+
+    if (this.setWidth > 0) {
+      this.jumpScroll(container, this.setWidth);
+    }
+
+    if (
+      this.stepPx > 0 &&
+      container.scrollWidth > container.clientWidth &&
+      !this.prefersReducedMotion() &&
+      !this.isLoading() &&
+      !this.loadingMore()
+    ) {
+      this.isPaused = false;
+      this.startAutoScroll();
+    }
+  }
+
+  private measureStepPx(container: HTMLElement): number {
+    const firstTile = container.querySelector<HTMLElement>('[data-reusable-tile]');
+    if (!firstTile) {
+      return 0;
+    }
+
+    const tileWidth = firstTile.getBoundingClientRect().width;
+    const gapValue = getComputedStyle(container).columnGap || getComputedStyle(container).gap;
+    const gap = Number.parseFloat(gapValue) || 0;
+
+    return tileWidth + gap;
+  }
+
+  private prefersReducedMotion(): boolean {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  private startAutoScroll(): void {
+    if (
+      this.autoScrollTimer ||
+      this.isPaused ||
+      this.isUserInteracting ||
+      document.hidden ||
+      this.isLoading() ||
+      this.loadingMore()
+    ) {
+      return;
+    }
+
+    this.autoScrollTimer = setInterval(() => {
+      this.advanceOneStep();
+    }, AUTO_SCROLL_INTERVAL_MS);
+  }
+
+  private stopAutoScroll(): void {
+    if (!this.autoScrollTimer) {
+      return;
+    }
+
+    clearInterval(this.autoScrollTimer);
+    this.autoScrollTimer = null;
+  }
+
+  private pauseAutoScroll(): void {
+    this.isPaused = true;
+    this.stopAutoScroll();
+    this.clearResumeTimer();
+  }
+
+  private scheduleResume(): void {
+    this.clearResumeTimer();
+
+    this.resumeTimer = setTimeout(() => {
+      this.resumeTimer = null;
+      if (this.isUserInteracting || document.hidden || this.isLoading() || this.loadingMore()) {
+        return;
+      }
+
+      this.isPaused = false;
+      this.startAutoScroll();
+    }, AUTO_SCROLL_RESUME_DELAY_MS);
+  }
+
+  private clearResumeTimer(): void {
+    if (!this.resumeTimer) {
+      return;
+    }
+
+    clearTimeout(this.resumeTimer);
+    this.resumeTimer = null;
+  }
+
+  private advanceOneStep(): void {
+    if (
+      this.isPaused ||
+      this.isUserInteracting ||
+      this.stepPx <= 0 ||
+      document.hidden ||
+      this.isLoading() ||
+      this.loadingMore()
+    ) {
+      return;
+    }
+
+    const container = this.scrollContainer()?.nativeElement;
+    if (!container || container.scrollWidth <= container.clientWidth) {
+      return;
+    }
+
+    container.scrollBy({ left: this.stepPx, behavior: 'smooth' });
+  }
+
+  private jumpScroll(container: HTMLElement, targetLeft: number): void {
+    this.isAdjustingScroll = true;
+    container.scrollLeft = targetLeft;
+    requestAnimationFrame(() => {
+      this.isAdjustingScroll = false;
+    });
+  }
+
+  private setupLoadMoreObserver(): void {
+    this.loadMoreObserver?.disconnect();
+    this.loadMoreObserver = null;
+
+    if (!this.hasMore()) {
       return;
     }
 
@@ -238,7 +416,7 @@ export class ReusableInventoryItemsComponent {
       return;
     }
 
-    this.observer = new IntersectionObserver(
+    this.loadMoreObserver = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
           this.loadMoreRequested.emit();
@@ -251,6 +429,6 @@ export class ReusableInventoryItemsComponent {
       }
     );
 
-    this.observer.observe(sentinel);
+    this.loadMoreObserver.observe(sentinel);
   }
 }

@@ -3,6 +3,11 @@ import { environment } from '../../../environments/environment';
 import { Recipe } from '../models/recipe.model';
 import { RecipeService } from './recipe.service';
 
+export type RecipeImageAutogenTarget = Pick<
+  Recipe,
+  'id' | 'image_url' | 'image_storage_key' | 'image_status'
+>;
+
 export type RecipeImageOverride = Pick<
   Recipe,
   'image_url' | 'image_storage_key' | 'image_status'
@@ -28,7 +33,7 @@ export class RecipeImageAutogenService implements OnDestroy {
     }
   }
 
-  ensureImages(recipes: Recipe[]): void {
+  ensureImages(recipes: RecipeImageAutogenTarget[]): void {
     if (environment.useLocalApi) {
       return;
     }
@@ -48,7 +53,7 @@ export class RecipeImageAutogenService implements OnDestroy {
     }
   }
 
-  mergeRecipe(recipe: Recipe): Recipe {
+  mergeRecipe<T extends RecipeImageAutogenTarget>(recipe: T): T {
     const override = this.overridesSignal().get(recipe.id);
     if (!override) {
       return recipe;
@@ -57,7 +62,7 @@ export class RecipeImageAutogenService implements OnDestroy {
     return { ...recipe, ...override };
   }
 
-  private shouldAutoGenerate(recipe: Recipe): boolean {
+  private shouldAutoGenerate(recipe: RecipeImageAutogenTarget): boolean {
     if (this.requestedIds.has(recipe.id)) {
       return false;
     }
@@ -77,7 +82,7 @@ export class RecipeImageAutogenService implements OnDestroy {
     return true;
   }
 
-  private async triggerGeneration(recipe: Recipe): Promise<void> {
+  private async triggerGeneration(recipe: RecipeImageAutogenTarget): Promise<void> {
     this.requestedIds.add(recipe.id);
     this.setOverride(recipe.id, {
       image_url: recipe.image_url,

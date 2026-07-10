@@ -103,6 +103,7 @@ export class DashboardFacadeService {
     await Promise.all([
       this.mealPlanService.getTodayMeals(),
       this.mealPlanService.getMealPlanForWeek(this.mealPlanService.weekStart()),
+      this.mealPlanService.loadRecentRecipeHistory(),
       this.preparedPortionService.loadPortions(),
       this.suggestionService.refresh(),
       this.shoppingListService.getShoppingItems(),

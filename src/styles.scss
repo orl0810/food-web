@@ -21,6 +21,11 @@
   --color-pantry-amber: #f6c453;
   --color-pantry-mint: #dff3e4;
   --color-pantry-beige: #eadcc8;
+  --z-index-bottom-nav: 40;
+  --z-index-overlay: 50;
+  --z-index-overlay-page: 55;
+  --z-index-dialog: 60;
+  --z-index-dialog-elevated: 70;
 }
 
 html {
@@ -149,7 +154,7 @@ textarea {
     position: fixed;
     bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
     left: 50%;
-    z-index: 50;
+    z-index: var(--z-index-bottom-nav);
     width: calc(100% - 2rem);
     max-width: 24rem;
     transform: translateX(-50%);

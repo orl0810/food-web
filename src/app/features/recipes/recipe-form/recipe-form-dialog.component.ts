@@ -10,7 +10,7 @@ import { RecipeFormComponent } from './recipe-form.component';
   imports: [RecipeFormComponent],
   template: `
     <div
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/50 p-4"
+      class="fixed inset-0 z-dialog-elevated flex items-center justify-center bg-stone-900/50 p-4"
       (click)="cancelled.emit()"
     >
       <div

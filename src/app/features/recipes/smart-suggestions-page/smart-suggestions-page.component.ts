@@ -6,6 +6,7 @@ import { RecipeImageAutogenService } from '../../../core/services/recipe-image-a
 import { SmartSuggestionService } from '../../../core/services/smart-suggestion.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
+import { OverlayPageComponent } from '../../../shared/components/overlay-page/overlay-page.component';
 import { RecipeImageComponent } from '../../../shared/components/recipe-image/recipe-image.component';
 
 @Component({
@@ -16,33 +17,10 @@ import { RecipeImageComponent } from '../../../shared/components/recipe-image/re
     RecipeImageComponent,
     LoadingStateComponent,
     EmptyStateComponent,
+    OverlayPageComponent,
   ],
   template: `
-    <div class="page">
-      <header class="mb-6 flex items-center gap-3">
-        <button
-          type="button"
-          class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-700 transition-colors hover:bg-stone-50"
-          aria-label="Go back"
-          (click)="goBack()"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            class="h-5 w-5"
-            aria-hidden="true"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.56 9.5h7.69a.75.75 0 0 1 0 1.5H8.56l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 0Z"
-              clip-rule="evenodd"
-            />
-          </svg>
-        </button>
-        <h1 class="text-2xl font-bold tracking-tight text-stone-900">Smart Suggestions</h1>
-      </header>
-
+    <app-overlay-page title="Smart Suggestions" (backClick)="goBack()">
       @if (loading()) {
         <app-loading-state message="Loading suggestions..." />
       } @else if (visibleSuggestions().length === 0) {
@@ -116,7 +94,7 @@ import { RecipeImageComponent } from '../../../shared/components/recipe-image/re
           }
         </div>
       }
-    </div>
+    </app-overlay-page>
   `,
 })
 export class SmartSuggestionsPageComponent implements OnInit {

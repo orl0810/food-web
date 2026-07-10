@@ -1,24 +1,24 @@
 import { Component, computed, effect, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Recipe } from '../../../../core/models/recipe.model';
+import { MealPlanService } from '../../../../core/services/meal-plan.service';
 import { RecipeImageAutogenService } from '../../../../core/services/recipe-image-autogen.service';
-import { RecipeService } from '../../../../core/services/recipe.service';
 import { RecipeImageComponent } from '../../../../shared/components/recipe-image/recipe-image.component';
+import { RecentMealPlanRecipe } from '../../../../shared/utils/meal-plan-recipe-history.utils';
 
-const MAX_RECENT_RECIPES = 8;
-const NEW_RECIPE_DAYS = 7;
+const MAX_RECENT_ENTRIES = 8;
+const NEW_ENTRY_DAYS = 7;
 
 @Component({
   selector: 'app-recently-added-slider',
   standalone: true,
   imports: [RouterLink, RecipeImageComponent],
   template: `
-    @if (visibleRecipes().length > 0) {
-      <section aria-label="Recently added recipes">
+    @if (visibleEntries().length > 0) {
+      <section aria-label="Recently added to meal plan">
         <div class="mb-3 flex items-center justify-between gap-4">
           <h2 class="section-title">Recently Added</h2>
           <a
-            routerLink="/recipes"
+            routerLink="/meal-plan/recent"
             class="inline-flex shrink-0 items-center gap-0.5 text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
           >
             All
@@ -42,16 +42,16 @@ const NEW_RECIPE_DAYS = 7;
           class="recently-added-scroll -mx-1 flex gap-3 overflow-x-auto px-1 pb-1"
           role="list"
         >
-          @for (recipe of visibleRecipes(); track recipe.id) {
+          @for (entry of visibleEntries(); track entry.recipe.id) {
             <a
-              [routerLink]="['/recipes', recipe.id]"
+              [routerLink]="['/recipes', entry.recipe.id]"
               class="group block w-[148px] shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
               role="listitem"
-              [attr.aria-label]="recipe.title + ' recipe'"
+              [attr.aria-label]="entry.recipe.title + ' recipe'"
             >
               <div class="relative aspect-square w-full overflow-hidden rounded-2xl bg-cream ring-1 ring-sage/30">
-                <app-recipe-image [recipe]="recipe" variant="card" />
-                @if (isNewRecipe(recipe)) {
+                <app-recipe-image [recipe]="entry.recipe" variant="card" />
+                @if (isNewEntry(entry)) {
                   <span
                     class="absolute left-2 top-2 rounded-md bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm"
                   >
@@ -62,7 +62,7 @@ const NEW_RECIPE_DAYS = 7;
               <p
                 class="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-stone-900 group-hover:text-brand-800"
               >
-                {{ recipe.title }}
+                {{ entry.recipe.title }}
               </p>
             </a>
           }
@@ -82,37 +82,45 @@ const NEW_RECIPE_DAYS = 7;
   `,
 })
 export class RecentlyAddedSliderComponent {
-  private readonly recipeService = inject(RecipeService);
+  private readonly mealPlanService = inject(MealPlanService);
   private readonly imageAutogen = inject(RecipeImageAutogenService);
 
-  readonly recentRecipes = computed(() => this.getRecentRecipes());
+  readonly recentEntries = computed(() =>
+    this.mealPlanService.recentRecipeHistory().slice(0, MAX_RECENT_ENTRIES)
+  );
 
-  readonly visibleRecipes = computed(() => {
+  readonly visibleEntries = computed(() => {
     this.imageAutogen.overrides();
 
-    return this.recentRecipes().map((recipe) => this.imageAutogen.mergeRecipe(recipe));
+    return this.recentEntries().map((entry) => ({
+      ...entry,
+      recipe: this.imageAutogen.mergeRecipe(this.toAutogenRecipe(entry)),
+    }));
   });
 
   constructor() {
     effect(() => {
-      this.imageAutogen.ensureImages(this.recentRecipes());
+      this.imageAutogen.ensureImages(
+        this.recentEntries().map((entry) => this.toAutogenRecipe(entry))
+      );
     });
   }
 
-  isNewRecipe(recipe: Recipe): boolean {
-    const createdAt = Date.parse(recipe.created_at);
-    if (Number.isNaN(createdAt)) {
+  isNewEntry(entry: RecentMealPlanRecipe): boolean {
+    const addedAt = Date.parse(entry.addedAt);
+    if (Number.isNaN(addedAt)) {
       return false;
     }
 
-    const ageMs = Date.now() - createdAt;
-    const maxAgeMs = NEW_RECIPE_DAYS * 24 * 60 * 60 * 1000;
+    const ageMs = Date.now() - addedAt;
+    const maxAgeMs = NEW_ENTRY_DAYS * 24 * 60 * 60 * 1000;
     return ageMs >= 0 && ageMs <= maxAgeMs;
   }
 
-  private getRecentRecipes(): Recipe[] {
-    return [...this.recipeService.recipes()]
-      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
-      .slice(0, MAX_RECENT_RECIPES);
+  private toAutogenRecipe(entry: RecentMealPlanRecipe) {
+    return {
+      ...entry.recipe,
+      image_status: entry.recipe.image_status ?? 'pending',
+    };
   }
 }

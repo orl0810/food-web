@@ -20,7 +20,7 @@ const DURATION_MS = 1000;
   template: `
     @if (visible() && !reducedMotion()) {
       <div
-        class="confetti-overlay pointer-events-none fixed inset-0 z-50 overflow-hidden"
+        class="confetti-overlay pointer-events-none fixed inset-0 z-overlay overflow-hidden"
         aria-hidden="true"
       >
         @for (piece of pieces(); track piece.id) {

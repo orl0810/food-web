@@ -9,9 +9,8 @@ import { FavoriteIngredientsSectionComponent } from '../favorite-ingredients-sec
 import { DislikedIngredientsSectionComponent } from '../disliked-ingredients-section/disliked-ingredients-section.component';
 import { AllergiesSectionComponent } from '../allergies-section/allergies-section.component';
 import { MealPlanningProgressSectionComponent } from '../meal-planning-progress-section/meal-planning-progress-section.component';
-import { MealPlanningSettingsSectionComponent } from '../meal-planning-settings-section/meal-planning-settings-section.component';
 
-type ProfileSection = 'summary' | 'preferences' | 'progress' | 'settings';
+type ProfileSection = 'summary' | 'preferences' | 'progress';
 
 @Component({
   selector: 'app-user-profile-page',
@@ -24,7 +23,6 @@ type ProfileSection = 'summary' | 'preferences' | 'progress' | 'settings';
     DislikedIngredientsSectionComponent,
     AllergiesSectionComponent,
     MealPlanningProgressSectionComponent,
-    MealPlanningSettingsSectionComponent,
   ],
   template: `
     <div class="page">
@@ -66,10 +64,6 @@ type ProfileSection = 'summary' | 'preferences' | 'progress' | 'settings';
             <app-meal-planning-progress-section />
           </div>
 
-          <div id="section-settings">
-            <app-meal-planning-settings-section />
-          </div>
-
           <section class="card flex flex-wrap gap-3 p-5">
             <button type="button" class="btn-primary-sm" (click)="restartOnboarding()">
               Create a new starter plan
@@ -98,7 +92,6 @@ export class UserProfilePageComponent implements OnInit {
     { id: 'summary', label: 'Summary' },
     { id: 'preferences', label: 'Preferences' },
     { id: 'progress', label: 'Progress' },
-    { id: 'settings', label: 'Settings' },
   ];
 
   ngOnInit(): void {

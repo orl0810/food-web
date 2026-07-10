@@ -17,7 +17,7 @@ import {
   standalone: true,
   template: `
     <div
-      class="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-stone-900/40 p-4"
+      class="fixed inset-0 z-dialog flex items-center justify-center overflow-y-auto bg-stone-900/40 p-4"
       (click)="cancelled.emit()"
     >
       <div

@@ -1,4 +1,5 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { computed, effect, inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
 import { FoodItem } from '../models/food-item.model';
 import { Recipe } from '../models/recipe.model';
 import {
@@ -6,8 +7,17 @@ import {
   SuggestionFilters,
 } from '../models/smart-suggestion.model';
 import {
+  applyDailyFeatured,
+  dailyFeaturedStatesEqual,
+  DAILY_FEATURED_STORAGE_KEY,
+  DailyFeaturedState,
+  isDailyFeaturedState,
+  resolveDailyFeatured,
+} from '../../shared/utils/daily-featured-suggestion.utils';
+import {
   getCurrentWeekEndDate,
   getCurrentWeekStartDate,
+  toISODate,
 } from '../../shared/utils/meal-plan.utils';
 import { buildSuggestion } from '../../shared/utils/suggestion-scoring.utils';
 import {
@@ -29,10 +39,38 @@ export class SmartSuggestionService {
   private readonly recipeService = inject(RecipeService);
   private readonly mealPlanService = inject(MealPlanService);
   private readonly profileFacade = inject(UserProfileFacadeService);
+  private readonly platformId = inject(PLATFORM_ID);
 
   private readonly plannedRecipeIdsSignal = signal<Set<string>>(new Set());
+  private readonly dailyFeaturedState = signal<DailyFeaturedState | null>(this.loadDailyFeaturedState());
 
   readonly plannedRecipeIds = this.plannedRecipeIdsSignal.asReadonly();
+
+  readonly dailySuggestions = computed(() =>
+    applyDailyFeatured(this.allSuggestions(), this.dailyFeaturedState()?.recipeId ?? null)
+  );
+
+  constructor() {
+    effect(() => {
+      const suggestions = this.allSuggestions();
+      if (suggestions.length === 0) {
+        return;
+      }
+
+      const resolved = resolveDailyFeatured(
+        suggestions,
+        this.dailyFeaturedState(),
+        toISODate(new Date())
+      );
+
+      if (!resolved || dailyFeaturedStatesEqual(this.dailyFeaturedState(), resolved)) {
+        return;
+      }
+
+      this.dailyFeaturedState.set(resolved);
+      this.persistDailyFeaturedState(resolved);
+    });
+  }
 
   readonly allSuggestions = computed(() => {
     const recipes = this.recipeService.recipes();
@@ -98,7 +136,7 @@ export class SmartSuggestionService {
   }
 
   getSmartSuggestions(filters?: SuggestionFilters): SmartSuggestion[] {
-    const suggestions = this.allSuggestions();
+    const suggestions = filters ? this.allSuggestions() : this.dailySuggestions();
     return filters ? this.filterSuggestions(suggestions, filters) : suggestions;
   }
 
@@ -190,5 +228,35 @@ export class SmartSuggestionService {
     }
 
     return result;
+  }
+
+  private loadDailyFeaturedState(): DailyFeaturedState | null {
+    if (!isPlatformBrowser(this.platformId)) {
+      return null;
+    }
+
+    try {
+      const raw = localStorage.getItem(DAILY_FEATURED_STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+
+      const parsed: unknown = JSON.parse(raw);
+      return isDailyFeaturedState(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private persistDailyFeaturedState(state: DailyFeaturedState): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(DAILY_FEATURED_STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // Storage unavailable (private mode) — featured pick just won't persist.
+    }
   }
 }

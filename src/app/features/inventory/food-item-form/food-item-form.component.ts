@@ -33,19 +33,6 @@ import {
   imports: [ReactiveFormsModule, SearchSelectComponent],
   template: `
     <form class="space-y-4" [formGroup]="form" (ngSubmit)="submit()">
-      <div class="flex items-center justify-between gap-4">
-        <h2 [id]="titleId()" class="text-lg font-semibold text-stone-900">
-          {{ item() ? 'Edit food item' : 'Add food item' }}
-        </h2>
-        <button
-          type="button"
-          class="text-sm text-stone-500 hover:text-stone-700"
-          (click)="cancelled.emit()"
-        >
-          Cancel
-        </button>
-      </div>
-
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="sm:col-span-2">
           <label for="name" class="mb-1 block text-sm font-medium text-stone-700">Name *</label>
@@ -169,16 +156,6 @@ import {
       @if (error()) {
         <p class="text-sm text-red-600">{{ error() }}</p>
       }
-
-      <div class="flex justify-end gap-3">
-        <button
-          type="submit"
-          class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-          [disabled]="form.invalid || submitting()"
-        >
-          {{ submitting() ? 'Saving...' : item() ? 'Save changes' : 'Add item' }}
-        </button>
-      </div>
     </form>
   `,
 })
@@ -191,9 +168,7 @@ export class FoodItemFormComponent {
 
   readonly item = input<FoodItem | null>(null);
   readonly prefillFromHistory = input<FoodItemHistory | null>(null);
-  readonly titleId = input('food-item-form-title');
   readonly saved = output<FoodItemInsert>();
-  readonly cancelled = output<void>();
 
   readonly locations = STORAGE_LOCATIONS;
   readonly locationLabels = STORAGE_LOCATION_LABELS;

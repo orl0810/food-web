@@ -8,7 +8,7 @@ import { FormatTagPipe } from '../../shared/pipes/format-tag.pipe';
   imports: [FormatTagPipe],
   template: `
     <div
-      class="fixed inset-0 z-[100] flex items-end justify-center bg-stone-900/50 p-4 sm:items-center"
+      class="fixed inset-0 z-dialog-elevated flex items-end justify-center bg-stone-900/50 p-4 sm:items-center"
       (click)="closed.emit()"
     >
       <div

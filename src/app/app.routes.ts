@@ -95,6 +95,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'meal-plan/recent',
+        loadComponent: () =>
+          import('./features/meal-plan/meal-plan-recent-page/meal-plan-recent-page.component').then(
+            (m) => m.MealPlanRecentPageComponent
+          ),
+      },
+      {
         path: 'meal-plan',
         loadComponent: () =>
           import('./features/meal-plan/meal-plan.component').then((m) => m.MealPlanComponent),
