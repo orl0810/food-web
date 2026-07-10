@@ -1,6 +1,12 @@
-import { ApplicationConfig, APP_INITIALIZER, provideZoneChangeDetection } from '@angular/core';
+import {
+  ApplicationConfig,
+  APP_INITIALIZER,
+  isDevMode,
+  provideZoneChangeDetection,
+} from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideClientHydration } from '@angular/platform-browser';
+import { provideServiceWorker } from '@angular/service-worker';
 
 import { routes } from './app.routes';
 import { AuthService } from './core/services/auth.service';
@@ -20,5 +26,9 @@ export const appConfig: ApplicationConfig = {
       deps: [AuthService],
       multi: true,
     },
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: !isDevMode(),
+      registrationStrategy: 'registerWhenStable:30000',
+    }),
   ],
 };
