@@ -6,11 +6,14 @@ import {
   AiRecipeSuggestionResponse,
 } from '../models/ai-recipe-suggestion.model';
 import { normalizeTags } from '../../shared/utils/tag.utils';
+import { AnalyticsService } from '../analytics/analytics.service';
+import { ProductEvent } from '../analytics/analytics-events';
 import { SupabaseService } from './supabase.service';
 
 @Injectable({ providedIn: 'root' })
 export class AiRecipeService {
   private readonly supabaseService = inject(SupabaseService);
+  private readonly analyticsService = inject(AnalyticsService);
 
   private readonly loadingSignal = signal(false);
   private readonly errorSignal = signal<string | null>(null);
@@ -23,11 +26,17 @@ export class AiRecipeService {
   ): Promise<AiRecipeSuggestionResponse> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
+    const startedAt = Date.now();
 
     try {
       if (environment.useLocalApi) {
         throw new Error('AI recipe generation requires Supabase mode.');
       }
+
+      void this.analyticsService.track(ProductEvent.AiRecipeGenerationStarted, {
+        source: 'ai_recipe_service',
+        method: request.mealType,
+      });
 
       const client = this.supabaseService.getClient();
       if (!client) {
@@ -55,6 +64,10 @@ export class AiRecipeService {
       }
 
       const response = this.normalizeResponse(data);
+      void this.analyticsService.track(ProductEvent.AiRecipeGenerationCompleted, {
+        source: 'ai_recipe_service',
+        duration_ms: Date.now() - startedAt,
+      });
       this.loadingSignal.set(false);
       return response;
     } catch (error) {
@@ -62,6 +75,12 @@ export class AiRecipeService {
         error instanceof Error
           ? error.message
           : 'Could not generate recipes right now. Please try again.';
+      void this.analyticsService.track(ProductEvent.AiRecipeGenerationFailed, {
+        source: 'ai_recipe_service',
+        failure_stage: 'edge_function',
+        error_code: 'GENERATION_FAILED',
+        duration_ms: Date.now() - startedAt,
+      });
       this.errorSignal.set(message);
       this.loadingSignal.set(false);
       return { suggestions: [] };

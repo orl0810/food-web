@@ -28,6 +28,23 @@ export interface PendingMealSlot {
   mealTypeLabel: string;
 }
 
+export interface CookItemOccurrence {
+  itemId: string;
+  date: string;
+  mealType: MealType;
+  dateLabel: string;
+  mealTypeLabel: string;
+}
+
+export interface GroupedCookItem {
+  groupKey: string;
+  displayName: string;
+  recipeId: string | null;
+  representativeItem: MealSlotItem;
+  occurrences: CookItemOccurrence[];
+  count: number;
+}
+
 const DISPLAY_STATUS_CONFIG: Record<
   Exclude<MealSlotDisplayStatus, 'empty'>,
   MealStatusUiConfig
@@ -131,6 +148,79 @@ export function formatSlotDateLabel(date: string, today: string = toISODate()): 
     month: 'short',
     day: 'numeric',
   });
+}
+
+function getCookItemGroupKey(item: MealSlotItem): string {
+  if (item.item_type === 'recipe' && item.recipe_id) {
+    return `recipe:${item.recipe_id}`;
+  }
+
+  if (item.item_type === 'prepared_portion' && item.prepared_portion_id) {
+    return `portion:${item.prepared_portion_id}`;
+  }
+
+  const displayName = getMealSlotItemDisplayName(item).trim().toLowerCase();
+  return `name:${displayName}`;
+}
+
+function compareOccurrences(a: CookItemOccurrence, b: CookItemOccurrence): number {
+  const dateCompare = a.date.localeCompare(b.date);
+  if (dateCompare !== 0) {
+    return dateCompare;
+  }
+  return MEAL_TYPES.indexOf(a.mealType) - MEAL_TYPES.indexOf(b.mealType);
+}
+
+export function getGroupedPendingCookItems(
+  items: MealSlotItem[],
+  startDate: string = toISODate(),
+  endDate?: string
+): GroupedCookItem[] {
+  const rangeEnd = endDate ?? addDays(startDate, 6);
+  const groups = new Map<string, GroupedCookItem>();
+
+  for (const item of items) {
+    if (item.status !== 'planned') {
+      continue;
+    }
+
+    if (item.date < startDate || item.date > rangeEnd) {
+      continue;
+    }
+
+    const groupKey = getCookItemGroupKey(item);
+    const occurrence: CookItemOccurrence = {
+      itemId: item.id,
+      date: item.date,
+      mealType: item.meal_type,
+      dateLabel: formatSlotDateLabel(item.date, startDate),
+      mealTypeLabel: MEAL_TYPE_LABELS[item.meal_type],
+    };
+
+    const existing = groups.get(groupKey);
+    if (existing) {
+      existing.occurrences.push(occurrence);
+      existing.count += 1;
+      continue;
+    }
+
+    groups.set(groupKey, {
+      groupKey,
+      displayName: getMealSlotItemDisplayName(item),
+      recipeId: item.recipe_id,
+      representativeItem: item,
+      occurrences: [occurrence],
+      count: 1,
+    });
+  }
+
+  const grouped = [...groups.values()].map((group) => ({
+    ...group,
+    occurrences: [...group.occurrences].sort(compareOccurrences),
+  }));
+
+  grouped.sort((a, b) => compareOccurrences(a.occurrences[0], b.occurrences[0]));
+  return grouped;
 }
 
 export function getPendingMealsToPrepare(

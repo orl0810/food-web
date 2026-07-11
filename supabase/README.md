@@ -270,3 +270,41 @@ npm run backfill:recipe-metadata
 ```
 
 Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, and the R2 secrets documented above before running the script.
+
+## Meal photo analysis (Add with photo)
+
+The meal-plan **Photo** tab and AI capture flow call the `analyze-meal-photo` edge function, which uses OpenAI vision (`gpt-4o-mini` by default) to produce an editable meal draft. Images are uploaded to the private `meal-analysis-images` bucket; analysis metadata is stored in `meal_photo_analyses`.
+
+### Migration
+
+Apply `supabase/migrations/20260711_meal_photo_analyses.sql` (table + private bucket + RLS).
+
+### Deploy
+
+```bash
+supabase functions deploy analyze-meal-photo
+```
+
+### Required secrets
+
+```bash
+supabase secrets set OPENAI_API_KEY=your_openai_api_key
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your_service_role_key   # if not auto-injected
+```
+
+### Optional secrets
+
+```bash
+supabase secrets set OPENAI_VISION_MODEL=gpt-4o-mini
+supabase secrets set MAX_MEAL_IMAGE_BYTES=5242880
+supabase secrets set MEAL_ANALYSIS_TIMEOUT_MS=30000
+supabase secrets set MAX_DAILY_MEAL_ANALYSES=20
+```
+
+### Local development
+
+With `useLocalApi: true`, the Photo tab still opens capture but skips AI analysis and falls back to the manual photo meal-plan form. Full AI flow requires Supabase mode (`useLocalApi: false`) and deployed secrets.
+
+### Cleanup (future)
+
+`meal_photo_analyses.expires_at` defaults to 24 hours. Expired rows and storage objects can be removed later via Supabase Cron or a scheduled function — not part of the synchronous user request.

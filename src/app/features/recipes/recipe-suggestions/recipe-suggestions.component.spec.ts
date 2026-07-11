@@ -84,6 +84,7 @@ function makeProfile(overrides: Partial<UserFoodProfile> = {}): UserFoodProfile 
     },
     createdAt: '',
     updatedAt: '',
+    role: 'user',
     ...overrides,
   };
 }

@@ -11,6 +11,8 @@ import {
   normalizeNameKey,
 } from '../../shared/utils/name-normalization.utils';
 import { computeMissingIngredients } from '../../shared/utils/shopping-list.utils';
+import { AnalyticsService } from '../analytics/analytics.service';
+import { ProductEvent } from '../analytics/analytics-events';
 import { AuthService } from './auth.service';
 import { FoodInventoryService } from './food-inventory.service';
 import { LocalApiService } from './local-api.service';
@@ -26,6 +28,7 @@ export class ShoppingListService {
   private readonly mealPlanService = inject(MealPlanService);
   private readonly recipeService = inject(RecipeService);
   private readonly foodInventoryService = inject(FoodInventoryService);
+  private readonly analyticsService = inject(AnalyticsService);
 
   private readonly itemsSignal = signal<ShoppingItem[]>([]);
   private readonly loadingSignal = signal(false);
@@ -257,7 +260,9 @@ export class ShoppingListService {
     this.errorSignal.set(null);
 
     if (startDate > endDate) {
-      return { addedCount: 0, error: 'Start date must be on or before end date.' };
+      const error = 'Start date must be on or before end date.';
+      void this.trackShoppingGenerationFailure('validation', error);
+      return { addedCount: 0, error };
     }
 
     const [entries] = await Promise.all([
@@ -274,6 +279,7 @@ export class ShoppingListService {
 
     const clearResult = await this.clearAllItems();
     if (clearResult.error) {
+      void this.trackShoppingGenerationFailure('clear_items', clearResult.error);
       return { addedCount: 0, error: clearResult.error };
     }
 
@@ -290,12 +296,21 @@ export class ShoppingListService {
         source: 'meal_plan',
       });
       if (result.error) {
+        void this.trackShoppingGenerationFailure('add_item', result.error);
         return { addedCount, error: result.error };
       }
       addedCount += 1;
     }
 
     return { addedCount, error: null };
+  }
+
+  private trackShoppingGenerationFailure(stage: string, errorMessage: string): void {
+    void this.analyticsService.track(ProductEvent.ShoppingListGenerationFailed, {
+      source: 'shopping_list_service',
+      failure_stage: stage,
+      error_code: errorMessage.slice(0, 80),
+    });
   }
 
   async moveShoppingItemToInventory(

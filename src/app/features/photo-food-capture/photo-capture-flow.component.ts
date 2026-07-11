@@ -9,7 +9,9 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { MealPhotoAnalysisCompleteEvent } from '../../core/models/meal-photo-analysis.model';
 import { FoodLogPhotoService } from '../../core/services/food-log-photo.service';
+import { MealPhotoAnalysisService } from '../../core/services/meal-photo-analysis.service';
 import {
   PhotoCaptureContext,
   PhotoCaptureDestination,
@@ -39,6 +41,13 @@ const DESTINATION_OPTIONS: {
   },
 ];
 
+type FlowStep =
+  | 'capture'
+  | 'destination'
+  | 'uploading'
+  | 'analyzing'
+  | 'failed';
+
 @Component({
   selector: 'app-photo-capture-flow',
   standalone: true,
@@ -56,17 +65,31 @@ const DESTINATION_OPTIONS: {
       >
         <div class="border-b border-stone-100 p-4">
           <h2 id="photo-capture-title" class="text-base font-semibold text-stone-900">
-            @if (step() === 'capture') {
-              Add with photo
-            } @else {
-              What would you like to do with this?
+            @switch (step()) {
+              @case ('capture') { Add with photo }
+              @case ('uploading') { Uploading photo... }
+              @case ('analyzing') { Analyzing meal... }
+              @case ('failed') { Analysis failed }
+              @default { What would you like to do with this? }
             }
           </h2>
           <p class="mt-0.5 text-sm text-stone-600">
-            @if (step() === 'capture') {
-              Take or upload a photo of your food.
-            } @else {
-              Choose how to save this photo.
+            @switch (step()) {
+              @case ('capture') {
+                Take or upload a photo of your food.
+              }
+              @case ('uploading') {
+                Optimizing and uploading your photo securely.
+              }
+              @case ('analyzing') {
+                Identifying foods and estimating nutrition. This may take a moment.
+              }
+              @case ('failed') {
+                We could not analyze this photo. You can retry or continue manually.
+              }
+              @default {
+                Choose how to save this photo.
+              }
             }
           </p>
         </div>
@@ -78,6 +101,21 @@ const DESTINATION_OPTIONS: {
             </p>
           }
 
+          @if (analysisError()) {
+            <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+              {{ analysisError() }}
+            </p>
+          }
+
+          @if (step() === 'uploading' || step() === 'analyzing') {
+            <div class="flex flex-col items-center justify-center gap-3 py-10" aria-live="polite">
+              <div class="h-10 w-10 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600"></div>
+              <p class="text-sm text-stone-600">
+                {{ step() === 'uploading' ? 'Uploading...' : 'Analyzing your meal...' }}
+              </p>
+            </div>
+          }
+
           @if (step() === 'capture') {
             <div>
               <label for="photo-capture-input" class="mb-1 block text-sm font-medium text-stone-700">
@@ -87,7 +125,7 @@ const DESTINATION_OPTIONS: {
                 #fileInput
                 id="photo-capture-input"
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                 capture="environment"
                 class="input w-full"
                 (change)="onPhotoSelected($event)"
@@ -110,7 +148,9 @@ const DESTINATION_OPTIONS: {
                 </div>
               }
             </div>
-          } @else {
+          }
+
+          @if (step() === 'destination' || step() === 'failed') {
             @if (previewUrl()) {
               <img
                 [src]="previewUrl()!"
@@ -118,7 +158,9 @@ const DESTINATION_OPTIONS: {
                 class="h-32 w-full rounded-lg object-cover"
               />
             }
+          }
 
+          @if (step() === 'destination') {
             <div class="space-y-2">
               @for (option of destinationOptions; track option.id) {
                 <button
@@ -126,28 +168,6 @@ const DESTINATION_OPTIONS: {
                   class="flex w-full items-start gap-3 rounded-xl border border-stone-200 p-4 text-left transition-colors hover:border-brand-300 hover:bg-brand-50/40"
                   (click)="chooseDestination(option.id)"
                 >
-                  <span
-                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700"
-                    aria-hidden="true"
-                  >
-                    @switch (option.id) {
-                      @case ('recipe') {
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                        </svg>
-                      }
-                      @case ('mealPlan') {
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                        </svg>
-                      }
-                      @case ('foodLog') {
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
-                      }
-                    }
-                  </span>
                   <span class="min-w-0 flex-1">
                     <span class="block text-sm font-semibold text-stone-900">{{ option.title }}</span>
                     <span class="mt-0.5 block text-sm text-stone-600">{{ option.description }}</span>
@@ -162,10 +182,14 @@ const DESTINATION_OPTIONS: {
           @if (step() === 'destination') {
             <button type="button" class="btn-secondary flex-1" (click)="backToCapture()">Back</button>
           }
+          @if (step() === 'failed') {
+            <button type="button" class="btn-secondary flex-1" (click)="retryAnalysis()">Retry analysis</button>
+            <button type="button" class="btn-secondary flex-1" (click)="continueManually()">Continue manually</button>
+          }
           <button
             type="button"
             class="btn-secondary flex-1"
-            [class.flex-1]="step() === 'capture'"
+            [disabled]="step() === 'uploading' || step() === 'analyzing'"
             (click)="cancelled.emit()"
           >
             Cancel
@@ -175,7 +199,7 @@ const DESTINATION_OPTIONS: {
               type="button"
               class="btn-primary flex-1"
               [disabled]="!selectedFile()"
-              (click)="continueToDestination()"
+              (click)="onContinue()"
             >
               Continue
             </button>
@@ -187,19 +211,27 @@ const DESTINATION_OPTIONS: {
 })
 export class PhotoCaptureFlowComponent implements OnInit, OnDestroy {
   private readonly photoService = inject(FoodLogPhotoService);
+  private readonly analysisService = inject(MealPhotoAnalysisService);
 
   readonly context = input<PhotoCaptureContext>({});
+  readonly aiMealPlanMode = input(false);
+  readonly presetDestination = input<PhotoCaptureDestination | null>(null);
   readonly fileInputRef = viewChild<ElementRef<HTMLInputElement>>('fileInput');
 
   readonly destinationChosen = output<PhotoCaptureSelection>();
+  readonly draftReady = output<MealPhotoAnalysisCompleteEvent>();
+  readonly manualFallback = output<PhotoCaptureSelection>();
   readonly cancelled = output<void>();
 
   readonly destinationOptions = DESTINATION_OPTIONS;
-  readonly step = signal<'capture' | 'destination'>('capture');
+  readonly step = signal<FlowStep>('capture');
   readonly selectedFile = signal<File | null>(null);
   readonly previewUrl = signal<string | null>(null);
   readonly validationError = signal<string | null>(null);
+  readonly analysisError = signal<string | null>(null);
   readonly analysis = signal<FoodPhotoAnalysisResult | null>(null);
+  readonly currentAnalysisId = signal<string | null>(null);
+  readonly optimizedFile = signal<File | null>(null);
 
   ngOnInit(): void {
     document.body.classList.add('overflow-hidden');
@@ -211,9 +243,10 @@ export class PhotoCaptureFlowComponent implements OnInit, OnDestroy {
   }
 
   onPhotoSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
+    const inputEl = event.target as HTMLInputElement;
+    const file = inputEl.files?.[0] ?? null;
     this.validationError.set(null);
+    this.analysisError.set(null);
     this.revokePreview();
 
     if (!file) {
@@ -230,7 +263,7 @@ export class PhotoCaptureFlowComponent implements OnInit, OnDestroy {
       this.selectedFile.set(null);
       this.previewUrl.set(null);
       this.validationError.set(err instanceof Error ? err.message : 'Invalid image.');
-      input.value = '';
+      inputEl.value = '';
     }
   }
 
@@ -243,22 +276,43 @@ export class PhotoCaptureFlowComponent implements OnInit, OnDestroy {
     this.selectedFile.set(null);
     this.previewUrl.set(null);
     this.validationError.set(null);
+    this.analysisError.set(null);
+    this.currentAnalysisId.set(null);
+    this.optimizedFile.set(null);
     const input = this.fileInputRef()?.nativeElement;
     if (input) {
       input.value = '';
     }
   }
 
-  continueToDestination(): void {
+  async onContinue(): Promise<void> {
     if (!this.selectedFile()) {
       return;
     }
+
+    if (this.aiMealPlanMode()) {
+      if (this.analysisService.isAvailable()) {
+        await this.runAiPipeline();
+        return;
+      }
+      this.continueManually();
+      return;
+    }
+
+    const preset = this.presetDestination();
+    if (preset) {
+      await this.loadAnalysis();
+      this.chooseDestination(preset);
+      return;
+    }
+
     this.step.set('destination');
     void this.loadAnalysis();
   }
 
   backToCapture(): void {
     this.step.set('capture');
+    this.analysisError.set(null);
   }
 
   chooseDestination(destination: PhotoCaptureDestination): void {
@@ -276,6 +330,101 @@ export class PhotoCaptureFlowComponent implements OnInit, OnDestroy {
     });
   }
 
+  continueManually(): void {
+    const file = this.selectedFile();
+    const previewUrl = this.previewUrl();
+    if (!file || !previewUrl) {
+      return;
+    }
+
+    this.manualFallback.emit({
+      destination: 'mealPlan',
+      file,
+      previewUrl,
+      analysis: this.analysis(),
+    });
+  }
+
+  async retryAnalysis(): Promise<void> {
+    if (!this.currentAnalysisId()) {
+      await this.runAiPipeline(true);
+      return;
+    }
+
+    this.step.set('analyzing');
+    this.analysisError.set(null);
+
+    const result = await this.analysisService.analyze(this.currentAnalysisId()!, {
+      mealType: this.context().defaultMealType,
+    });
+
+    if (result.draft && result.error === null) {
+      this.emitDraftReady(result.draft);
+      return;
+    }
+
+    this.step.set('failed');
+    this.analysisError.set(result.error ?? 'Could not analyze this photo.');
+  }
+
+  private async runAiPipeline(forceNewUpload = false): Promise<void> {
+    const file = this.selectedFile();
+    const previewUrl = this.previewUrl();
+    if (!file || !previewUrl) {
+      return;
+    }
+
+    try {
+      this.step.set('uploading');
+      this.analysisError.set(null);
+
+      let analysisId = this.currentAnalysisId();
+      let optimized = this.optimizedFile();
+
+      if (forceNewUpload || !analysisId) {
+        const created = await this.analysisService.createAnalysis(file);
+        analysisId = created.analysisId;
+        optimized = created.optimizedFile;
+        this.currentAnalysisId.set(analysisId);
+        this.optimizedFile.set(optimized);
+      }
+
+      this.step.set('analyzing');
+      const result = await this.analysisService.analyze(analysisId!, {
+        mealType: this.context().defaultMealType,
+      });
+
+      if (result.draft && result.error === null) {
+        this.emitDraftReady(result.draft);
+        return;
+      }
+
+      this.step.set('failed');
+      this.analysisError.set(result.error ?? 'Could not analyze this photo.');
+    } catch (err) {
+      this.step.set('failed');
+      this.analysisError.set(
+        err instanceof Error ? err.message : 'Could not analyze this photo.'
+      );
+    }
+  }
+
+  private emitDraftReady(draft: MealPhotoAnalysisCompleteEvent['draft']): void {
+    const file = this.optimizedFile() ?? this.selectedFile();
+    const previewUrl = this.previewUrl();
+    const analysisId = this.currentAnalysisId();
+    if (!file || !previewUrl || !analysisId) {
+      return;
+    }
+
+    this.draftReady.emit({
+      file,
+      previewUrl,
+      draft,
+      analysisId,
+    });
+  }
+
   private async loadAnalysis(): Promise<void> {
     const file = this.selectedFile();
     if (!file) {
@@ -290,7 +439,7 @@ export class PhotoCaptureFlowComponent implements OnInit, OnDestroy {
   }
 
   private validateFile(file: File): void {
-    const allowed = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/heic']);
+    const allowed = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif']);
     if (!allowed.has(file.type)) {
       throw new Error('This image format is not supported.');
     }

@@ -59,6 +59,23 @@ export class MealPlanProgressService {
     return this.setMealSlotStatus(date, mealType, 'prepared');
   }
 
+  async markSlotItemAsReady(itemId: string): Promise<{ error: string | null }> {
+    return this.mealPlanService.updateSlotItemStatus(itemId, 'prepared');
+  }
+
+  async markSlotItemsAsReady(itemIds: string[]): Promise<{ error: string | null }> {
+    if (itemIds.length === 0) {
+      return { error: null };
+    }
+
+    const results = await Promise.all(
+      itemIds.map((itemId) => this.mealPlanService.updateSlotItemStatus(itemId, 'prepared'))
+    );
+
+    const firstError = results.find((result) => result.error)?.error ?? null;
+    return { error: firstError };
+  }
+
   async markMealAsConsumed(
     date: string,
     mealType: MealType

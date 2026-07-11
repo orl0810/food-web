@@ -247,6 +247,12 @@ if (tableExists('user_food_profiles') && !tableHasColumn('user_food_profiles', '
   `);
 }
 
+if (tableExists('user_food_profiles') && !tableHasColumn('user_food_profiles', 'role')) {
+  db.exec(`
+    alter table user_food_profiles add column role text not null default 'user' check (role in ('user', 'admin'));
+  `);
+}
+
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
 
@@ -327,6 +333,13 @@ if (userCount.count === 0) {
   db.prepare(
     'insert into users (id, email, password_hash) values (?, ?, ?)'
   ).run(DEV_USER_ID, 'dev@local.test', passwordHash);
+}
+
+const devProfile = db
+  .prepare('select id from user_food_profiles where user_id = ?')
+  .get(DEV_USER_ID) as { id: string } | undefined;
+if (devProfile) {
+  db.prepare("update user_food_profiles set role = 'admin' where user_id = ?").run(DEV_USER_ID);
 }
 
 export { db };

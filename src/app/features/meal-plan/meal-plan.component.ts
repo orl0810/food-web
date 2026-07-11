@@ -14,7 +14,6 @@ import {
   formatDayShort,
   formatFullDayHeading,
   formatWeekRangeCompact,
-  addDays,
   isPastDate,
   isToday,
   toISODate,
@@ -25,8 +24,8 @@ import { TodayProgressSwitcherComponent } from '../../shared/components/today-pr
 import { NutritionProgressService } from '../../core/services/nutrition-progress.service';
 import { NutritionTargetsService } from '../../core/services/nutrition-targets.service';
 import { MealStatusControlComponent } from './components/meal-status-control/meal-status-control.component';
-import { PendingMealsComponent } from './components/pending-meals/pending-meals.component';
 import { MealPlanProgressService } from './services/meal-plan-progress.service';
+import { ToCookService } from './services/to-cook.service';
 import { MealSlotItemsComponent } from './meal-slot-items.component';
 import { MealSlotItemPickerComponent } from './meal-slot-item-picker.component';
 import { AddFoodActionMenuComponent, FoodActionChoice } from './components/add-food-action-menu/add-food-action-menu.component';
@@ -41,6 +40,8 @@ import {
 } from '../../core/models/photo-food-capture.model';
 import { PhotoCaptureFlowComponent } from '../photo-food-capture/photo-capture-flow.component';
 import { PhotoMealPlanFormComponent } from '../photo-food-capture/photo-meal-plan-form.component';
+import { MealPhotoDraftFormComponent } from '../photo-food-capture/meal-photo-draft-form.component';
+import { MealPhotoAnalysisCompleteEvent } from '../../core/models/meal-photo-analysis.model';
 import { RecipeFormDialogComponent } from '../recipes/recipe-form/recipe-form-dialog.component';
 import { getMealSlotItemDisplayName } from '../../shared/utils/prepared-portion.utils';
 import { getDefaultMealTypeForNow } from '../../shared/utils/food-log.utils';
@@ -73,10 +74,10 @@ interface SelectedSlot {
     BarcodeProductDialogComponent,
     PhotoCaptureFlowComponent,
     PhotoMealPlanFormComponent,
+    MealPhotoDraftFormComponent,
     RecipeFormDialogComponent,
     TodayProgressSwitcherComponent,
     MealStatusControlComponent,
-    PendingMealsComponent,
     ConfettiCelebrationComponent,
   ],
   template: `
@@ -165,6 +166,7 @@ interface SelectedSlot {
           [mealType]="selectedSlot()!.mealType"
           [replaceItemId]="selectedSlot()!.replaceItemId ?? null"
           (added)="onItemAdded()"
+          (photoRequested)="onPhotoRequestedFromPicker()"
           (cancelled)="selectedSlot.set(null)"
         />
       }
@@ -194,8 +196,23 @@ interface SelectedSlot {
       @if (showPhotoCapture()) {
         <app-photo-capture-flow
           [context]="photoCaptureContext()"
+          [aiMealPlanMode]="photoAiMealPlanMode()"
           (destinationChosen)="onPhotoCaptureChosen($event)"
-          (cancelled)="showPhotoCapture.set(false)"
+          (draftReady)="onPhotoDraftReady($event)"
+          (manualFallback)="onPhotoManualFallback($event)"
+          (cancelled)="closePhotoCapture()"
+        />
+      }
+
+      @if (showPhotoDraftForm() && photoDraftEvent()) {
+        <app-meal-photo-draft-form
+          [draft]="photoDraftEvent()!.draft"
+          [file]="photoDraftEvent()!.file"
+          [previewUrl]="photoDraftEvent()!.previewUrl"
+          [analysisId]="photoDraftEvent()!.analysisId"
+          [context]="photoCaptureContext()"
+          (saved)="onPhotoDraftSaved()"
+          (cancelled)="closePhotoDraftForm()"
         />
       }
 
@@ -261,16 +278,6 @@ interface SelectedSlot {
             [isNutritionProfileComplete]="nutritionTargetsService.hasRequiredProfileData()"
             [readyCount]="dayReadyCount()"
             (completeProfileClicked)="goToNutritionProfile()"
-          />
-
-          <app-pending-meals
-            class="mb-5 block"
-            [slots]="pendingMeals()"
-            [loading]="pendingMealsLoading()"
-            [error]="pendingMealsError()"
-            [markingKey]="completingSlotKey()"
-            (markReady)="onPendingMarkReady($event.date, $event.mealType)"
-            (retry)="refreshPendingMeals()"
           />
 
           @if (streakFeedbackMessage()) {
@@ -365,6 +372,7 @@ interface SelectedSlot {
 export class MealPlanComponent implements OnInit {
   readonly mealPlanService = inject(MealPlanService);
   private readonly progressService = inject(MealPlanProgressService);
+  private readonly toCookService = inject(ToCookService);
   private readonly nutritionProgressService = inject(NutritionProgressService);
   readonly nutritionTargetsService = inject(NutritionTargetsService);
   private readonly mealStreakService = inject(MealStreakService);
@@ -378,23 +386,30 @@ export class MealPlanComponent implements OnInit {
   readonly showPhotoCapture = signal(false);
   readonly showPhotoMealPlan = signal(false);
   readonly showPhotoFoodLog = signal(false);
+  readonly showPhotoDraftForm = signal(false);
+  readonly photoAiMealPlanMode = signal(false);
+  readonly photoDraftEvent = signal<MealPhotoAnalysisCompleteEvent | null>(null);
+  readonly photoSlotContext = signal<PhotoCaptureContext | null>(null);
   readonly showBarcodeProduct = signal(false);
   readonly barcodeMealType = signal<MealType>('snack');
   readonly showPhotoRecipeForm = signal(false);
   readonly photoSelection = signal<PhotoCaptureSelection | null>(null);
   readonly photoDraft = signal<RecipePhotoDraft | null>(null);
-  readonly photoCaptureContext = computed<PhotoCaptureContext>(() => ({
-    defaultDate: this.selectedDate(),
-    defaultMealType: getDefaultMealTypeForNow(),
-  }));
+  readonly photoCaptureContext = computed<PhotoCaptureContext>(() => {
+    const slotContext = this.photoSlotContext();
+    if (slotContext) {
+      return slotContext;
+    }
+    return {
+      defaultDate: this.selectedDate(),
+      defaultMealType: getDefaultMealTypeForNow(),
+    };
+  });
   readonly selectedDate = signal(toISODate(new Date()));
   readonly removingId = signal<string | null>(null);
   readonly duplicating = signal(false);
   readonly completingSlotKey = signal<string | null>(null);
   readonly showConfetti = signal(false);
-  readonly pendingMealsItems = signal<MealSlotItem[]>([]);
-  readonly pendingMealsLoading = signal(false);
-  readonly pendingMealsError = signal(false);
   private readonly celebrationArmed = signal(false);
 
   readonly weekRangeLabel = computed(() =>
@@ -421,14 +436,6 @@ export class MealPlanComponent implements OnInit {
     countReadySlotsForDay(this.selectedDate(), this.mealPlanService.entries())
   );
 
-  readonly pendingMeals = computed(() =>
-    this.progressService.getPendingMealsToPrepare(
-      this.pendingMealsItems(),
-      toISODate(),
-      addDays(toISODate(), 6)
-    )
-  );
-
   readonly dayProgressTitle = computed(() =>
     getDayProgressTitle(this.selectedDate(), this.isTodayDate(this.selectedDate()))
   );
@@ -445,7 +452,6 @@ export class MealPlanComponent implements OnInit {
       this.mealPlanService.loadWeekAndToday().then(() => {
         this.syncSelectedDateToWeek();
         this.armCelebrationTracking();
-        void this.refreshPendingMeals();
       }),
       this.nutritionTargetsService.ensureProfileLoaded(),
     ]);
@@ -482,49 +488,10 @@ export class MealPlanComponent implements OnInit {
     await this.afterSlotStatusUpdated(previous);
   }
 
-  async onPendingMarkReady(date: string, mealType: MealType): Promise<void> {
-    const slot = this.pendingMeals().find(
-      (entry) => entry.date === date && entry.mealType === mealType
-    );
-    const previous = this.dayProgress();
-    const key = this.slotKey(date, mealType);
-    this.completingSlotKey.set(key);
-
-    const { error } = await this.progressService.setMealSlotStatus(
-      date,
-      mealType,
-      'prepared',
-      slot?.items
-    );
-    this.completingSlotKey.set(null);
-
-    if (error) {
-      return;
-    }
-
-    await this.afterSlotStatusUpdated(previous);
-  }
-
-  async refreshPendingMeals(): Promise<void> {
-    const startDate = toISODate();
-    const endDate = addDays(startDate, 6);
-    this.pendingMealsLoading.set(true);
-    this.pendingMealsError.set(false);
-
-    try {
-      const items = await this.mealPlanService.fetchMealPlanForDateRange(startDate, endDate);
-      this.pendingMealsItems.set(items);
-    } catch {
-      this.pendingMealsError.set(true);
-    } finally {
-      this.pendingMealsLoading.set(false);
-    }
-  }
-
   private async afterSlotStatusUpdated(previous: DayMealProgress): Promise<void> {
     await Promise.all([
       this.mealPlanService.getTodayMeals(),
-      this.refreshPendingMeals(),
+      this.toCookService.refresh(),
     ]);
 
     const current = this.dayProgress();
@@ -601,6 +568,8 @@ export class MealPlanComponent implements OnInit {
         this.showVoiceFoodLog.set(true);
         break;
       case 'photo':
+        this.photoSlotContext.set(null);
+        this.photoAiMealPlanMode.set(false);
         this.showPhotoCapture.set(true);
         break;
       case 'barcode':
@@ -610,8 +579,22 @@ export class MealPlanComponent implements OnInit {
     }
   }
 
+  onPhotoRequestedFromPicker(): void {
+    const slot = this.selectedSlot();
+    if (!slot) {
+      return;
+    }
+    this.photoSlotContext.set({
+      defaultDate: slot.date,
+      defaultMealType: slot.mealType,
+    });
+    this.selectedSlot.set(null);
+    this.photoAiMealPlanMode.set(true);
+    this.showPhotoCapture.set(true);
+  }
+
   onPhotoCaptureChosen(selection: PhotoCaptureSelection): void {
-    this.showPhotoCapture.set(false);
+    this.closePhotoCapture();
     this.photoSelection.set(selection);
 
     switch (selection.destination) {
@@ -630,6 +613,34 @@ export class MealPlanComponent implements OnInit {
         this.showPhotoFoodLog.set(true);
         break;
     }
+  }
+
+  onPhotoDraftReady(event: MealPhotoAnalysisCompleteEvent): void {
+    this.closePhotoCapture();
+    this.photoDraftEvent.set(event);
+    this.showPhotoDraftForm.set(true);
+  }
+
+  onPhotoManualFallback(selection: PhotoCaptureSelection): void {
+    this.closePhotoCapture();
+    this.photoSelection.set(selection);
+    this.showPhotoMealPlan.set(true);
+  }
+
+  async onPhotoDraftSaved(): Promise<void> {
+    this.closePhotoDraftForm();
+    await this.onFoodLogSaved();
+  }
+
+  closePhotoCapture(): void {
+    this.showPhotoCapture.set(false);
+    this.photoAiMealPlanMode.set(false);
+  }
+
+  closePhotoDraftForm(): void {
+    this.showPhotoDraftForm.set(false);
+    this.photoDraftEvent.set(null);
+    this.photoSlotContext.set(null);
   }
 
   onPhotoRecipeCreated(): void {
@@ -651,6 +662,7 @@ export class MealPlanComponent implements OnInit {
     this.showPhotoMealPlan.set(false);
     this.showPhotoFoodLog.set(false);
     this.photoSelection.set(null);
+    this.photoSlotContext.set(null);
   }
 
   openManualFromVoice(): void {
@@ -662,8 +674,9 @@ export class MealPlanComponent implements OnInit {
     this.showManualFoodLog.set(false);
     this.showVoiceFoodLog.set(false);
     this.closePhotoFlows();
+    this.closePhotoDraftForm();
     await this.mealPlanService.loadWeekAndToday(this.mealPlanService.weekStart());
-    await this.refreshPendingMeals();
+    await this.toCookService.refresh();
   }
   async onBarcodeSaved():Promise<void>{this.showBarcodeProduct.set(false);await this.mealPlanService.loadWeekAndToday(this.mealPlanService.weekStart());}
 
@@ -671,7 +684,7 @@ export class MealPlanComponent implements OnInit {
     this.selectedSlot.set(null);
     await Promise.all([
       this.mealPlanService.getTodayMeals(),
-      this.refreshPendingMeals(),
+      this.toCookService.refresh(),
     ]);
   }
 
@@ -686,7 +699,7 @@ export class MealPlanComponent implements OnInit {
     this.removingId.set(null);
     await Promise.all([
       this.mealPlanService.getTodayMeals(),
-      this.refreshPendingMeals(),
+      this.toCookService.refresh(),
     ]);
   }
 

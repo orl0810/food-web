@@ -186,6 +186,24 @@ textarea {
     @apply leading-tight;
   }
 
+  .cook-fab {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+    z-index: calc(var(--z-index-bottom-nav) + 5);
+    @apply flex h-14 w-14 items-center justify-center rounded-full border border-stone-200/80 bg-card text-brand-700 shadow-[0_4px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-xl transition-transform hover:scale-105 active:scale-95;
+  }
+
+  @media (min-width: 768px) {
+    .cook-fab {
+      bottom: 1.5rem;
+    }
+  }
+
+  .cook-fab-badge {
+    @apply absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-[11px] font-bold text-white ring-2 ring-card;
+  }
+
   .ai-sparkle {
     @apply relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-lg;
     animation: ai-sparkle-pulse 2.5s ease-in-out infinite;

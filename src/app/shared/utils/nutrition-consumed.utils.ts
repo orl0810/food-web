@@ -99,6 +99,17 @@ function sumConsumedNutrition(items: MealSlotItem[]): MacroTotals {
   );
 }
 
+function hasNutritionSnapshot(item: MealSlotItem): boolean {
+  return (
+    item.calories_snapshot !== null ||
+    item.protein_snapshot !== null ||
+    item.carbohydrates_snapshot !== null ||
+    item.fat_snapshot !== null ||
+    item.fiber_snapshot !== null ||
+    item.sugar_snapshot !== null
+  );
+}
+
 function getItemNutritionContribution(item: MealSlotItem): MacroTotals & {
   hasMissingNutritionData: boolean;
 } {
@@ -130,6 +141,18 @@ function getItemNutritionContribution(item: MealSlotItem): MacroTotals & {
     return {
       ...nutrition,
       hasMissingNutritionData: !item.prepared_portion?.recipe?.nutrition,
+    };
+  }
+
+  if (item.item_type === 'custom' && item.source === 'photo' && hasNutritionSnapshot(item)) {
+    return {
+      proteinGrams: item.protein_snapshot ?? 0,
+      fiberGrams: item.fiber_snapshot ?? 0,
+      carbsGrams: item.carbohydrates_snapshot ?? 0,
+      fatsGrams: item.fat_snapshot ?? 0,
+      sugarsGrams: item.sugar_snapshot ?? 0,
+      calories: item.calories_snapshot ?? 0,
+      hasMissingNutritionData: item.calories_snapshot === null,
     };
   }
 

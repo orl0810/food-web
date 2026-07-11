@@ -223,6 +223,7 @@ create table if not exists user_food_profiles (
       'maintain', 'fat_loss', 'muscle_gain', 'general_health'
     )
   ),
+  role text not null default 'user' check (role in ('user', 'admin')),
   created_at text not null default (datetime('now')),
   updated_at text not null default (datetime('now'))
 );

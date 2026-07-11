@@ -5,6 +5,7 @@ import {
   CreatePhotoFoodLogInput,
   CreateVoiceFoodLogInput,
 } from '../models/food-log.model';
+import { buildDetectedItemsNotes } from '../../shared/utils/meal-photo-draft.utils';
 import { MealPlanService } from './meal-plan.service';
 
 @Injectable({ providedIn: 'root' })
@@ -33,6 +34,7 @@ export class FoodLogService {
 
     const status = this.resolvePhotoFoodLogStatus(input);
     const completedAt = status === 'planned' ? null : new Date().toISOString();
+    const notes = this.buildPhotoNotes(input);
 
     return this.mealPlanService.addSlotItem({
       date: input.date,
@@ -41,12 +43,30 @@ export class FoodLogService {
       custom_name: name,
       quantity: input.quantity ?? null,
       unit: input.unit?.trim() ?? null,
-      notes: input.notes?.trim() ?? null,
+      notes,
       source: 'photo',
       image_url: input.imageUrl,
       status,
       completed_at: completedAt,
+      calories_snapshot: input.nutritionEstimate?.calories ?? null,
+      protein_snapshot: input.nutritionEstimate?.protein_g ?? null,
+      carbohydrates_snapshot: input.nutritionEstimate?.carbohydrates_g ?? null,
+      fat_snapshot: input.nutritionEstimate?.fat_g ?? null,
+      fiber_snapshot: input.nutritionEstimate?.fiber_g ?? null,
+      sugar_snapshot: input.nutritionEstimate?.sugar_g ?? null,
     });
+  }
+
+  private buildPhotoNotes(input: CreatePhotoFoodLogInput): string | null {
+    const manualNotes = input.notes?.trim();
+    const detectedNotes = input.detectedItemsSummary?.length
+      ? buildDetectedItemsNotes(input.detectedItemsSummary)
+      : '';
+
+    if (manualNotes && detectedNotes) {
+      return `${manualNotes}\n\n${detectedNotes}`;
+    }
+    return manualNotes || detectedNotes || null;
   }
 
   private resolvePhotoFoodLogStatus(input: CreatePhotoFoodLogInput): MealSlotItem['status'] {

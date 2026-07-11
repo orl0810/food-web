@@ -20,6 +20,7 @@ function emptyProfile(overrides: Partial<UserFoodProfile> = {}): UserFoodProfile
     },
     createdAt: '',
     updatedAt: '',
+    role: 'user',
     ...overrides,
   };
 }

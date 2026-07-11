@@ -1,5 +1,6 @@
 import { MealSlotItem } from '../../../core/models/meal-slot-item.model';
 import {
+  getGroupedPendingCookItems,
   getPendingMealsToPrepare,
   getSlotDisplayStatus,
   getTargetStatusForPrimaryAction,
@@ -156,6 +157,69 @@ describe('meal-slot-status.utils', () => {
       const pending = getPendingMealsToPrepare(items, '2026-06-25', '2026-06-30');
       expect(pending[0].items[0].recipe?.image_url).toBe('https://cdn.example.com/pasta.jpg');
       expect(pending[0].items[0].recipe?.image_status).toBe('completed');
+    });
+  });
+
+  describe('getGroupedPendingCookItems', () => {
+    it('groups the same recipe across multiple days into one card', () => {
+      const items = [
+        slotItem({ id: '1', date: '2026-06-27', meal_type: 'dinner', recipe_id: 'r1', status: 'planned' }),
+        slotItem({ id: '2', date: '2026-06-25', meal_type: 'breakfast', recipe_id: 'r1', status: 'planned' }),
+        slotItem({ id: '3', date: '2026-06-26', meal_type: 'lunch', recipe_id: 'r1', status: 'planned' }),
+      ];
+
+      const grouped = getGroupedPendingCookItems(items, '2026-06-25', '2026-06-30');
+      expect(grouped.length).toBe(1);
+      expect(grouped[0].count).toBe(3);
+      expect(grouped[0].occurrences.map((entry) => entry.itemId)).toEqual(['2', '3', '1']);
+    });
+
+    it('excludes prepared items from grouped cook items', () => {
+      const items = [
+        slotItem({ id: '1', date: '2026-06-25', recipe_id: 'r1', status: 'planned' }),
+        slotItem({ id: '2', date: '2026-06-26', recipe_id: 'r1', status: 'prepared' }),
+      ];
+
+      const grouped = getGroupedPendingCookItems(items, '2026-06-25', '2026-06-30');
+      expect(grouped.length).toBe(1);
+      expect(grouped[0].count).toBe(1);
+      expect(grouped[0].occurrences[0].itemId).toBe('1');
+    });
+
+    it('groups non-recipe items by display name', () => {
+      const items = [
+        slotItem({
+          id: '1',
+          date: '2026-06-25',
+          item_type: 'custom',
+          recipe_id: null,
+          custom_name: 'Berry Yogurt Parfait',
+          status: 'planned',
+        }),
+        slotItem({
+          id: '2',
+          date: '2026-06-26',
+          item_type: 'custom',
+          recipe_id: null,
+          custom_name: 'Berry Yogurt Parfait',
+          status: 'planned',
+        }),
+      ];
+
+      const grouped = getGroupedPendingCookItems(items, '2026-06-25', '2026-06-30');
+      expect(grouped.length).toBe(1);
+      expect(grouped[0].count).toBe(2);
+      expect(grouped[0].displayName).toBe('Berry Yogurt Parfait');
+    });
+
+    it('keeps different recipes as separate groups', () => {
+      const items = [
+        slotItem({ id: '1', date: '2026-06-25', recipe_id: 'r1', status: 'planned' }),
+        slotItem({ id: '2', date: '2026-06-25', recipe_id: 'r2', status: 'planned' }),
+      ];
+
+      const grouped = getGroupedPendingCookItems(items, '2026-06-25', '2026-06-30');
+      expect(grouped.length).toBe(2);
     });
   });
 });

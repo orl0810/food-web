@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import {
   AllergyInput,
@@ -13,6 +13,7 @@ import {
   UserIngredientPreference,
   UserMealPlanningStats,
   UserProfileUpdateInput,
+  UserRole,
 } from '../models/user-profile.model';
 import { ActivityLevel, NutritionGoal, NutritionSex } from '../models/nutrition.model';
 import { MealSlotItem } from '../models/meal-slot-item.model';
@@ -56,6 +57,7 @@ interface ProfileRow {
   sex?: NutritionSex | null;
   activity_level?: ActivityLevel | null;
   nutrition_goal?: NutritionGoal | null;
+  role?: string;
   created_at: string;
   updated_at: string;
 }
@@ -82,6 +84,9 @@ export class UserProfileService {
   readonly loading = this.loadingSignal.asReadonly();
   readonly saving = this.savingSignal.asReadonly();
   readonly error = this.errorSignal.asReadonly();
+
+  readonly currentUserRole = computed<UserRole | null>(() => this.profileSignal()?.role ?? null);
+  readonly isAdmin = computed(() => this.currentUserRole() === 'admin');
 
   async loadProfile(): Promise<UserFoodProfile | null> {
     if (environment.useLocalApi) {
@@ -527,6 +532,23 @@ export class UserProfileService {
     await this.ensureProfileRow(userId);
   }
 
+  async resolveRole(): Promise<UserRole> {
+    const cached = this.profileSignal();
+    if (cached) {
+      return cached.role;
+    }
+
+    const profile = await this.loadProfile();
+    return profile?.role ?? 'user';
+  }
+
+  clearProfile(): void {
+    this.profileSignal.set(null);
+    this.statsSignal.set(null);
+    this.suggestedSignal.set([]);
+    this.errorSignal.set(null);
+  }
+
   private async ensureProfileRow(userId: string): Promise<void> {
     const client = this.requireClient();
     const { data } = await client.from('user_food_profiles').select('id').eq('user_id', userId).maybeSingle();
@@ -673,6 +695,7 @@ export class UserProfileService {
       sex: (raw['sex'] as NutritionSex | null) ?? null,
       activityLevel: (raw['activityLevel'] as ActivityLevel | null) ?? null,
       nutritionGoal: (raw['nutritionGoal'] as NutritionGoal | null) ?? null,
+      role: this.normalizeRole(raw['role']),
       createdAt: String(raw['createdAt']),
       updatedAt: String(raw['updatedAt']),
     };
@@ -733,9 +756,14 @@ export class UserProfileService {
       sex: row.sex ?? null,
       activityLevel: row.activity_level ?? null,
       nutritionGoal: row.nutrition_goal ?? null,
+      role: this.normalizeRole(row.role),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
+  }
+
+  private normalizeRole(value: unknown): UserRole {
+    return value === 'admin' ? 'admin' : 'user';
   }
 
   private async wrapSave(

@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
+import { Component, computed, inject, input, OnDestroy, OnInit, output, signal } from '@angular/core';
 import { TitleCasePipe } from '@angular/common';
 import {
   FormArray,
@@ -34,7 +34,9 @@ import { RecipeService } from '../../../core/services/recipe.service';
 import { FoodLogPhotoService } from '../../../core/services/food-log-photo.service';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { FoodIconBadgeComponent } from '../../../shared/components/food-icon-badge/food-icon-badge.component';
+import { RecipeImageComponent } from '../../../shared/components/recipe-image/recipe-image.component';
 import { SearchSelectComponent } from '../../../shared/components/search-select/search-select.component';
+import { StarRatingComponent } from '../../../shared/components/star-rating/star-rating.component';
 import { FormatTagPipe } from '../../../shared/pipes/format-tag.pipe';
 import {
   resolveStoredUnit,
@@ -44,6 +46,21 @@ import { normalizeNameKey } from '../../../shared/utils/name-normalization.utils
 import { normalizeTag } from '../../../shared/utils/tag.utils';
 import { environment } from '../../../../environments/environment';
 
+interface RecipeFormSnapshot {
+  title: string;
+  description: string;
+  prep_time_minutes: number | null;
+  cook_time_minutes: number | null;
+  portions: number | null;
+  meal_type: MealType | '';
+  category: string;
+  difficulty: RecipeDifficulty | '';
+  tags: string[];
+  rating: number | null;
+  ingredients: { name: string; quantity: number | null; unit: string | null }[];
+  instructions: string[];
+}
+
 @Component({
   selector: 'app-recipe-form',
   standalone: true,
@@ -52,7 +69,9 @@ import { environment } from '../../../../environments/environment';
     RouterLink,
     LoadingStateComponent,
     FoodIconBadgeComponent,
+    RecipeImageComponent,
     SearchSelectComponent,
+    StarRatingComponent,
     FormatTagPipe,
     TitleCasePipe,
   ],
@@ -66,16 +85,80 @@ import { environment } from '../../../../environments/environment';
             <h1 class="page-title">
               {{ isEdit() ? 'Edit recipe' : 'New recipe' }}
             </h1>
-            <a
-              [routerLink]="cancelLink()"
-              class="text-sm text-stone-500 hover:text-stone-700"
-            >
-              Cancel
-            </a>
+            @if (!isEdit()) {
+              <a
+                [routerLink]="cancelLink()"
+                class="text-sm text-stone-500 hover:text-stone-700"
+              >
+                Cancel
+              </a>
+            }
           </div>
         }
 
-        @if (photoPreviewUrl()) {
+        @if (!embedded()) {
+          <section class="card overflow-hidden p-0">
+            <div class="relative aspect-[16/10] w-full">
+              @if (isEdit() && loadedRecipe(); as recipe) {
+                <app-recipe-image [recipe]="recipe" variant="hero" class="h-full" />
+              } @else if (photoPreviewUrl()) {
+                <img
+                  [src]="photoPreviewUrl()!"
+                  alt="Recipe photo preview"
+                  class="h-full w-full object-cover"
+                />
+                <button
+                  type="button"
+                  class="absolute top-3 right-3 rounded-full bg-white/90 p-2 text-stone-700 shadow-sm backdrop-blur-sm hover:bg-white"
+                  aria-label="Remove photo"
+                  (click)="removePhoto()"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              } @else {
+                <app-recipe-image [recipe]="createPlaceholderRecipe()" variant="hero" class="h-full" />
+              }
+
+              @if (isEdit() && loadedRecipe() && showRegenerateButton()) {
+                <button
+                  type="button"
+                  class="absolute top-3 right-3 rounded-full bg-white/90 p-2 text-stone-700 shadow-sm backdrop-blur-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                  [attr.aria-label]="generatingImage() ? 'Generating image' : 'Regenerate image'"
+                  [disabled]="generatingImage() || loadedRecipe()!.image_status === 'generating'"
+                  (click)="generateRecipeImage()"
+                >
+                  @if (generatingImage() || loadedRecipe()!.image_status === 'generating') {
+                    <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-stone-300 border-t-brand-600" aria-hidden="true"></span>
+                  } @else {
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                  }
+                </button>
+              }
+
+              <div class="absolute bottom-3 left-3 flex items-center gap-2 rounded-full bg-black/40 px-3 py-2 backdrop-blur-sm [&_button.text-stone-300]:text-white/50">
+                <span class="text-xs font-medium text-white/90">Rate</span>
+                <app-star-rating
+                  [rating]="rating()"
+                  size="sm"
+                  (ratingChange)="onRatingChange($event)"
+                />
+              </div>
+            </div>
+          </section>
+
+          @if (imageError()) {
+            <p class="text-sm text-red-600" role="alert">{{ imageError() }}</p>
+          }
+          @if (ratingError()) {
+            <p class="text-sm text-red-600" role="alert">{{ ratingError() }}</p>
+          }
+        }
+
+        @if (photoPreviewUrl() && embedded()) {
           <section class="card overflow-hidden p-0">
             <div class="relative">
               <img
@@ -139,19 +222,7 @@ import { environment } from '../../../../environments/environment';
                 class="input"
               />
             </div>
-            <div>
-              <label for="cook_time_minutes" class="mb-1 block text-sm font-medium text-stone-700">
-                Cook time (minutes)
-              </label>
-              <input
-                id="cook_time_minutes"
-                type="number"
-                min="0"
-                step="1"
-                formControlName="cook_time_minutes"
-                class="input"
-              />
-            </div>
+            <!-- Cook time hidden for now; form control kept to preserve existing values on edit -->
             <div>
               <label for="portions" class="mb-1 block text-sm font-medium text-stone-700">Portions</label>
               <input
@@ -444,10 +515,20 @@ import { environment } from '../../../../environments/environment';
         }
 
         @if (!embedded()) {
-          <div class="flex justify-end gap-3">
+          <div class="flex flex-wrap justify-end gap-3">
             <a [routerLink]="cancelLink()" class="btn-secondary">
               Cancel
             </a>
+            @if (isEdit()) {
+              <button
+                type="button"
+                class="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                [disabled]="!hasChanges() || saving() || form.invalid"
+                (click)="saveAsNewRecipe()"
+              >
+                {{ saving() ? 'Saving...' : 'Save as new recipe' }}
+              </button>
+            }
             <button
               type="submit"
               class="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
@@ -461,7 +542,7 @@ import { environment } from '../../../../environments/environment';
     }
   `,
 })
-export class RecipeFormComponent implements OnInit {
+export class RecipeFormComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -488,6 +569,17 @@ export class RecipeFormComponent implements OnInit {
   readonly tags = signal<string[]>([]);
   readonly editingIndex = signal<number | null>(null);
   readonly showAddForm = signal(false);
+  readonly loadedRecipe = signal<Recipe | null>(null);
+  readonly generatingImage = signal(false);
+  readonly imageError = signal<string | null>(null);
+  readonly ratingError = signal<string | null>(null);
+  readonly rating = signal<number | null>(null);
+
+  private readonly formChangeTrigger = signal(0);
+  private originalSnapshot: RecipeFormSnapshot | null = null;
+  private imagePollTimer: ReturnType<typeof setInterval> | null = null;
+  private imagePollAttempts = 0;
+  private readonly maxImagePollAttempts = 40;
 
   readonly foodUnits = FOOD_UNITS;
   readonly unitLabels = FOOD_UNIT_LABELS;
@@ -526,6 +618,29 @@ export class RecipeFormComponent implements OnInit {
     return [...historyOptions, ...catalogOptions];
   });
 
+  readonly createPlaceholderRecipe = computed(() => {
+    this.formChangeTrigger();
+    const value = this.form.getRawValue();
+    return {
+      title: (value.title ?? '').trim() || 'New recipe',
+      image_url: null,
+      image_storage_key: null,
+      image_status: 'pending' as const,
+      meal_type: value.meal_type || null,
+      category: value.category?.trim() || null,
+    };
+  });
+
+  readonly hasChanges = computed(() => {
+    this.formChangeTrigger();
+    this.tags();
+    this.rating();
+    if (!this.isEdit() || this.loading() || !this.originalSnapshot) {
+      return false;
+    }
+    return !this.snapshotsEqual(this.originalSnapshot, this.captureSnapshot());
+  });
+
   readonly form = this.fb.group({
     title: ['', Validators.required],
     description: [''],
@@ -552,6 +667,9 @@ export class RecipeFormComponent implements OnInit {
   constructor() {
     this.draftForm.controls.unit.valueChanges.subscribe((unit) => {
       this.syncUnitCustomValidators(this.draftForm.controls.unit_custom, unit);
+    });
+    this.form.valueChanges.subscribe(() => {
+      this.formChangeTrigger.update((n) => n + 1);
     });
   }
 
@@ -621,6 +739,102 @@ export class RecipeFormComponent implements OnInit {
     for (const step of recipe.instructions ?? []) {
       this.instructions.push(this.buildInstructionGroup(step));
     }
+
+    this.loadedRecipe.set(recipe);
+    this.rating.set(recipe.rating);
+    this.originalSnapshot = this.captureSnapshot();
+    this.startImagePollingIfNeeded(recipe);
+  }
+
+  ngOnDestroy(): void {
+    this.stopImagePolling();
+  }
+
+  showRegenerateButton(): boolean {
+    return this.isEdit() && this.loadedRecipe() !== null;
+  }
+
+  async generateRecipeImage(): Promise<void> {
+    const recipe = this.loadedRecipe();
+    if (!recipe || this.generatingImage()) {
+      return;
+    }
+
+    this.generatingImage.set(true);
+    this.imageError.set(null);
+
+    const regenerate = recipe.image_status === 'failed' || recipe.image_status === 'completed';
+    const { error } = regenerate
+      ? await this.recipeService.regenerateRecipeImage(recipe.id)
+      : await this.recipeService.requestRecipeImageGeneration(recipe.id);
+
+    this.generatingImage.set(false);
+
+    if (error) {
+      this.imageError.set(error);
+      return;
+    }
+
+    const updated = { ...recipe, image_status: 'generating' as const };
+    this.loadedRecipe.set(updated);
+    this.startImagePollingIfNeeded(updated);
+  }
+
+  async onRatingChange(nextRating: number | null): Promise<void> {
+    const previousRating = this.rating();
+    this.ratingError.set(null);
+    this.rating.set(nextRating);
+
+    if (!this.isEdit() || !this.recipeId) {
+      return;
+    }
+
+    const { error } = await this.recipeService.updateRecipeRating(this.recipeId, nextRating);
+    if (error) {
+      this.rating.set(previousRating);
+      this.ratingError.set(error);
+      return;
+    }
+
+    const current = this.loadedRecipe();
+    if (current) {
+      this.loadedRecipe.set({ ...current, rating: nextRating });
+    }
+
+    if (this.originalSnapshot) {
+      this.originalSnapshot = { ...this.originalSnapshot, rating: nextRating };
+    }
+  }
+
+  async saveAsNewRecipe(): Promise<void> {
+    if (!this.isEdit() || !this.hasChanges() || this.form.invalid || this.saving()) {
+      if (this.form.invalid) {
+        this.form.markAllAsTouched();
+      }
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set(null);
+
+    const { recipeData, ingredients } = this.buildRecipePayload(false);
+    const result = await this.recipeService.createRecipe(recipeData, ingredients, {
+      triggerImageGeneration: true,
+    });
+
+    if (result.error || !result.recipe) {
+      this.saving.set(false);
+      this.error.set(result.error ?? 'Could not save this recipe. Please try again.');
+      return;
+    }
+
+    const currentRating = this.rating();
+    if (currentRating !== null) {
+      await this.recipeService.updateRecipeRating(result.recipe.id, currentRating);
+    }
+
+    this.saving.set(false);
+    await this.router.navigate(['/recipes', result.recipe.id]);
   }
 
   nameControlAt(index: number): FormControl<string | null> {
@@ -767,6 +981,52 @@ export class RecipeFormComponent implements OnInit {
     this.saving.set(true);
     this.error.set(null);
 
+    const { recipeData, ingredients } = this.buildRecipePayload(true);
+
+    const result = this.recipeId
+      ? await this.recipeService.updateRecipe(this.recipeId, recipeData, ingredients)
+      : await this.recipeService.createRecipe(recipeData, ingredients, {
+          triggerImageGeneration: !this.activePhotoFile(),
+        });
+
+    if (result.error || !result.recipe) {
+      this.saving.set(false);
+      this.error.set(result.error ?? 'Could not save this recipe. Please try again.');
+      return;
+    }
+
+    const photoFile = this.activePhotoFile();
+    if (!this.recipeId && photoFile) {
+      const uploadWarning = await this.attachPhotoToRecipe(result.recipe.id, photoFile);
+      if (uploadWarning) {
+        this.photoWarning.set(uploadWarning);
+      }
+    }
+
+    if (!this.recipeId && this.rating() !== null) {
+      await this.recipeService.updateRecipeRating(result.recipe.id, this.rating());
+    }
+
+    this.saving.set(false);
+
+    if (this.embedded()) {
+      this.saved.emit(result.recipe);
+      return;
+    }
+
+    await this.router.navigate(['/recipes', result.recipe.id]);
+  }
+
+  removePhoto(): void {
+    this.activePhotoFile.set(null);
+    this.photoPreviewUrl.set(null);
+    this.photoWarning.set(null);
+  }
+
+  private buildRecipePayload(includeBaseRecipeId: boolean): {
+    recipeData: RecipeInput;
+    ingredients: RecipeIngredientInput[];
+  } {
     const value = this.form.getRawValue();
     const recipeData: RecipeInput = {
       title: value.title!.trim(),
@@ -775,7 +1035,7 @@ export class RecipeFormComponent implements OnInit {
       cook_time_minutes: this.toNumberOrNull(value.cook_time_minutes),
       portions: this.toNumberOrNull(value.portions),
       tags: this.tags(),
-      base_recipe_id: this.baseRecipeId,
+      base_recipe_id: includeBaseRecipeId ? this.baseRecipeId : null,
       meal_type: value.meal_type || null,
       category: value.category?.trim() || null,
       difficulty: value.difficulty || null,
@@ -800,40 +1060,118 @@ export class RecipeFormComponent implements OnInit {
       })
       .filter((ingredient) => ingredient.name.length > 0);
 
-    const result = this.recipeId
-      ? await this.recipeService.updateRecipe(this.recipeId, recipeData, ingredients)
-      : await this.recipeService.createRecipe(recipeData, ingredients, {
-          triggerImageGeneration: !this.activePhotoFile(),
-        });
-
-    if (result.error || !result.recipe) {
-      this.saving.set(false);
-      this.error.set(result.error ?? 'Could not save this recipe. Please try again.');
-      return;
-    }
-
-    const photoFile = this.activePhotoFile();
-    if (!this.recipeId && photoFile) {
-      const uploadWarning = await this.attachPhotoToRecipe(result.recipe.id, photoFile);
-      if (uploadWarning) {
-        this.photoWarning.set(uploadWarning);
-      }
-    }
-
-    this.saving.set(false);
-
-    if (this.embedded()) {
-      this.saved.emit(result.recipe);
-      return;
-    }
-
-    await this.router.navigate(['/recipes', result.recipe.id]);
+    return { recipeData, ingredients };
   }
 
-  removePhoto(): void {
-    this.activePhotoFile.set(null);
-    this.photoPreviewUrl.set(null);
-    this.photoWarning.set(null);
+  private captureSnapshot(): RecipeFormSnapshot {
+    const value = this.form.getRawValue();
+    return {
+      title: (value.title ?? '').trim(),
+      description: (value.description ?? '').trim(),
+      prep_time_minutes: this.toNumberOrNull(value.prep_time_minutes),
+      cook_time_minutes: this.toNumberOrNull(value.cook_time_minutes),
+      portions: this.toNumberOrNull(value.portions),
+      meal_type: value.meal_type ?? '',
+      category: (value.category ?? '').trim(),
+      difficulty: value.difficulty ?? '',
+      tags: [...this.tags()].sort(),
+      rating: this.rating(),
+      ingredients: this.ingredients.controls.map((group) => {
+        const raw = group.getRawValue() as {
+          name: string | null;
+          quantity: number | null;
+          unit: string | null;
+          unit_custom: string | null;
+        };
+        return {
+          name: (raw.name ?? '').trim(),
+          quantity: this.toNumberOrNull(raw.quantity),
+          unit: resolveStoredUnit(raw.unit, raw.unit_custom),
+        };
+      }),
+      instructions: this.instructions.controls
+        .map((group) => String(group.get('text')?.value ?? '').trim())
+        .filter((step) => step.length > 0),
+    };
+  }
+
+  private snapshotsEqual(a: RecipeFormSnapshot, b: RecipeFormSnapshot): boolean {
+    if (
+      a.title !== b.title ||
+      a.description !== b.description ||
+      a.prep_time_minutes !== b.prep_time_minutes ||
+      a.cook_time_minutes !== b.cook_time_minutes ||
+      a.portions !== b.portions ||
+      a.meal_type !== b.meal_type ||
+      a.category !== b.category ||
+      a.difficulty !== b.difficulty ||
+      a.rating !== b.rating
+    ) {
+      return false;
+    }
+
+    if (a.tags.length !== b.tags.length || a.tags.some((tag, index) => tag !== b.tags[index])) {
+      return false;
+    }
+
+    if (a.instructions.length !== b.instructions.length) {
+      return false;
+    }
+    if (a.instructions.some((step, index) => step !== b.instructions[index])) {
+      return false;
+    }
+
+    if (a.ingredients.length !== b.ingredients.length) {
+      return false;
+    }
+
+    return a.ingredients.every(
+      (ingredient, index) =>
+        ingredient.name === b.ingredients[index].name &&
+        ingredient.quantity === b.ingredients[index].quantity &&
+        ingredient.unit === b.ingredients[index].unit
+    );
+  }
+
+  private startImagePollingIfNeeded(recipe: Recipe): void {
+    if (recipe.image_status !== 'generating' && recipe.image_status !== 'pending') {
+      return;
+    }
+
+    this.stopImagePolling();
+    this.imagePollAttempts = 0;
+
+    this.imagePollTimer = setInterval(() => {
+      void this.pollRecipeImage(recipe.id);
+    }, 3000);
+  }
+
+  private async pollRecipeImage(recipeId: string): Promise<void> {
+    this.imagePollAttempts += 1;
+
+    if (this.imagePollAttempts > this.maxImagePollAttempts) {
+      this.stopImagePolling();
+      return;
+    }
+
+    const { recipe, error } = await this.recipeService.getRecipeById(recipeId);
+    if (error || !recipe) {
+      this.stopImagePolling();
+      return;
+    }
+
+    this.loadedRecipe.set(recipe);
+
+    if (recipe.image_status === 'completed' || recipe.image_status === 'failed') {
+      this.stopImagePolling();
+    }
+  }
+
+  private stopImagePolling(): void {
+    if (this.imagePollTimer !== null) {
+      clearInterval(this.imagePollTimer);
+      this.imagePollTimer = null;
+    }
   }
 
   private async attachPhotoToRecipe(recipeId: string, file: File): Promise<string | null> {

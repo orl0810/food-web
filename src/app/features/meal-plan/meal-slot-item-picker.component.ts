@@ -4,6 +4,7 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
 import { MEAL_TYPE_LABELS, MealType } from '../../core/models/meal-plan.model';
 import { FoodInventoryService } from '../../core/services/food-inventory.service';
 import { MealPlanService } from '../../core/services/meal-plan.service';
+import { MealPhotoAnalysisService } from '../../core/services/meal-photo-analysis.service';
 import { PreparedPortionService } from '../../core/services/prepared-portion.service';
 import { RecipeService } from '../../core/services/recipe.service';
 import { FormatTagPipe } from '../../shared/pipes/format-tag.pipe';
@@ -11,7 +12,7 @@ import { formatDayLabel } from '../../shared/utils/meal-plan.utils';
 import { isPortionExpired } from '../../shared/utils/prepared-portion.utils';
 import { formatTagLabel } from '../../shared/utils/tag.utils';
 
-type PickerTab = 'recipes' | 'portions' | 'inventory' | 'custom';
+type PickerTab = 'recipes' | 'portions' | 'inventory' | 'custom' | 'photo';
 
 @Component({
   selector: 'app-meal-slot-item-picker',
@@ -199,6 +200,27 @@ type PickerTab = 'recipes' | 'portions' | 'inventory' | 'custom';
             </div>
           }
 
+          @if (activeTab() === 'photo') {
+            <div class="space-y-4">
+              <p class="text-sm text-stone-600">
+                Take a photo of your meal and let AI suggest foods, portions, and estimated nutrition.
+                You will review everything before it is added.
+              </p>
+              @if (!photoAnalysisAvailable()) {
+                <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  AI photo analysis requires Supabase mode. You can still add a photo manually after capture.
+                </p>
+              }
+              <button
+                type="button"
+                class="btn-primary w-full"
+                (click)="requestPhoto()"
+              >
+                Take or choose a photo
+              </button>
+            </div>
+          }
+
           @if (activeTab() === 'custom') {
             <div class="space-y-3">
               <div>
@@ -259,17 +281,20 @@ export class MealSlotItemPickerComponent implements OnInit {
 
   readonly added = output<void>();
   readonly cancelled = output<void>();
+  readonly photoRequested = output<void>();
 
   readonly recipeService = inject(RecipeService);
   readonly preparedPortionService = inject(PreparedPortionService);
   readonly inventoryService = inject(FoodInventoryService);
   private readonly mealPlanService = inject(MealPlanService);
+  private readonly photoAnalysisService = inject(MealPhotoAnalysisService);
 
   readonly tabs: { id: PickerTab; label: string }[] = [
     { id: 'recipes', label: 'Recipes' },
     { id: 'portions', label: 'Ready portions' },
     { id: 'inventory', label: 'Inventory' },
     { id: 'custom', label: 'Custom' },
+    { id: 'photo', label: 'Photo' },
   ];
 
   readonly activeTab = signal<PickerTab>('recipes');
@@ -323,6 +348,14 @@ export class MealSlotItemPickerComponent implements OnInit {
 
   mealTypeLabel(): string {
     return MEAL_TYPE_LABELS[this.mealType()];
+  }
+
+  photoAnalysisAvailable(): boolean {
+    return this.photoAnalysisService.isAvailable();
+  }
+
+  requestPhoto(): void {
+    this.photoRequested.emit();
   }
 
   formatTagsList(tags: string[]): string {

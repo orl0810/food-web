@@ -57,6 +57,8 @@ export interface MealPlanningUserSettings {
 
 export type OnboardingStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
 
+export type UserRole = 'user' | 'admin';
+
 export interface OnboardingSmartAction {
   title: string;
   description: string;
@@ -84,6 +86,7 @@ export interface UserFoodProfile {
   nutritionGoal?: NutritionGoal | null;
   onboardingStatus?: OnboardingStatus;
   onboardingFirstSmartAction?: OnboardingSmartAction | null;
+  role: UserRole;
   createdAt: string;
   updatedAt: string;
 }

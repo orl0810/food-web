@@ -1,7 +1,10 @@
-import { Component, HostListener, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { FoodIconService } from '../../../core/services/food-icon.service';
+import { ToCookPanelComponent } from '../../../features/meal-plan/components/to-cook-panel/to-cook-panel.component';
+import { ToCookService } from '../../../features/meal-plan/services/to-cook.service';
 import { BottomNavComponent } from '../bottom-nav/bottom-nav.component';
+import { CookFabComponent } from '../cook-fab/cook-fab.component';
 import { MealStreakBadgeComponent } from '../meal-streak-badge/meal-streak-badge.component';
 import { ProfileMenuComponent } from '../../../features/user-profile/components/profile-menu/profile-menu.component';
 import { UserProfileFacadeService } from '../../../features/user-profile/services/user-profile-facade.service';
@@ -10,7 +13,7 @@ import { MealStreakService } from '../../../core/services/meal-streak.service';
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, BottomNavComponent, MealStreakBadgeComponent, ProfileMenuComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, BottomNavComponent, CookFabComponent, ToCookPanelComponent, MealStreakBadgeComponent, ProfileMenuComponent],
   template: `
     <div class="min-h-screen bg-surface">
       <header class="border-b border-stone-200 bg-card">
@@ -82,6 +85,11 @@ import { MealStreakService } from '../../../core/services/meal-streak.service';
         <router-outlet />
       </main>
 
+      <app-cook-fab />
+      @if (toCookService.panelOpen()) {
+        <app-to-cook-panel />
+      }
+
       <app-bottom-nav />
     </div>
   `,
@@ -90,10 +98,12 @@ export class AppShellComponent {
   private readonly foodIconService = inject(FoodIconService);
   private readonly userProfileFacade = inject(UserProfileFacadeService);
   private readonly mealStreakService = inject(MealStreakService);
+  readonly toCookService = inject(ToCookService);
 
   constructor() {
     void this.foodIconService.preload();
     void this.userProfileFacade.loadAll();
     void this.mealStreakService.loadStreak();
+    void this.toCookService.load();
   }
 }

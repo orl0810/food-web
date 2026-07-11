@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 import { onboardingEntryGuard, pendingOnboardingGuard } from './core/guards/onboarding.guard';
 import { AppShellComponent } from './shared/components/app-shell/app-shell.component';
 
@@ -125,6 +126,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/recipes/smart-suggestions-page/smart-suggestions-page.component').then(
             (m) => m.SmartSuggestionsPageComponent
+          ),
+      },
+      {
+        path: 'admin',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/admin/admin-dashboard.component').then(
+            (m) => m.AdminDashboardComponent
           ),
       },
     ],

@@ -1570,6 +1570,7 @@ interface UserFoodProfileRow {
   onboarding_draft_state: string | null;
   onboarding_first_smart_action: string | null;
   onboarding_completed_at: string | null;
+  role?: string;
   created_at: string;
   updated_at: string;
 }
@@ -1729,6 +1730,7 @@ function mapProfileResponse(userId: string, email?: string) {
     sex: profile.sex ?? null,
     activityLevel: profile.activity_level ?? null,
     nutritionGoal: profile.nutrition_goal ?? null,
+    role: profile.role === 'admin' ? 'admin' : 'user',
     createdAt: profile.created_at,
     updatedAt: profile.updated_at,
   };
