@@ -127,13 +127,14 @@ export class AddToMealPlanDialogComponent implements OnInit {
       recipe_id: this.recipe().id,
     });
 
-    this.saving.set(false);
-
     if (error) {
+      this.saving.set(false);
       this.error.set(error);
       return;
     }
 
+    await this.mealPlanService.loadWeekAndToday(this.selectedDate());
+    this.saving.set(false);
     this.saved.emit();
   }
 }
