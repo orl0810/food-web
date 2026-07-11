@@ -150,7 +150,7 @@ const SKELETON_CARD_COUNT = 4;
             (change)="onCategoryChange($event)"
           >
             <option value="">All categories</option>
-            @for (category of availableCategories(); track category) {
+            @for (category of categorySelectOptions(); track category) {
               <option [value]="category">{{ category }}</option>
             }
           </select>
@@ -452,6 +452,20 @@ export class RecipesComponent implements OnInit, OnDestroy {
     this.recipeService.getAvailableCategories(this.sourceTab())
   );
 
+  /** Keeps URL-driven category visible in the select before all recipes finish loading. */
+  readonly categorySelectOptions = computed(() => {
+    const available = this.availableCategories();
+    const selected = this.categoryFilter();
+    if (
+      selected &&
+      (RECIPE_CATEGORIES as readonly string[]).includes(selected) &&
+      !available.includes(selected as (typeof RECIPE_CATEGORIES)[number])
+    ) {
+      return [selected as (typeof RECIPE_CATEGORIES)[number], ...available];
+    }
+    return available;
+  });
+
   readonly isLoading = computed(
     () => this.recipeService.loading() || this.recipeService.baseLoading()
   );
@@ -472,18 +486,6 @@ export class RecipesComponent implements OnInit, OnDestroy {
       const category = params.get('category');
       if (category && (RECIPE_CATEGORIES as readonly string[]).includes(category)) {
         this.categoryFilter.set(category);
-      }
-    });
-
-    effect(() => {
-      if (!this.hasRecipeData()) {
-        return;
-      }
-
-      const available = this.availableCategories();
-      const current = this.categoryFilter();
-      if (current && !available.includes(current as (typeof RECIPE_CATEGORIES)[number])) {
-        this.categoryFilter.set(null);
       }
     });
 
