@@ -110,7 +110,7 @@ export class AiRecipeService {
       maxPrepTimeMinutes: Number(request.maxPrepTimeMinutes),
       prioritizeExpiringIngredients: Boolean(request.prioritizeExpiringIngredients),
       includeMissingIngredients: Boolean(request.includeMissingIngredients),
-      numberOfSuggestions: Math.min(Math.max(Number(request.numberOfSuggestions) || 3, 1), 5),
+      numberOfSuggestions: Math.min(Math.max(Number(request.numberOfSuggestions) || 2, 1), 5),
     };
     if (request.onboardingContext) {
       cleaned.onboardingContext = request.onboardingContext;
@@ -173,6 +173,8 @@ export class AiRecipeService {
       usedInventoryIngredients: suggestion.usedInventoryIngredients ?? [],
       missingIngredients: suggestion.missingIngredients ?? [],
       reason: suggestion.reason,
+      previewImageUrl: suggestion.previewImageUrl ?? null,
+      previewImageStatus: suggestion.previewImageStatus ?? 'idle',
     };
   }
 }

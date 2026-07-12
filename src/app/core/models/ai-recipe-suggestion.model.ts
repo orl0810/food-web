@@ -7,6 +7,10 @@ import {
 
 export type AiRecipeDifficulty = 'easy';
 
+export type AiRecipeFocusMode = 'pantry' | 'shopping' | 'inspire';
+
+export type AiRecipePreviewImageStatus = 'idle' | 'loading' | 'completed' | 'failed';
+
 export interface AiOnboardingContext {
   dietaryPreferences: DietaryPreference[];
   allergies: string[];
@@ -45,6 +49,8 @@ export interface AiRecipeSuggestion {
   usedInventoryIngredients: string[];
   missingIngredients: AiRecipeIngredient[];
   reason: string;
+  previewImageUrl?: string | null;
+  previewImageStatus?: AiRecipePreviewImageStatus;
 }
 
 export interface AiRecipeSuggestionResponse {

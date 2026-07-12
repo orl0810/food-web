@@ -726,7 +726,7 @@ export class RecipeSuggestionsComponent implements OnInit {
       maxPrepTimeMinutes: this.aiMaxPrepTime(),
       prioritizeExpiringIngredients: this.aiPrioritizeExpiring(),
       includeMissingIngredients: this.aiIncludeMissing(),
-      numberOfSuggestions: 3,
+      numberOfSuggestions: 2,
       ...(onboardingContext ? { onboardingContext } : {}),
       ...(excludeTitles?.length ? { excludeTitles } : {}),
     });
