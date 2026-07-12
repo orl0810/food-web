@@ -9,11 +9,13 @@ import { MealStreakBadgeComponent } from '../meal-streak-badge/meal-streak-badge
 import { ProfileMenuComponent } from '../../../features/user-profile/components/profile-menu/profile-menu.component';
 import { UserProfileFacadeService } from '../../../features/user-profile/services/user-profile-facade.service';
 import { MealStreakService } from '../../../core/services/meal-streak.service';
+import { EntitlementService } from '../../../core/services/entitlement.service';
+import { TrialStatusBannerComponent } from '../trial-status-banner/trial-status-banner.component';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, BottomNavComponent, CookFabComponent, ToCookPanelComponent, MealStreakBadgeComponent, ProfileMenuComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, BottomNavComponent, CookFabComponent, ToCookPanelComponent, MealStreakBadgeComponent, ProfileMenuComponent, TrialStatusBannerComponent],
   template: `
     <div class="min-h-screen bg-surface">
       <header class="border-b border-stone-200 bg-card">
@@ -81,6 +83,8 @@ import { MealStreakService } from '../../../core/services/meal-streak.service';
         </div>
       </header>
 
+      <app-trial-status-banner />
+
       <main class="mx-auto max-w-5xl px-4 py-6 pb-28 md:pb-6">
         <router-outlet />
       </main>
@@ -98,6 +102,7 @@ export class AppShellComponent {
   private readonly foodIconService = inject(FoodIconService);
   private readonly userProfileFacade = inject(UserProfileFacadeService);
   private readonly mealStreakService = inject(MealStreakService);
+  private readonly entitlementService = inject(EntitlementService);
   readonly toCookService = inject(ToCookService);
 
   constructor() {
@@ -105,5 +110,6 @@ export class AppShellComponent {
     void this.userProfileFacade.loadAll();
     void this.mealStreakService.loadStreak();
     void this.toCookService.load();
+    void this.entitlementService.load();
   }
 }

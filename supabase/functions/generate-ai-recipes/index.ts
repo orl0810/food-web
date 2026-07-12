@@ -21,6 +21,7 @@ interface AiRecipeSuggestionRequest {
   onboardingContext?: AiOnboardingContext;
   excludeTitles?: string[];
   customPrompt?: string;
+  idempotencyKey?: string;
 }
 
 interface FoodItemForPrompt {
@@ -83,7 +84,8 @@ serve(async (req) => {
       return jsonResponse({ error: 'AI recipe generation is not configured yet.' }, 500);
     }
 
-    const request = cleanRequest(await req.json());
+    const body = await req.json();
+    const request = cleanRequest(body);
     const supabaseUrl = requireEnv('SUPABASE_URL');
     const supabaseAnonKey = requireEnv('SUPABASE_ANON_KEY');
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -97,6 +99,29 @@ serve(async (req) => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) {
       return jsonResponse({ error: 'You must be signed in to generate recipes.' }, 401);
+    }
+
+    const idempotencyKey = toNonEmptyString(body.idempotencyKey);
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (serviceRoleKey) {
+      const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+      const { data: allowance, error: allowanceError } = await serviceClient.rpc(
+        'check_smart_suggestion_allowance',
+        { p_user_id: userData.user.id }
+      );
+      if (allowanceError) {
+        return jsonResponse({ error: 'Could not verify usage allowance.' }, 500);
+      }
+      if (allowance && allowance.allowed === false) {
+        return jsonResponse(
+          {
+            error: 'You have used all AI recipe generations for this month.',
+            code: 'SMART_SUGGESTION_LIMIT_REACHED',
+            usage: allowance.usage,
+          },
+          429
+        );
+      }
     }
 
     const { data, error } = await supabase
@@ -163,6 +188,17 @@ serve(async (req) => {
     const content = openAiPayload?.choices?.[0]?.message?.content;
     const parsed = JSON.parse(content);
     const suggestions = validateSuggestions(parsed, request.includeMissingIngredients);
+
+    if (serviceRoleKey && idempotencyKey) {
+      const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+      const { error: recordError } = await serviceClient.rpc('record_smart_suggestion_usage', {
+        p_user_id: userData.user.id,
+        p_idempotency_key: idempotencyKey,
+      });
+      if (recordError && !String(recordError.message).includes('SMART_SUGGESTION_LIMIT_REACHED')) {
+        console.error('Failed to record smart suggestion usage');
+      }
+    }
 
     return jsonResponse({ suggestions });
   } catch {

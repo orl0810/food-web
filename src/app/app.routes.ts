@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
+import { billingAvailableGuard } from './core/guards/billing.guard';
 import { onboardingEntryGuard, pendingOnboardingGuard } from './core/guards/onboarding.guard';
 import { AppShellComponent } from './shared/components/app-shell/app-shell.component';
 
@@ -134,6 +135,38 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/admin-dashboard.component').then(
             (m) => m.AdminDashboardComponent
+          ),
+      },
+      {
+        path: 'pricing',
+        canActivate: [billingAvailableGuard],
+        loadComponent: () =>
+          import('./features/billing/pricing-page/pricing-page.component').then(
+            (m) => m.PricingPageComponent
+          ),
+      },
+      {
+        path: 'account/billing',
+        canActivate: [billingAvailableGuard],
+        loadComponent: () =>
+          import('./features/billing/account-billing-page/account-billing-page.component').then(
+            (m) => m.AccountBillingPageComponent
+          ),
+      },
+      {
+        path: 'checkout/success',
+        canActivate: [billingAvailableGuard],
+        loadComponent: () =>
+          import('./features/billing/checkout-success-page/checkout-success-page.component').then(
+            (m) => m.CheckoutSuccessPageComponent
+          ),
+      },
+      {
+        path: 'checkout/cancel',
+        canActivate: [billingAvailableGuard],
+        loadComponent: () =>
+          import('./features/billing/checkout-cancel-page/checkout-cancel-page.component').then(
+            (m) => m.CheckoutCancelPageComponent
           ),
       },
     ],

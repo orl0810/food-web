@@ -31,6 +31,7 @@ import { FoodCatalogService } from '../../../core/services/food-catalog.service'
 import { FoodIconService } from '../../../core/services/food-icon.service';
 import { FoodItemHistoryService } from '../../../core/services/food-item-history.service';
 import { RecipeService } from '../../../core/services/recipe.service';
+import { EntitlementService } from '../../../core/services/entitlement.service';
 import { FoodLogPhotoService } from '../../../core/services/food-log-photo.service';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { FoodIconBadgeComponent } from '../../../shared/components/food-icon-badge/food-icon-badge.component';
@@ -547,6 +548,7 @@ export class RecipeFormComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly recipeService = inject(RecipeService);
+  private readonly entitlementService = inject(EntitlementService);
   private readonly photoService = inject(FoodLogPhotoService);
   private readonly foodItemHistoryService = inject(FoodItemHistoryService);
   private readonly foodCatalogService = inject(FoodCatalogService);
@@ -975,6 +977,13 @@ export class RecipeFormComponent implements OnInit, OnDestroy {
   async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      return;
+    }
+
+    if (!this.recipeId && !this.entitlementService.canCreatePersonalRecipe()) {
+      this.error.set(
+        'Free accounts can save up to 10 personal recipes. Upgrade to add more.'
+      );
       return;
     }
 

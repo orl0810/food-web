@@ -8,7 +8,15 @@ import {
 import { normalizeTags } from '../../shared/utils/tag.utils';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { ProductEvent } from '../analytics/analytics-events';
+import { billingErrorMessage } from '../models/billing.model';
 import { SupabaseService } from './supabase.service';
+
+function createIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `ai-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AiRecipeService {
@@ -49,10 +57,15 @@ export class AiRecipeService {
         throw new Error('You must be signed in to generate AI recipes.');
       }
 
-      const { data, error } = await client.functions.invoke<AiRecipeSuggestionResponse>(
+      const { data, error } = await client.functions.invoke<
+        AiRecipeSuggestionResponse & { code?: string; error?: string }
+      >(
         'generate-ai-recipes',
         {
-          body: this.cleanRequest(request),
+          body: {
+            ...this.cleanRequest(request),
+            idempotencyKey: createIdempotencyKey(),
+          },
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -61,6 +74,10 @@ export class AiRecipeService {
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      if (data && typeof data === 'object' && 'error' in data && data.error) {
+        throw new Error(billingErrorMessage(data.code, data.error));
       }
 
       const response = this.normalizeResponse(data);

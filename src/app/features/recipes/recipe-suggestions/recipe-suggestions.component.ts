@@ -25,6 +25,7 @@ import {
   SuggestionFilters,
 } from '../../../core/models/smart-suggestion.model';
 import { AiRecipeService } from '../../../core/services/ai-recipe.service';
+import { EntitlementService } from '../../../core/services/entitlement.service';
 import { FoodInventoryService } from '../../../core/services/food-inventory.service';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { ShoppingListService } from '../../../core/services/shopping-list.service';
@@ -508,6 +509,7 @@ export class RecipeSuggestionsComponent implements OnInit {
   readonly recipeService = inject(RecipeService);
   readonly inventoryService = inject(FoodInventoryService);
   readonly aiRecipeService = inject(AiRecipeService);
+  private readonly entitlementService = inject(EntitlementService);
   readonly preparedPortionService = inject(PreparedPortionService);
   private readonly profileFacade = inject(UserProfileFacadeService);
   private readonly shoppingListService = inject(ShoppingListService);
@@ -697,6 +699,13 @@ export class RecipeSuggestionsComponent implements OnInit {
   async generateAiRecipes(): Promise<void> {
     this.aiError.set(null);
     this.aiInfoMessage.set(null);
+
+    if (!this.entitlementService.canGenerateSmartSuggestion()) {
+      this.aiError.set(
+        'You have used all 3 AI recipe generations this month. Upgrade for unlimited access.'
+      );
+      return;
+    }
 
     if (this.inventoryService.items().length === 0) {
       this.aiSuggestions.set([]);

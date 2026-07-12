@@ -8,6 +8,8 @@ import {
 } from '../../core/models/meal-plan.model';
 import { MealSlotItem } from '../../core/models/meal-slot-item.model';
 import { MealPlanService } from '../../core/services/meal-plan.service';
+import { EntitlementService } from '../../core/services/entitlement.service';
+import { getMondayOfWeek } from '../../shared/utils/meal-plan.utils';
 import { MealStreakService } from '../../core/services/meal-streak.service';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import {
@@ -20,6 +22,7 @@ import {
 } from '../../shared/utils/meal-plan.utils';
 import { MealSlotItemStatus } from '../../core/models/meal-slot-item.model';
 import { ConfettiCelebrationComponent } from './components/confetti-celebration/confetti-celebration.component';
+import { UpgradePromptComponent } from '../../shared/components/upgrade-prompt/upgrade-prompt.component';
 import { TodayProgressSwitcherComponent } from '../../shared/components/today-progress-switcher/today-progress-switcher.component';
 import { NutritionProgressService } from '../../core/services/nutrition-progress.service';
 import { NutritionTargetsService } from '../../core/services/nutrition-targets.service';
@@ -79,11 +82,18 @@ interface SelectedSlot {
     TodayProgressSwitcherComponent,
     MealStatusControlComponent,
     ConfettiCelebrationComponent,
+    UpgradePromptComponent,
   ],
   template: `
     <app-confetti-celebration [active]="showConfetti()" />
 
     <div class="page">
+      @if (mealPlanLimitMessage()) {
+        <app-upgrade-prompt
+          title="Meal plan limit reached"
+          [message]="mealPlanLimitMessage()!"
+        />
+      }
       <!-- <div>
         <h1 class="page-title">Meal Plan</h1>
         <p class="page-subtitle">Plan your week and reduce waste.</p>
@@ -371,6 +381,7 @@ interface SelectedSlot {
 })
 export class MealPlanComponent implements OnInit {
   readonly mealPlanService = inject(MealPlanService);
+  private readonly entitlementService = inject(EntitlementService);
   private readonly progressService = inject(MealPlanProgressService);
   private readonly toCookService = inject(ToCookService);
   private readonly nutritionProgressService = inject(NutritionProgressService);
@@ -408,6 +419,7 @@ export class MealPlanComponent implements OnInit {
   readonly selectedDate = signal(toISODate(new Date()));
   readonly removingId = signal<string | null>(null);
   readonly duplicating = signal(false);
+  readonly mealPlanLimitMessage = signal<string | null>(null);
   readonly completingSlotKey = signal<string | null>(null);
   readonly showConfetti = signal(false);
   private readonly celebrationArmed = signal(false);
@@ -544,6 +556,9 @@ export class MealPlanComponent implements OnInit {
     if (isPastDate(date)) {
       return;
     }
+    if (!this.canModifyMealPlanDate(date)) {
+      return;
+    }
     this.selectedSlot.set({ date, mealType });
   }
 
@@ -551,11 +566,26 @@ export class MealPlanComponent implements OnInit {
     if (isPastDate(item.date)) {
       return;
     }
+    if (!this.canModifyMealPlanDate(item.date)) {
+      return;
+    }
     this.selectedSlot.set({
       date: item.date,
       mealType: item.meal_type,
       replaceItemId: item.id,
     });
+  }
+
+  private canModifyMealPlanDate(date: string): boolean {
+    const weekStart = getMondayOfWeek(date);
+    if (this.entitlementService.canCreateOrActivateMealPlanWeek(weekStart)) {
+      this.mealPlanLimitMessage.set(null);
+      return true;
+    }
+    this.mealPlanLimitMessage.set(
+      'Free accounts can plan meals for the current week only. Upgrade to plan additional weeks.'
+    );
+    return false;
   }
 
   onFoodActionSelected(choice: FoodActionChoice): void {
@@ -730,6 +760,13 @@ export class MealPlanComponent implements OnInit {
   }
 
   async onDuplicatePreviousWeek(): Promise<void> {
+    if (!this.entitlementService.canCreateOrActivateMealPlanWeek(this.mealPlanService.weekStart())) {
+      this.mealPlanLimitMessage.set(
+        'Free accounts can plan meals for the current week only. Upgrade to duplicate weeks.'
+      );
+      return;
+    }
+
     if (
       !window.confirm(
         "Copy last week's meals into empty slots for this week? Existing meals will not be overwritten."

@@ -121,7 +121,7 @@ describe('AiRecipeService', () => {
     );
 
     expect(invokeSpy).toHaveBeenCalledWith('generate-ai-recipes', {
-      body: {
+      body: jasmine.objectContaining({
         mealType: 'lunch',
         maxPrepTimeMinutes: 45,
         prioritizeExpiringIngredients: false,
@@ -129,7 +129,8 @@ describe('AiRecipeService', () => {
         numberOfSuggestions: 3,
         onboardingContext,
         excludeTitles: ['Old Recipe'],
-      },
+        idempotencyKey: jasmine.any(String),
+      }),
       headers: {
         Authorization: 'Bearer test-token',
       },

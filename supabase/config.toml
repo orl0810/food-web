@@ -1,0 +1,5 @@
+# PantryFlow Supabase local config
+# See: https://supabase.com/docs/guides/cli/config
+
+[functions.stripe-webhook]
+verify_jwt = false

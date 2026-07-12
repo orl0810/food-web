@@ -85,6 +85,14 @@ import { UserProfileFacadeService } from '../../services/user-profile-facade.ser
             >
               Progress
             </button>
+            <button
+              type="button"
+              role="menuitem"
+              class="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-stone-700 hover:bg-stone-50"
+              (click)="navigate('/account/billing')"
+            >
+              Billing
+            </button>
             @if (userProfileService.isAdmin()) {
               <button
                 type="button"

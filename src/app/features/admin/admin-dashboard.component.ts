@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { AdminDateRangeFilterComponent } from './components/admin-date-range-filter/admin-date-range-filter.component';
 import { AdminFunnelComponent } from './components/admin-funnel/admin-funnel.component';
+import { AdminBillingSectionComponent } from './components/admin-billing-section/admin-billing-section.component';
 import { AdminDateRangePreset } from './models/admin-analytics.model';
 import { AdminAnalyticsService } from './services/admin-analytics.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
@@ -15,6 +16,7 @@ import { StatCardComponent } from '../../shared/components/stat-card/stat-card.c
     DatePipe,
     AdminDateRangeFilterComponent,
     AdminFunnelComponent,
+    AdminBillingSectionComponent,
     EmptyStateComponent,
     LoadingStateComponent,
     StatCardComponent,
@@ -308,6 +310,8 @@ import { StatCardComponent } from '../../shared/components/stat-card/stat-card.c
             />
           </div>
         </section>
+
+        <app-admin-billing-section />
       }
     </div>
   `,
