@@ -32,7 +32,7 @@ function makeAiRequest(
     maxPrepTimeMinutes: 30,
     prioritizeExpiringIngredients: true,
     includeMissingIngredients: false,
-    numberOfSuggestions: 3,
+    numberOfSuggestions: 2,
     ...overrides,
   };
 }
@@ -114,7 +114,7 @@ describe('AiRecipeService', () => {
         maxPrepTimeMinutes: 45,
         prioritizeExpiringIngredients: false,
         includeMissingIngredients: true,
-        numberOfSuggestions: 3,
+        numberOfSuggestions: 2,
         onboardingContext,
         excludeTitles: ['Old Recipe', 'Old Recipe', '  '],
       })
@@ -126,7 +126,7 @@ describe('AiRecipeService', () => {
         maxPrepTimeMinutes: 45,
         prioritizeExpiringIngredients: false,
         includeMissingIngredients: true,
-        numberOfSuggestions: 3,
+        numberOfSuggestions: 2,
         onboardingContext,
         excludeTitles: ['Old Recipe'],
         idempotencyKey: jasmine.any(String),

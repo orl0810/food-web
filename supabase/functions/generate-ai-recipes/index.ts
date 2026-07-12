@@ -34,6 +34,16 @@ interface FoodItemForPrompt {
   created_at: string;
 }
 
+interface InventoryItemForPrompt {
+  name: string;
+  category: string | null;
+  quantity: number;
+  unit: string | null;
+  location: 'fridge' | 'freezer' | 'pantry';
+  daysUntilExpiry: number | null;
+  isExpiringSoon: boolean;
+}
+
 interface AiRecipeIngredient {
   name: string;
   quantity: number | null;
@@ -62,7 +72,8 @@ const corsHeaders = {
 
 const maxInventoryItems = 50;
 const maxSuggestions = 5;
-const defaultModel = 'gpt-4o-mini';
+const defaultRecipeModel = 'gpt-4o';
+const expiringSoonDays = 7;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -153,9 +164,14 @@ serve(async (req) => {
       });
     }
 
-    if (inventory.length === 0 && !request.onboardingContext) {
+    const canGenerateWithoutInventory =
+      request.includeMissingIngredients && Boolean(request.customPrompt);
+
+    if (inventory.length === 0 && !request.onboardingContext && !canGenerateWithoutInventory) {
       return jsonResponse({ suggestions: [] });
     }
+
+    const inventoryForPrompt = enrichInventoryForPrompt(inventory);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -164,8 +180,11 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: Deno.env.get('OPENAI_MODEL') || defaultModel,
-        temperature: 0.4,
+        model:
+          Deno.env.get('OPENAI_RECIPE_MODEL') ||
+          Deno.env.get('OPENAI_MODEL') ||
+          defaultRecipeModel,
+        temperature: 0.65,
         response_format: { type: 'json_object' },
         messages: [
           {
@@ -174,7 +193,7 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: buildUserPrompt(request, inventory),
+            content: buildUserPrompt(request, inventoryForPrompt),
           },
         ],
       }),
@@ -210,7 +229,7 @@ function cleanRequest(input: unknown): AiRecipeSuggestionRequest {
   const body = isRecord(input) ? input : {};
   const mealType = isMealType(body.mealType) ? body.mealType : 'dinner';
   const maxPrepTimeMinutes = clampNumber(body.maxPrepTimeMinutes, 15, 60, 30);
-  const numberOfSuggestions = clampNumber(body.numberOfSuggestions, 1, maxSuggestions, 3);
+  const numberOfSuggestions = clampNumber(body.numberOfSuggestions, 1, maxSuggestions, 2);
 
   const onboardingContext = cleanOnboardingContext(body.onboardingContext);
   const excludeTitles = normalizeStringArray(body.excludeTitles).slice(0, 10);
@@ -278,11 +297,45 @@ function selectInventoryItems(
     .slice(0, maxInventoryItems);
 }
 
+function enrichInventoryForPrompt(inventory: FoodItemForPrompt[]): InventoryItemForPrompt[] {
+  const today = new Date();
+
+  return inventory.map((item) => {
+    const daysUntilExpiry = getDaysUntilExpiration(item.expiration_date, today);
+    return {
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      unit: item.unit,
+      location: item.location,
+      daysUntilExpiry,
+      isExpiringSoon:
+        daysUntilExpiry !== null && daysUntilExpiry >= 0 && daysUntilExpiry <= expiringSoonDays,
+    };
+  });
+}
+
+function getDaysUntilExpiration(date: string | null, today: Date): number | null {
+  if (!date) {
+    return null;
+  }
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  return Math.round((startOfDate.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000));
+}
+
 function buildSystemPrompt(): string {
   return [
-    'You generate practical recipe suggestions for a personal meal planner.',
+    'You generate practical, specific recipe suggestions for a personal meal planner.',
     'Return only valid JSON with a top-level "suggestions" array.',
-    'Recipes must be easy, realistic, safe, and suitable for a normal home kitchen.',
+    'Recipes must be realistic, safe, and suitable for a normal home kitchen.',
+    'Use specific dish names — never generic titles like "Quick Pasta", "Easy Bowl", or "Simple Stir Fry".',
+    'Prefer recognizable dish names with cuisine or style cues when appropriate.',
+    'Ingredient quantities must be realistic for home cooking; steps must be clear and actionable.',
     'Avoid allergies, medical claims, dangerous instructions, and overly fancy techniques.',
     'Use basic pantry staples only when needed: salt, pepper, oil, water, and basic spices.',
     'Strictly follow dietary preferences and allergies from onboarding context.',
@@ -339,14 +392,21 @@ function buildDietaryPreferenceRules(preferences: string[]): string[] {
 
 function buildUserPrompt(
   request: AiRecipeSuggestionRequest,
-  inventory: FoodItemForPrompt[]
+  inventory: InventoryItemForPrompt[]
 ): string {
   const missingRule = request.includeMissingIngredients
-    ? 'Missing ingredients are allowed, but keep them minimal.'
+    ? 'Missing ingredients are allowed, but keep them minimal and practical for a normal grocery run.'
     : 'Do not include missing ingredients except basic pantry staples.';
   const expiringRule = request.prioritizeExpiringIngredients
-    ? 'Prefer recipes that use ingredients expiring soon.'
+    ? 'Strongly prefer recipes that use ingredients marked isExpiringSoon or with low daysUntilExpiry.'
     : 'Use available ingredients naturally without over-prioritizing expiration dates.';
+  const distinctRule =
+    request.numberOfSuggestions >= 2
+      ? 'Each suggestion must use a distinctly different approach (cooking method, cuisine, texture, or meal style).'
+      : null;
+  const customPromptRule = request.customPrompt
+    ? `PRIMARY creative direction from the user — honor this above all other preferences when safe: "${request.customPrompt}".`
+    : null;
 
   const allergyRule =
     request.onboardingContext?.allergies?.length
@@ -358,7 +418,9 @@ function buildUserPrompt(
   );
 
   return JSON.stringify({
-    task: 'Generate easy recipe suggestions from this inventory.',
+    task: request.customPrompt
+      ? 'Generate specific, realistic recipe suggestions guided by the user request.'
+      : 'Generate specific, realistic recipe suggestions from this inventory.',
     preferences: {
       mealType: request.mealType,
       maxPrepTimeMinutes: request.maxPrepTimeMinutes,
@@ -372,6 +434,8 @@ function buildUserPrompt(
     rules: [
       missingRule,
       expiringRule,
+      distinctRule,
+      customPromptRule,
       allergyRule,
       ...dietaryRules,
       request.onboardingContext?.dislikedIngredients?.length
@@ -380,12 +444,10 @@ function buildUserPrompt(
       request.excludeTitles?.length
         ? `Do not repeat these recipe titles: ${request.excludeTitles.join(', ')}.`
         : null,
-      request.customPrompt
-        ? `User personalization request (honor when possible without breaking allergies or dietary rules): ${request.customPrompt}`
-        : null,
       'Every recipe must fit within maxPrepTimeMinutes.',
       'Prefer available inventory ingredients over unrelated ingredients.',
-      'Keep steps short and clear.',
+      'Use specific dish titles, not generic placeholders.',
+      'Keep steps short, clear, and actionable — no vague instructions.',
       'Add tags that reflect dietary preferences (e.g. vegetarian, vegan, gluten-free).',
     ].filter(Boolean),
     inventory,

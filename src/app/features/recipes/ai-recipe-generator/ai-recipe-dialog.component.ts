@@ -11,7 +11,7 @@ import { AiRecipeGeneratorComponent } from './ai-recipe-generator.component';
       (click)="closed.emit()"
     >
       <div
-        class="card flex h-[70vh] max-h-[70vh] w-full max-w-2xl flex-col overflow-hidden"
+        class="card flex h-[80vh] max-h-[80vh] w-full max-w-4xl flex-col overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-recipe-dialog-title"
@@ -22,7 +22,7 @@ import { AiRecipeGeneratorComponent } from './ai-recipe-generator.component';
             Create AI recipe
           </h2>
           <p class="mt-0.5 text-sm text-stone-600">
-            Generate easy recipes from your inventory with AI
+            Generate realistic recipes from your pantry or your own ideas
           </p>
         </div>
 
@@ -35,7 +35,7 @@ import { AiRecipeGeneratorComponent } from './ai-recipe-generator.component';
           <button
             type="button"
             class="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
-            [disabled]="generator.aiRecipeService.loading() || generator.inventoryService.items().length === 0"
+            [disabled]="!generator.canGenerate()"
             (click)="generator.generateAiRecipes()"
           >
             {{ generator.aiRecipeService.loading() ? 'Generating...' : 'Generate suggestions' }}

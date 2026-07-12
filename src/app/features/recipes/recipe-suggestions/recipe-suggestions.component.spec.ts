@@ -211,7 +211,7 @@ describe('RecipeSuggestionsComponent AI generation', () => {
 
     expect(generateSpy).toHaveBeenCalledTimes(1);
     const request = generateSpy.calls.mostRecent().args[0];
-    expect(request.numberOfSuggestions).toBe(3);
+    expect(request.numberOfSuggestions).toBe(2);
     expect(request.mealType).toBe('dinner');
     expect(request.maxPrepTimeMinutes).toBe(30);
     expect(request.onboardingContext).toEqual({

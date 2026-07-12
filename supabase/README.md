@@ -142,19 +142,32 @@ Onboarding and recipe suggestions use the `generate-ai-recipes` edge function, w
 supabase secrets set OPENAI_API_KEY=your_openai_api_key
 ```
 
-Optional: override the model (defaults to `gpt-4o-mini`):
+Optional: override the recipe model (defaults to `gpt-4o`):
 
 ```bash
-supabase secrets set OPENAI_MODEL=gpt-4o-mini
+supabase secrets set OPENAI_RECIPE_MODEL=gpt-4o
 ```
+
+Recipe generation uses `OPENAI_RECIPE_MODEL` first, then falls back to `OPENAI_MODEL`, then `gpt-4o`. Nutrition estimation continues to use `OPENAI_MODEL` (defaults to `gpt-4o-mini`).
 
 2. Deploy the function:
 
 ```bash
 supabase functions deploy generate-ai-recipes
+supabase functions deploy generate-suggestion-preview-image
 ```
 
-3. Production (`useLocalApi: false`) requires this function and `OPENAI_API_KEY` for onboarding plan generation. Local dev (`useLocalApi: true`) uses a preference-aware mock generator instead.
+3. Production (`useLocalApi: false`) requires these functions and `OPENAI_API_KEY` for onboarding plan generation. Local dev (`useLocalApi: true`) uses a preference-aware mock generator instead.
+
+### AI suggestion preview images
+
+When users generate AI recipe suggestions, the app requests preview images asynchronously via `generate-suggestion-preview-image`. Images are stored under `recipe-images/previews/{userId}/{uuid}.png` and attached to the recipe when saved (avoiding a second generation).
+
+Uses the same image secrets as recipe image generation (`OPENAI_IMAGE_MODEL`, etc.). For higher-quality previews:
+
+```bash
+supabase secrets set OPENAI_IMAGE_MODEL=gpt-image-1
+```
 
 ## Recipe images (Cloudflare R2)
 
