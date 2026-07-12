@@ -1,5 +1,5 @@
 import { Component, HostListener, inject, output, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserProfileService } from '../../../../core/services/user-profile.service';
 import { AdminAnalyticsService } from '../../../admin/services/admin-analytics.service';
@@ -8,6 +8,7 @@ import { UserProfileFacadeService } from '../../services/user-profile-facade.ser
 @Component({
   selector: 'app-profile-menu',
   standalone: true,
+  imports: [RouterLink],
   template: `
     <div class="relative">
       <button
@@ -122,6 +123,15 @@ import { UserProfileFacadeService } from '../../services/user-profile-facade.ser
                 Go to Admin
               </button>
             }
+            <div class="border-t border-stone-100 pt-3">
+              <nav class="flex flex-wrap gap-x-2 gap-y-1 px-3 py-2 text-xs text-stone-500" aria-label="Legal">
+                <a routerLink="/privacy" class="hover:text-brand-700" (click)="close()">Privacy</a>
+                <span aria-hidden="true">·</span>
+                <a routerLink="/terms" class="hover:text-brand-700" (click)="close()">Terms</a>
+                <span aria-hidden="true">·</span>
+                <a routerLink="/cookies" class="hover:text-brand-700" (click)="close()">Cookies</a>
+              </nav>
+            </div>
             <button
               type="button"
               role="menuitem"

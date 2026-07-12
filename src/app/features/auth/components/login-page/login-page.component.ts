@@ -198,6 +198,13 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
                 </button>
               </p>
             }
+
+            <p class="text-center text-xs leading-5 text-stone-500">
+              By continuing, you agree to our
+              <a routerLink="/terms" class="font-medium text-brand-700 hover:text-brand-800">Terms</a>
+              and acknowledge our
+              <a routerLink="/privacy" class="font-medium text-brand-700 hover:text-brand-800">Privacy Policy</a>.
+            </p>
           </form>
         } @else {
           <form class="mt-6 space-y-4" [formGroup]="magicLinkForm" (ngSubmit)="submitMagicLink()">
@@ -232,6 +239,13 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
 
             <p class="text-center text-xs text-stone-500">
               We'll send you a secure login link.
+            </p>
+
+            <p class="text-center text-xs leading-5 text-stone-500">
+              By continuing, you agree to our
+              <a routerLink="/terms" class="font-medium text-brand-700 hover:text-brand-800">Terms</a>
+              and acknowledge our
+              <a routerLink="/privacy" class="font-medium text-brand-700 hover:text-brand-800">Privacy Policy</a>.
             </p>
 
             <p class="text-center text-sm text-stone-600">

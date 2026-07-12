@@ -26,6 +26,6 @@ No inventory, recipe, meal, email, or other personal data is included.
 ## Production integrations
 
 - Replace the relative canonical URL with the final public production origin when it is known.
-- Add reviewed Privacy Policy, Terms and Conditions, and Cookie Policy pages before public launch, then replace the footer launch note with real routes.
+- Privacy Policy (`/privacy`), Terms of Service (`/terms`), and Cookie Policy (`/cookies`) pages are implemented as editable drafts. Have them reviewed by a lawyer and update placeholders (`[Company/Owner Name]`, `[Jurisdiction]`, `[Last Updated Date]`) before public launch.
 - Confirm `hello@pantryflow.app` is monitored before launch.
 - Add a licensed Open Graph image and `og:image` metadata when a final social asset exists.

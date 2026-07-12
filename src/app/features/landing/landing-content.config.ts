@@ -27,7 +27,7 @@ export const LANDING_FAQS: readonly LandingFaq[] = [
   { question: 'Is it suitable for vegetarian users?', answer: 'Yes. Dietary preferences are part of profile and onboarding settings, including vegetarian and vegan options.' },
   { question: 'Is it free during beta?', answer: 'The current registration flow does not require payment. Pricing for a future public release has not been announced.' },
   { question: 'Can I use it on mobile?', answer: 'Yes. PantryFlow is a responsive web app designed for phones, tablets, and desktop browsers.' },
-  { question: 'Is my information private?', answer: 'Your account is protected by authentication. Formal privacy terms are still required before a public launch, so we do not make broader data-handling claims here.' },
+  { question: 'Is my information private?', answer: 'Your account is protected by authentication. See our Privacy Policy for how we handle your data, and our Cookie Policy for how we use browser storage.' },
 ];
 
 export const LANDING_ANALYTICS_EVENTS = [

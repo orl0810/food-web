@@ -40,6 +40,27 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
+    path: 'privacy',
+    loadComponent: () =>
+      import('./features/legal/privacy-policy-page.component').then(
+        (m) => m.PrivacyPolicyPageComponent
+      ),
+  },
+  {
+    path: 'terms',
+    loadComponent: () =>
+      import('./features/legal/terms-of-service-page.component').then(
+        (m) => m.TermsOfServicePageComponent
+      ),
+  },
+  {
+    path: 'cookies',
+    loadComponent: () =>
+      import('./features/legal/cookie-policy-page.component').then(
+        (m) => m.CookiePolicyPageComponent
+      ),
+  },
+  {
     path: 'onboarding',
     loadComponent: () =>
       import('./features/onboarding/components/onboarding-shell/onboarding-shell.component').then(
