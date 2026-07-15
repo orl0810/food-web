@@ -273,9 +273,11 @@ interface SelectedSlot {
               @if (isTodayDate(selectedDate())) {
                 <span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">Today</span>
               }
+              <!-- Hidden for now — re-enable when add-food flow is ready for users
               <button type="button" class="btn-primary-sm" (click)="showAddFoodMenu.set(true)">
                 Add food
               </button>
+              -->
             </div>
           </div>
 
