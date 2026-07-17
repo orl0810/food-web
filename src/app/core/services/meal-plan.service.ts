@@ -335,6 +335,35 @@ export class MealPlanService {
     return { entry: result.item, error: result.error };
   }
 
+  async addRecipeSlotsBatch(
+    slots: Array<{ date: string; mealType: MealType; recipeId: string }>
+  ): Promise<{ items: MealSlotItem[]; error: string | null }> {
+    if (slots.length === 0) return { items: [], error: null };
+    const client = this.supabaseService.getClient();
+    const userId = this.authService.user()?.id;
+    if (!userId || (!environment.useLocalApi && !client)) {
+      return { items: [], error: 'You must be signed in to plan meals.' };
+    }
+    const rows = slots.map((slot) => this.buildInsertRow(userId, {
+      date: slot.date,
+      meal_type: slot.mealType,
+      item_type: 'recipe',
+      recipe_id: slot.recipeId,
+      sort_order: 0,
+    }, 0));
+    try {
+      const data = environment.useLocalApi
+        ? await this.localApiService.createMealPlanItemsBatch(rows)
+        : (await client!.from('meal_plan_items').insert(rows).select(MEAL_PLAN_ITEM_SELECT)).data;
+      if (!data) throw new Error('Batch insert returned no data.');
+      const items = this.normalizeItems(data);
+      for (const item of items) this.addItemToSignals(item);
+      return { items, error: null };
+    } catch {
+      return { items: [], error: 'Could not autogenerate your meal plan. No meals were saved.' };
+    }
+  }
+
   async removeSlotItem(id: string): Promise<{ error: string | null }> {
     const item = this.findItemById(id);
     if (!item) {

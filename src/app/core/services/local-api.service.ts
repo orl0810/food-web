@@ -239,6 +239,15 @@ export class LocalApiService {
     return response.data;
   }
 
+  async createMealPlanItemsBatch(payloads: Record<string, unknown>[]): Promise<unknown[]> {
+    const response = await this.request<{ data: unknown[] }>('/meal-plan-items/batch', {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify({ items: payloads }),
+    });
+    return response.data;
+  }
+
   async updateMealPlanItem(id: string, payload: Record<string, unknown>): Promise<unknown> {
     const response = await this.request<{ data: unknown }>(`/meal-plan-items/${id}`, {
       method: 'PATCH',
