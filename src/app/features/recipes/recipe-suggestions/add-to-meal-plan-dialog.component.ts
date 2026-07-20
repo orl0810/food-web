@@ -29,15 +29,16 @@ import {
 
         <div class="mt-4 space-y-4">
           <div>
-            <label class="block text-sm font-medium text-stone-700">Day</label>
+            <label class="block text-sm font-medium text-stone-700">Days</label>
+            <p class="mt-0.5 text-xs text-stone-500">Select one or more days</p>
             <div class="mt-1.5 flex flex-wrap gap-2">
               @for (date of weekDates; track date) {
                 <button
                   type="button"
                   class="filter-pill"
-                  [class.filter-pill-active]="selectedDate() === date"
-                  [class.filter-pill-inactive]="selectedDate() !== date"
-                  (click)="selectedDate.set(date)"
+                  [class.filter-pill-active]="isDateSelected(date)"
+                  [class.filter-pill-inactive]="!isDateSelected(date)"
+                  (click)="toggleDate(date)"
                 >
                   {{ dayLabel(date) }}
                 </button>
@@ -71,10 +72,10 @@ import {
           <button
             type="button"
             class="btn-primary flex-1"
-            [disabled]="saving()"
+            [disabled]="saving() || selectedDates().length === 0"
             (click)="confirm()"
           >
-            {{ saving() ? 'Adding...' : 'Add to plan' }}
+            {{ saving() ? 'Adding...' : addButtonLabel() }}
           </button>
           <button
             type="button"
@@ -99,13 +100,26 @@ export class AddToMealPlanDialogComponent implements OnInit {
   readonly mealTypes = MEAL_TYPES;
   readonly weekDates = getUpcomingDates(7);
 
-  readonly selectedDate = signal(toISODate());
+  readonly selectedDates = signal<string[]>([toISODate()]);
   readonly selectedMealType = signal<MealType>('dinner');
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
 
   ngOnInit(): void {
-    this.selectedDate.set(toISODate());
+    this.selectedDates.set([toISODate()]);
+  }
+
+  isDateSelected(date: string): boolean {
+    return this.selectedDates().includes(date);
+  }
+
+  toggleDate(date: string): void {
+    const current = this.selectedDates();
+    if (current.includes(date)) {
+      this.selectedDates.set(current.filter((d) => d !== date));
+      return;
+    }
+    this.selectedDates.set([...current, date].sort());
   }
 
   dayLabel(date: string): string {
@@ -116,16 +130,33 @@ export class AddToMealPlanDialogComponent implements OnInit {
     return MEAL_TYPE_LABELS[mealType];
   }
 
+  addButtonLabel(): string {
+    const count = this.selectedDates().length;
+    if (count <= 1) {
+      return 'Add to plan';
+    }
+    return `Add to ${count} days`;
+  }
+
   async confirm(): Promise<void> {
+    const dates = this.selectedDates();
+    if (dates.length === 0) {
+      this.error.set('Select at least one day.');
+      return;
+    }
+
     this.saving.set(true);
     this.error.set(null);
 
-    const { error } = await this.mealPlanService.addSlotItem({
-      date: this.selectedDate(),
-      meal_type: this.selectedMealType(),
-      item_type: 'recipe',
-      recipe_id: this.recipe().id,
-    });
+    const mealType = this.selectedMealType();
+    const recipeId = this.recipe().id;
+    const slots = dates.map((date) => ({
+      date,
+      mealType,
+      recipeId,
+    }));
+
+    const { error } = await this.mealPlanService.addRecipeSlotsBatch(slots);
 
     if (error) {
       this.saving.set(false);
@@ -133,7 +164,7 @@ export class AddToMealPlanDialogComponent implements OnInit {
       return;
     }
 
-    await this.mealPlanService.loadWeekAndToday(this.selectedDate());
+    await this.mealPlanService.loadWeekAndToday(dates[0]);
     this.saving.set(false);
     this.saved.emit();
   }
