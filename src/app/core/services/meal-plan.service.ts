@@ -360,7 +360,7 @@ export class MealPlanService {
       for (const item of items) this.addItemToSignals(item);
       return { items, error: null };
     } catch {
-      return { items: [], error: 'Could not autogenerate your meal plan. No meals were saved.' };
+      return { items: [], error: 'Could not add recipes to your meal plan. No meals were saved.' };
     }
   }
 

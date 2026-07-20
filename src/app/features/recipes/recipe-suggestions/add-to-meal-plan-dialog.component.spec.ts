@@ -29,14 +29,16 @@ function makeRecipe(): Recipe {
 describe('AddToMealPlanDialogComponent', () => {
   let fixture: ComponentFixture<AddToMealPlanDialogComponent>;
   let component: AddToMealPlanDialogComponent;
-  let addSlotItemSpy: jasmine.Spy;
+  let addRecipeSlotsBatchSpy: jasmine.Spy;
   let loadWeekAndTodaySpy: jasmine.Spy;
 
   beforeEach(async () => {
-    addSlotItemSpy = jasmine.createSpy('addSlotItem').and.resolveTo({
-      item: null,
-      error: null,
-    });
+    addRecipeSlotsBatchSpy = jasmine
+      .createSpy('addRecipeSlotsBatch')
+      .and.resolveTo({
+        items: [],
+        error: null,
+      });
     loadWeekAndTodaySpy = jasmine.createSpy('loadWeekAndToday').and.resolveTo();
 
     await TestBed.configureTestingModule({
@@ -45,7 +47,7 @@ describe('AddToMealPlanDialogComponent', () => {
         {
           provide: MealPlanService,
           useValue: {
-            addSlotItem: addSlotItemSpy,
+            addRecipeSlotsBatch: addRecipeSlotsBatchSpy,
             loadWeekAndToday: loadWeekAndTodaySpy,
           },
         },
@@ -61,33 +63,82 @@ describe('AddToMealPlanDialogComponent', () => {
   it('loads the selected date week after saving the recipe', async () => {
     const savedSpy = jasmine.createSpy('saved');
     component.saved.subscribe(savedSpy);
-    component.selectedDate.set('2026-07-14');
+    component.selectedDates.set(['2026-07-14']);
     component.selectedMealType.set('lunch');
 
     await component.confirm();
 
-    expect(addSlotItemSpy).toHaveBeenCalledOnceWith({
-      date: '2026-07-14',
-      meal_type: 'lunch',
-      item_type: 'recipe',
-      recipe_id: 'recipe-1',
-    });
+    expect(addRecipeSlotsBatchSpy).toHaveBeenCalledOnceWith([
+      {
+        date: '2026-07-14',
+        mealType: 'lunch',
+        recipeId: 'recipe-1',
+      },
+    ]);
     expect(loadWeekAndTodaySpy).toHaveBeenCalledOnceWith('2026-07-14');
     expect(savedSpy).toHaveBeenCalled();
   });
 
+  it('adds the recipe to every selected date', async () => {
+    const savedSpy = jasmine.createSpy('saved');
+    component.saved.subscribe(savedSpy);
+    component.selectedDates.set(['2026-07-14', '2026-07-16']);
+    component.selectedMealType.set('dinner');
+
+    await component.confirm();
+
+    expect(addRecipeSlotsBatchSpy).toHaveBeenCalledOnceWith([
+      {
+        date: '2026-07-14',
+        mealType: 'dinner',
+        recipeId: 'recipe-1',
+      },
+      {
+        date: '2026-07-16',
+        mealType: 'dinner',
+        recipeId: 'recipe-1',
+      },
+    ]);
+    expect(loadWeekAndTodaySpy).toHaveBeenCalledOnceWith('2026-07-14');
+    expect(savedSpy).toHaveBeenCalled();
+  });
+
+  it('toggles dates on and off', () => {
+    component.selectedDates.set(['2026-07-14']);
+
+    component.toggleDate('2026-07-16');
+    expect(component.selectedDates()).toEqual(['2026-07-14', '2026-07-16']);
+
+    component.toggleDate('2026-07-14');
+    expect(component.selectedDates()).toEqual(['2026-07-16']);
+  });
+
   it('keeps the dialog open and does not change weeks when saving fails', async () => {
-    addSlotItemSpy.and.resolveTo({
-      item: null,
-      error: 'Could not add this item. Please try again.',
+    addRecipeSlotsBatchSpy.and.resolveTo({
+      items: [],
+      error: 'Could not add recipes to your meal plan. No meals were saved.',
     });
     const savedSpy = jasmine.createSpy('saved');
     component.saved.subscribe(savedSpy);
 
     await component.confirm();
 
-    expect(component.error()).toBe('Could not add this item. Please try again.');
+    expect(component.error()).toBe(
+      'Could not add recipes to your meal plan. No meals were saved.'
+    );
     expect(loadWeekAndTodaySpy).not.toHaveBeenCalled();
+    expect(savedSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not save when no dates are selected', async () => {
+    const savedSpy = jasmine.createSpy('saved');
+    component.saved.subscribe(savedSpy);
+    component.selectedDates.set([]);
+
+    await component.confirm();
+
+    expect(component.error()).toBe('Select at least one day.');
+    expect(addRecipeSlotsBatchSpy).not.toHaveBeenCalled();
     expect(savedSpy).not.toHaveBeenCalled();
   });
 });
