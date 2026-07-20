@@ -5,9 +5,43 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
 import { allBaseRecipeSeeds } from '../supabase/seeds/base-recipes/index.ts';
+import type { BaseRecipeSeed } from '../supabase/seeds/base-recipes/types.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = join(__dirname, 'data', 'pantryflow.sqlite');
+const foodWasteCollectionPath = join(
+  __dirname,
+  '..',
+  'src',
+  'assets',
+  'base_recipes_food_waste_collection.json'
+);
+
+interface LocalBaseRecipeSeed extends BaseRecipeSeed {
+  nutrition_calories?: number | null;
+  nutrition_fat_g?: number | null;
+  nutrition_cholesterol_mg?: number | null;
+  nutrition_protein_g?: number | null;
+  nutrition_sugar_g?: number | null;
+  nutrition_sodium_mg?: number | null;
+  nutrition_carbs_g?: number | null;
+  nutrition_fiber_g?: number | null;
+}
+
+interface FoodWasteCollection {
+  recipes: Array<{
+    recipe: Omit<LocalBaseRecipeSeed, 'ingredients'>;
+    ingredients: LocalBaseRecipeSeed['ingredients'];
+  }>;
+}
+
+const foodWasteCollection = JSON.parse(
+  readFileSync(foodWasteCollectionPath, 'utf8')
+) as FoodWasteCollection;
+const localBaseRecipeSeeds: LocalBaseRecipeSeed[] = [
+  ...allBaseRecipeSeeds,
+  ...foodWasteCollection.recipes.map(({ recipe, ingredients }) => ({ ...recipe, ingredients })),
+];
 
 mkdirSync(dirname(dbPath), { recursive: true });
 
@@ -268,7 +302,7 @@ function seedBaseRecipesIfNeeded(): void {
     .prepare('select count(*) as count from recipes where is_base_recipe = 1')
     .get() as { count: number };
 
-  if (baseCount.count >= allBaseRecipeSeeds.length) {
+  if (baseCount.count >= localBaseRecipeSeeds.length) {
     return;
   }
 
@@ -276,8 +310,10 @@ function seedBaseRecipesIfNeeded(): void {
     insert or ignore into recipes (
       id, user_id, title, description, prep_time_minutes, cook_time_minutes, portions, tags,
       image_url, image_status, image_prompt, image_storage_provider, image_storage_key,
-      is_base_recipe, meal_type, category, difficulty, instructions
-    ) values (?, null, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+      is_base_recipe, meal_type, category, difficulty, instructions,
+      nutrition_calories, nutrition_fat_g, nutrition_cholesterol_mg, nutrition_protein_g,
+      nutrition_sugar_g, nutrition_sodium_mg, nutrition_carbs_g, nutrition_fiber_g
+    ) values (?, null, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const insertIngredient = db.prepare(`
     insert or ignore into recipe_ingredients (id, recipe_id, name, quantity, unit)
@@ -285,7 +321,7 @@ function seedBaseRecipesIfNeeded(): void {
   `);
 
   const seedAll = db.transaction(() => {
-    for (const recipe of allBaseRecipeSeeds) {
+    for (const recipe of localBaseRecipeSeeds) {
       insertRecipe.run(
         recipe.id,
         recipe.title,
@@ -302,7 +338,15 @@ function seedBaseRecipesIfNeeded(): void {
         recipe.meal_type,
         recipe.category,
         recipe.difficulty,
-        JSON.stringify(recipe.instructions)
+        JSON.stringify(recipe.instructions),
+        recipe.nutrition_calories ?? null,
+        recipe.nutrition_fat_g ?? null,
+        recipe.nutrition_cholesterol_mg ?? null,
+        recipe.nutrition_protein_g ?? null,
+        recipe.nutrition_sugar_g ?? null,
+        recipe.nutrition_sodium_mg ?? null,
+        recipe.nutrition_carbs_g ?? null,
+        recipe.nutrition_fiber_g ?? null
       );
 
       recipe.ingredients.forEach((ingredient) => {

@@ -1216,6 +1216,44 @@ app.post('/meal-plan-items', authMiddleware, (req: AuthenticatedRequest, res) =>
   res.json({ data: serializeMealPlanItem(row!) });
 });
 
+app.post('/meal-plan-items/batch', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  if (items.length === 0) {
+    res.status(400).json({ error: 'At least one meal plan item is required.' });
+    return;
+  }
+  const insert = db.prepare(
+    `insert into meal_plan_items (
+       id, user_id, date, meal_type, item_type, recipe_id, portions_used, sort_order, status
+     ) values (?, ?, ?, ?, 'recipe', ?, 1, 0, 'planned')`
+  );
+  const ids: string[] = [];
+  try {
+    db.transaction(() => {
+      for (const item of items) {
+        const date = String(item?.date ?? '').trim();
+        const mealType = String(item?.meal_type ?? '').trim();
+        const recipeId = String(item?.recipe_id ?? '').trim();
+        if (!date || !VALID_MEAL_TYPES.has(mealType) || !recipeId) {
+          throw new Error('Invalid batch meal plan item.');
+        }
+        const recipe = db.prepare(
+          'select id from recipes where id = ? and (user_id = ? or is_base_recipe = 1)'
+        ).get(recipeId, req.userId);
+        if (!recipe) throw new Error('Recipe not found.');
+        const id = crypto.randomUUID();
+        insert.run(id, req.userId, date, mealType, recipeId);
+        ids.push(id);
+      }
+    })();
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Batch insert failed.' });
+    return;
+  }
+  const rows = ids.map((id) => getMealPlanItemRow(id, req.userId!));
+  res.json({ data: rows.map((row) => serializeMealPlanItem(row!)) });
+});
+
 app.post('/meal-plan-items/duplicate-week', authMiddleware, (req: AuthenticatedRequest, res) => {
   const targetWeekStart = String(req.body?.targetWeekStart ?? '').trim();
 

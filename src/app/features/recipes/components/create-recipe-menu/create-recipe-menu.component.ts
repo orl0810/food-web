@@ -1,5 +1,4 @@
-import { Component, inject, output } from '@angular/core';
-import { VoiceInputService } from '../../../../core/services/voice-input.service';
+import { Component, output } from '@angular/core';
 
 export type CreateRecipeChoice = 'manual' | 'voice' | 'photo';
 
@@ -31,9 +30,9 @@ export type CreateRecipeChoice = 'manual' | 'voice' | 'photo';
           @for (option of options; track option.id) {
             <button
               type="button"
-              class="flex w-full items-start gap-3 rounded-xl border border-stone-200 p-4 text-left transition-colors hover:border-brand-300 hover:bg-brand-50/40 disabled:cursor-not-allowed disabled:opacity-60"
+              class="flex w-full items-start gap-3 rounded-xl border border-stone-200 p-4 text-left transition-colors hover:border-brand-300 hover:bg-brand-50/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-stone-200 disabled:hover:bg-transparent"
               [disabled]="option.disabled"
-              (click)="select(option.id)"
+              (click)="select(option)"
             >
               <span
                 class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700"
@@ -62,15 +61,12 @@ export type CreateRecipeChoice = 'manual' | 'voice' | 'photo';
                 <span class="flex flex-wrap items-center gap-2">
                   <span class="text-sm font-semibold text-stone-900">{{ option.title }}</span>
                   @if (option.badge) {
-                    <span class="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">
+                    <span class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
                       {{ option.badge }}
                     </span>
                   }
                 </span>
                 <span class="mt-0.5 block text-sm text-stone-600">{{ option.description }}</span>
-                @if (option.hint) {
-                  <span class="mt-1 block text-xs text-amber-700">{{ option.hint }}</span>
-                }
               </span>
             </button>
           }
@@ -90,8 +86,6 @@ export type CreateRecipeChoice = 'manual' | 'voice' | 'photo';
   `,
 })
 export class CreateRecipeMenuComponent {
-  readonly voiceInput = inject(VoiceInputService);
-
   readonly selected = output<CreateRecipeChoice>();
   readonly cancelled = output<void>();
 
@@ -99,7 +93,6 @@ export class CreateRecipeMenuComponent {
     id: CreateRecipeChoice;
     title: string;
     description: string;
-    hint?: string;
     badge?: string;
     disabled?: boolean;
   }[] = [
@@ -112,18 +105,22 @@ export class CreateRecipeMenuComponent {
       id: 'voice',
       title: 'Create with voice',
       description: 'Describe your recipe and we will pre-fill the form.',
-      hint: this.voiceInput.isSupported()
-        ? undefined
-        : 'Voice input is not available on this browser. You can still type the transcript.',
+      badge: 'Coming soon',
+      disabled: true,
     },
     {
       id: 'photo',
       title: 'Create with photo',
       description: 'Upload a photo of your food or a recipe.',
+      badge: 'Coming soon',
+      disabled: true,
     },
   ];
 
-  select(choice: CreateRecipeChoice): void {
-    this.selected.emit(choice);
+  select(option: { id: CreateRecipeChoice; disabled?: boolean }): void {
+    if (option.disabled) {
+      return;
+    }
+    this.selected.emit(option.id);
   }
 }
