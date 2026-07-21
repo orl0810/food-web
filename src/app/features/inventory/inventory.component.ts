@@ -122,6 +122,38 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
         />
       }
 
+      @if (activeFilter() !== 'ready_portions') {
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <div class="flex-1">
+            <label for="inventory-search" class="sr-only">Search ingredients</label>
+            <input
+              #searchInput
+              id="inventory-search"
+              type="search"
+              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              placeholder="Search ingredients"
+              [value]="searchTerm()"
+              (input)="searchTerm.set(searchInput.value)"
+            />
+          </div>
+
+          <div>
+            <label for="inventory-sort" class="sr-only">Sort inventory</label>
+            <select
+              #sortSelect
+              id="inventory-sort"
+              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 sm:w-auto"
+              [value]="sortOrder()"
+              (change)="setSortOrder(sortSelect.value)"
+            >
+              <option value="default">Expiration date</option>
+              <option value="name-asc">Name A–Z</option>
+              <option value="name-desc">Name Z–A</option>
+            </select>
+          </div>
+        </div>
+      }
+
       @if (activeFilter() === 'ready_portions') {
         <app-prepared-portions-list (addToMealPlan)="portionForMealPlan.set($event)" />
       } @else if (inventoryService.loading()) {
@@ -132,8 +164,12 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
         </p>
       } @else if (filteredItems().length === 0) {
         <app-empty-state
-          title="No food items here"
-          description="No food added yet. Start by adding what you already have in your fridge, freezer, or pantry."
+          [title]="searchTerm().trim() ? 'No matching ingredients' : 'No food items here'"
+          [description]="
+            searchTerm().trim()
+              ? 'Try a different ingredient name or clear your search.'
+              : 'No food added yet. Start by adding what you already have in your fridge, freezer, or pantry.'
+          "
           actionLabel="Add food"
           (actionClick)="openAddForm()"
         />
@@ -240,6 +276,8 @@ export class InventoryComponent implements OnInit {
   readonly locationLabels = STORAGE_LOCATION_LABELS;
 
   readonly activeFilter = signal<InventoryFilter>('all');
+  readonly searchTerm = signal('');
+  readonly sortOrder = signal<'default' | 'name-asc' | 'name-desc'>('default');
   readonly showForm = signal(false);
   readonly showVoiceForm = signal(false);
   readonly editingItem = signal<FoodItem | null>(null);
@@ -257,7 +295,24 @@ export class InventoryComponent implements OnInit {
     if (this.activeFilter() === 'ready_portions') {
       return [];
     }
-    return this.inventoryService.filterItems(this.inventoryService.items(), this.activeFilter());
+
+    const query = normalizeNameKey(this.searchTerm());
+    const items = this.inventoryService
+      .filterItems(this.inventoryService.items(), this.activeFilter())
+      .filter((item) => !query || normalizeNameKey(item.name).includes(query));
+
+    if (this.sortOrder() === 'default') {
+      return items;
+    }
+
+    const direction = this.sortOrder() === 'name-asc' ? 1 : -1;
+    return [...items].sort(
+      (first, second) =>
+        first.name.localeCompare(second.name, undefined, {
+          sensitivity: 'base',
+          numeric: true,
+        }) * direction
+    );
   });
 
   readonly reusableItems = computed(() => {
@@ -286,6 +341,12 @@ export class InventoryComponent implements OnInit {
 
   expirationStatus(item: FoodItem) {
     return getExpirationStatus(item.expiration_date);
+  }
+
+  setSortOrder(value: string): void {
+    if (value === 'default' || value === 'name-asc' || value === 'name-desc') {
+      this.sortOrder.set(value);
+    }
   }
 
   openAddForm(): void {
