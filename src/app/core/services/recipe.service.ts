@@ -16,6 +16,7 @@ import {
 } from '../../shared/utils/recipe-category-match.utils';
 import { normalizeTags } from '../../shared/utils/tag.utils';
 import { AuthService } from './auth.service';
+import { EntitlementService } from './entitlement.service';
 import { LocalApiService } from './local-api.service';
 import { RecipeImageService } from './recipe-image.service';
 import { RecipeImageUrlService } from './recipe-image-url.service';
@@ -29,6 +30,7 @@ export class RecipeService {
   private readonly supabaseService = inject(SupabaseService);
   private readonly localApiService = inject(LocalApiService);
   private readonly authService = inject(AuthService);
+  private readonly entitlementService = inject(EntitlementService);
   private readonly recipeNutritionService = inject(RecipeNutritionService);
   private readonly recipeImageUrlService = inject(RecipeImageUrlService);
   private readonly recipeImageService = inject(RecipeImageService);
@@ -223,6 +225,52 @@ export class RecipeService {
     return { recipe: this.normalizeRecipe(data), error: null };
   }
 
+  async getVisibleRecipeById(
+    id: string
+  ): Promise<{ recipe: Recipe | null; error: string | null }> {
+    const owned = await this.getRecipeById(id);
+    if (owned.recipe) {
+      return owned;
+    }
+
+    if (owned.error && owned.error !== 'Recipe not found.') {
+      return owned;
+    }
+
+    return this.getBaseRecipeById(id);
+  }
+
+  findPersonalCopyOfBase(baseRecipeId: string): Recipe | undefined {
+    return this.recipesSignal().find(
+      (recipe) => !recipe.is_base_recipe && recipe.base_recipe_id === baseRecipeId
+    );
+  }
+
+  async ensurePersonalRecipeFromBase(
+    baseRecipeId: string,
+    options?: { triggerImageGeneration?: boolean }
+  ): Promise<{ recipe: Recipe | null; error: string | null }> {
+    const existing = this.findPersonalCopyOfBase(baseRecipeId);
+    if (existing) {
+      return { recipe: existing, error: null };
+    }
+
+    const remoteCopy = await this.findPersonalCopyByBaseIdRemote(baseRecipeId);
+    if (remoteCopy) {
+      await this.loadRecipes();
+      return { recipe: remoteCopy, error: null };
+    }
+
+    if (!this.entitlementService.canCreatePersonalRecipe()) {
+      return {
+        recipe: null,
+        error: 'You have reached your personal recipe limit. Upgrade to add more recipes.',
+      };
+    }
+
+    return this.createRecipeFromTemplate(baseRecipeId, options);
+  }
+
   async getBaseRecipeById(
     id: string
   ): Promise<{ recipe: Recipe | null; error: string | null }> {
@@ -254,8 +302,27 @@ export class RecipeService {
   }
 
   async createRecipeFromTemplate(
-    baseRecipeId: string
+    baseRecipeId: string,
+    options?: { triggerImageGeneration?: boolean }
   ): Promise<{ recipe: Recipe | null; error: string | null }> {
+    const existing = this.findPersonalCopyOfBase(baseRecipeId);
+    if (existing) {
+      return { recipe: existing, error: null };
+    }
+
+    const remoteCopy = await this.findPersonalCopyByBaseIdRemote(baseRecipeId);
+    if (remoteCopy) {
+      await this.loadRecipes();
+      return { recipe: remoteCopy, error: null };
+    }
+
+    if (!this.entitlementService.canCreatePersonalRecipe()) {
+      return {
+        recipe: null,
+        error: 'You have reached your personal recipe limit. Upgrade to add more recipes.',
+      };
+    }
+
     if (environment.useLocalApi) {
       return this.createRecipeFromTemplateLocal(baseRecipeId);
     }
@@ -273,6 +340,9 @@ export class RecipeService {
       })
     );
 
+    const triggerImageGeneration =
+      options?.triggerImageGeneration ?? !this.hasImageMetadata(baseRecipe);
+
     return this.createRecipe(
       {
         title: baseRecipe.title,
@@ -288,10 +358,17 @@ export class RecipeService {
         instructions: baseRecipe.instructions,
       },
       ingredients,
-      { triggerImageGeneration: !this.hasImageMetadata(baseRecipe) }
+      {
+        triggerImageGeneration,
+        skipNutritionCalculation: this.hasNutritionValues(baseRecipe.nutrition),
+      }
     ).then(async (result) => {
       if (!result.recipe) {
         return result;
+      }
+
+      if (this.hasNutritionValues(baseRecipe.nutrition) && baseRecipe.nutrition) {
+        await this.saveRecipeNutrition(result.recipe.id, baseRecipe.nutrition);
       }
 
       if (this.hasImageMetadata(baseRecipe)) {
@@ -310,12 +387,10 @@ export class RecipeService {
         if (error) {
           return { recipe: result.recipe, error: null };
         }
-
-        const { recipe } = await this.getRecipeById(result.recipe.id);
-        return { recipe: recipe ?? result.recipe, error: null };
       }
 
-      return result;
+      const { recipe } = await this.getRecipeById(result.recipe.id);
+      return { recipe: recipe ?? result.recipe, error: null };
     });
   }
 
@@ -377,6 +452,19 @@ export class RecipeService {
       recipe.image_status === 'completed' ||
       Boolean(recipe.image_url?.trim()) ||
       Boolean(recipe.image_storage_key?.trim())
+    );
+  }
+
+  private hasNutritionValues(nutrition: RecipeNutrition | null | undefined): boolean {
+    if (!nutrition) {
+      return false;
+    }
+
+    return (
+      nutrition.calories !== null ||
+      nutrition.fat_g !== null ||
+      nutrition.protein_g !== null ||
+      nutrition.carbs_g !== null
     );
   }
 
@@ -512,7 +600,7 @@ export class RecipeService {
   async createRecipe(
     recipeData: RecipeInput,
     ingredients: RecipeIngredientInput[],
-    options?: { triggerImageGeneration?: boolean }
+    options?: { triggerImageGeneration?: boolean; skipNutritionCalculation?: boolean }
   ): Promise<{ recipe: Recipe | null; error: string | null }> {
     if (environment.useLocalApi) {
       return this.createRecipeLocal(recipeData, ingredients);
@@ -550,7 +638,7 @@ export class RecipeService {
       return { recipe: null, error: insertError };
     }
 
-    if (cleanedIngredients.length > 0) {
+    if (cleanedIngredients.length > 0 && !options?.skipNutritionCalculation) {
       await this.calculateAndSaveNutrition(recipeId, recipeData, cleanedIngredients);
     }
 
@@ -737,6 +825,43 @@ export class RecipeService {
     } catch {
       return { recipe: null, error: 'Recipe not found.' };
     }
+  }
+
+  private async findPersonalCopyByBaseIdRemote(
+    baseRecipeId: string
+  ): Promise<Recipe | null> {
+    if (environment.useLocalApi) {
+      if (!this.localApiService.isEnabled()) {
+        return null;
+      }
+
+      try {
+        const data = await this.localApiService.findRecipeByBaseId(baseRecipeId);
+        return data ? this.normalizeRecipe(data) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    const client = this.supabaseService.getClient();
+    const userId = this.authService.user()?.id;
+    if (!client || !userId) {
+      return null;
+    }
+
+    const { data, error } = await client
+      .from('recipes')
+      .select(RECIPE_SELECT)
+      .eq('user_id', userId)
+      .eq('base_recipe_id', baseRecipeId)
+      .eq('is_base_recipe', false)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return this.normalizeRecipe(data);
   }
 
   private async getBaseRecipeByIdLocal(

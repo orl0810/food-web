@@ -32,12 +32,6 @@ import { AddToMealPlanDialogComponent } from '../recipe-suggestions/add-to-meal-
         &larr; Back to recipes
       </a>
 
-      @if (isStarterMode()) {
-        <p class="text-sm font-medium text-amber-800">
-          Recipe template — customize to save your own version
-        </p>
-      }
-
       @if (loading()) {
         <app-loading-state message="Loading recipe..." />
       } @else if (error()) {
@@ -69,19 +63,19 @@ import { AddToMealPlanDialogComponent } from '../recipe-suggestions/add-to-meal-
               <p class="mt-2 max-w-2xl text-sm text-stone-600">{{ r.description }}</p>
             }
 
-            @if (r.base_recipe_id && !isStarterMode()) {
+            @if (r.base_recipe_id && !isSharedRecipe(r)) {
               <p class="mt-2 text-sm text-stone-500">
                 Based on a
                 <a
-                  [routerLink]="['/recipes/starter', r.base_recipe_id]"
+                  [routerLink]="['/recipes', r.base_recipe_id]"
                   class="font-medium text-brand-700 hover:text-brand-800"
                 >
-                  starter recipe
+                  shared recipe
                 </a>
               </p>
             }
 
-            @if (!isStarterMode()) {
+            @if (!isSharedRecipe(r)) {
               <div class="mt-3">
                 <p class="text-sm font-medium text-stone-700">Your rating</p>
                 <app-star-rating
@@ -97,23 +91,23 @@ import { AddToMealPlanDialogComponent } from '../recipe-suggestions/add-to-meal-
             }
           </div>
           <div class="flex flex-wrap gap-2">
-            @if (isStarterMode()) {
+            <button
+              type="button"
+              class="btn-primary-sm"
+              (click)="showMealPlanDialog.set(true)"
+            >
+              Add to meal plan
+            </button>
+            @if (isSharedRecipe(r)) {
               <button
                 type="button"
-                class="btn-primary-sm"
+                class="btn-secondary-sm"
                 [disabled]="customizing()"
-                (click)="customizeRecipe()"
+                (click)="editSharedRecipe(r)"
               >
-                {{ customizing() ? 'Creating your copy...' : 'Customize' }}
+                {{ customizing() ? 'Creating your copy...' : 'Edit' }}
               </button>
             } @else {
-              <button
-                type="button"
-                class="btn-primary-sm"
-                (click)="showMealPlanDialog.set(true)"
-              >
-                Add to meal plan
-              </button>
               <a [routerLink]="['/recipes', r.id, 'edit']" class="btn-secondary-sm">
                 Edit
               </a>
@@ -208,7 +202,6 @@ import { AddToMealPlanDialogComponent } from '../recipe-suggestions/add-to-meal-
           </section>
         }
 
-        @if (!isStarterMode()) {
         <section class="card overflow-hidden">
           <button
             type="button"
@@ -261,24 +254,25 @@ import { AddToMealPlanDialogComponent } from '../recipe-suggestions/add-to-meal-
                 <p class="text-sm text-stone-500">
                   Nutrition estimate is not available for this recipe.
                 </p>
-                <button
-                  type="button"
-                  class="btn-secondary-sm mt-3"
-                  [disabled]="recalculatingNutrition()"
-                  (click)="recalculateNutrition(r)"
-                >
-                  {{ recalculatingNutrition() ? 'Calculating nutrition…' : 'Calculate nutrition' }}
-                </button>
-                @if (nutritionError()) {
-                  <p class="mt-2 text-sm text-red-600">{{ nutritionError() }}</p>
+                @if (!isSharedRecipe(r)) {
+                  <button
+                    type="button"
+                    class="btn-secondary-sm mt-3"
+                    [disabled]="recalculatingNutrition()"
+                    (click)="recalculateNutrition(r)"
+                  >
+                    {{ recalculatingNutrition() ? 'Calculating nutrition…' : 'Calculate nutrition' }}
+                  </button>
+                  @if (nutritionError()) {
+                    <p class="mt-2 text-sm text-red-600">{{ nutritionError() }}</p>
+                  }
                 }
               }
             </div>
           }
         </section>
-        }
 
-        @if (showMealPlanDialog() && !isStarterMode()) {
+        @if (showMealPlanDialog()) {
           <app-add-to-meal-plan-dialog
             [recipe]="r"
             (saved)="onAddedToMealPlan()"
@@ -312,8 +306,8 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
   readonly recalculatingNutrition = signal(false);
   readonly nutritionError = signal<string | null>(null);
 
-  isStarterMode(): boolean {
-    return this.route.snapshot.data['starterMode'] === true;
+  isSharedRecipe(recipe: Recipe): boolean {
+    return recipe.is_base_recipe;
   }
 
   mealTypeLabel(mealType: MealType): string {
@@ -328,9 +322,7 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
     }
 
     this.loading.set(true);
-    const { recipe, error } = this.isStarterMode()
-      ? await this.recipeService.getBaseRecipeById(id)
-      : await this.recipeService.getRecipeById(id);
+    const { recipe, error } = await this.recipeService.getVisibleRecipeById(id);
     this.loading.set(false);
 
     if (error || !recipe) {
@@ -348,7 +340,7 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
   }
 
   private startImagePollingIfNeeded(recipe: Recipe): void {
-    if (this.isStarterMode()) {
+    if (this.isSharedRecipe(recipe)) {
       return;
     }
 
@@ -365,7 +357,7 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
   }
 
   showImageAction(recipe: Recipe): boolean {
-    if (this.isStarterMode() || this.generatingImage()) {
+    if (this.generatingImage()) {
       return false;
     }
 
@@ -390,6 +382,22 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
     this.generatingImage.set(true);
     this.imageError.set(null);
 
+    if (this.isSharedRecipe(recipe)) {
+      const { recipe: copy, error } = await this.recipeService.ensurePersonalRecipeFromBase(
+        recipe.id,
+        { triggerImageGeneration: true }
+      );
+      this.generatingImage.set(false);
+
+      if (error || !copy) {
+        this.imageError.set(error ?? 'Could not create your recipe copy.');
+        return;
+      }
+
+      await this.router.navigate(['/recipes', copy.id]);
+      return;
+    }
+
     const regenerate = recipe.image_status === 'failed' || recipe.image_status === 'completed';
     const { error } = regenerate
       ? await this.recipeService.regenerateRecipeImage(recipe.id)
@@ -407,7 +415,7 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
   }
 
   async recalculateNutrition(recipe: Recipe): Promise<void> {
-    if (this.recalculatingNutrition()) {
+    if (this.recalculatingNutrition() || this.isSharedRecipe(recipe)) {
       return;
     }
 
@@ -501,7 +509,7 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
 
   async onRatingChange(rating: number | null): Promise<void> {
     const current = this.recipe();
-    if (!current) {
+    if (!current || this.isSharedRecipe(current)) {
       return;
     }
 
@@ -537,21 +545,16 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
     this.showMealPlanDialog.set(false);
   }
 
-  async customizeRecipe(): Promise<void> {
-    const current = this.recipe();
-    if (!current) {
-      return;
-    }
-
+  async editSharedRecipe(recipe: Recipe): Promise<void> {
     this.customizing.set(true);
-    const { recipe, error } = await this.recipeService.createRecipeFromTemplate(current.id);
+    const { recipe: copy, error } = await this.recipeService.ensurePersonalRecipeFromBase(recipe.id);
     this.customizing.set(false);
 
-    if (error || !recipe) {
+    if (error || !copy) {
       this.error.set(error ?? 'Could not create your recipe from this template.');
       return;
     }
 
-    await this.router.navigate(['/recipes', recipe.id, 'edit']);
+    await this.router.navigate(['/recipes', copy.id, 'edit']);
   }
 }

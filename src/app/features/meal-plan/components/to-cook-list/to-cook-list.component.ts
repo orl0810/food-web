@@ -189,7 +189,9 @@ export class ToCookListComponent {
       return null;
     }
 
-    const cached = this.recipeService.recipes().find((recipe) => recipe.id === item.recipe_id);
+    const cached =
+      this.recipeService.recipes().find((recipe) => recipe.id === item.recipe_id) ??
+      this.recipeService.baseRecipes().find((recipe) => recipe.id === item.recipe_id);
     if (cached) {
       return cached;
     }

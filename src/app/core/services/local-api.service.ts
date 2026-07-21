@@ -165,6 +165,21 @@ export class LocalApiService {
     return response.data;
   }
 
+  async findRecipeByBaseId(baseRecipeId: string): Promise<unknown | null> {
+    try {
+      const response = await this.request<{ data: unknown }>(
+        `/recipes/by-base/${baseRecipeId}`,
+        {
+          method: 'GET',
+          auth: true,
+        }
+      );
+      return response.data;
+    } catch {
+      return null;
+    }
+  }
+
   async createRecipe(payload: Record<string, unknown>): Promise<unknown> {
     const response = await this.request<{ data: unknown }>('/recipes', {
       method: 'POST',

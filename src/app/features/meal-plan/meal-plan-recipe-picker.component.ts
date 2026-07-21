@@ -126,7 +126,10 @@ export class MealPlanRecipePickerComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    void this.recipeService.loadRecipes();
+    void Promise.all([
+      this.recipeService.loadRecipes(),
+      this.recipeService.loadBaseRecipes(),
+    ]);
   }
 
   mealTypeLabel(): string {

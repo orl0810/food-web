@@ -8,6 +8,7 @@ import {
 } from '../../core/models/meal-plan.model';
 import { MealSlotItem } from '../../core/models/meal-slot-item.model';
 import { MealPlanService } from '../../core/services/meal-plan.service';
+import { RecipeService } from '../../core/services/recipe.service';
 import { EntitlementService } from '../../core/services/entitlement.service';
 import { getMondayOfWeek } from '../../shared/utils/meal-plan.utils';
 import { MealStreakService } from '../../core/services/meal-streak.service';
@@ -392,6 +393,7 @@ interface SelectedSlot {
 })
 export class MealPlanComponent implements OnInit {
   readonly mealPlanService = inject(MealPlanService);
+  private readonly recipeService = inject(RecipeService);
   private readonly entitlementService = inject(EntitlementService);
   private readonly progressService = inject(MealPlanProgressService);
   private readonly toCookService = inject(ToCookService);
@@ -478,6 +480,7 @@ export class MealPlanComponent implements OnInit {
         this.armCelebrationTracking();
       }),
       this.nutritionTargetsService.ensureProfileLoaded(),
+      this.recipeService.loadBaseRecipes(),
     ]);
   }
 

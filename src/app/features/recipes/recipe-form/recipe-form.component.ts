@@ -710,11 +710,22 @@ export class RecipeFormComponent implements OnInit, OnDestroy {
     }
 
     this.loading.set(true);
-    const { recipe, error } = await this.recipeService.getRecipeById(this.recipeId);
+    const { recipe, error } = await this.recipeService.getVisibleRecipeById(this.recipeId);
     this.loading.set(false);
 
     if (error || !recipe) {
       this.error.set(error ?? 'Recipe not found.');
+      return;
+    }
+
+    if (recipe.is_base_recipe) {
+      const { recipe: copy, error: copyError } =
+        await this.recipeService.ensurePersonalRecipeFromBase(recipe.id);
+      if (copyError || !copy) {
+        this.error.set(copyError ?? 'Could not create your recipe from this template.');
+        return;
+      }
+      await this.router.navigate(['/recipes', copy.id, 'edit'], { replaceUrl: true });
       return;
     }
 

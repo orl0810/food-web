@@ -310,7 +310,7 @@ export class MealSlotItemPickerComponent implements OnInit {
 
   readonly filteredRecipes = computed(() => {
     const query = this.recipeSearch().trim().toLowerCase();
-    return this.recipeService.recipes().filter(
+    return this.recipeService.allVisibleRecipes().filter(
       (recipe) => !query || recipe.title.toLowerCase().includes(query)
     );
   });
@@ -339,6 +339,7 @@ export class MealSlotItemPickerComponent implements OnInit {
   ngOnInit(): void {
     void Promise.all([
       this.recipeService.loadRecipes(),
+      this.recipeService.loadBaseRecipes(),
       this.preparedPortionService.loadPortions(),
       this.inventoryService.loadItems(),
     ]);

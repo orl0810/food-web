@@ -537,7 +537,7 @@ export class RecipesComponent implements OnInit, OnDestroy {
   }
 
   viewLink(recipe: Recipe): string[] {
-    return recipe.is_base_recipe ? ['/recipes/starter', recipe.id] : ['/recipes', recipe.id];
+    return ['/recipes', recipe.id];
   }
 
   removeSearch(): void {
@@ -646,32 +646,11 @@ export class RecipesComponent implements OnInit, OnDestroy {
   }
 
   async planMeal(recipe: Recipe): Promise<void> {
-    const target = recipe.is_base_recipe ? await this.ensureUserRecipe(recipe) : recipe;
-    if (!target) {
-      return;
-    }
-
-    this.mealPlanRecipe.set(target);
+    this.mealPlanRecipe.set(recipe);
   }
 
   onAddedToMealPlan(): void {
     this.mealPlanRecipe.set(null);
-  }
-
-  async ensureUserRecipe(recipe: Recipe): Promise<Recipe | null> {
-    if (!recipe.is_base_recipe) {
-      return recipe;
-    }
-
-    this.actionInProgressId.set(recipe.id);
-    const { recipe: copy, error } = await this.recipeService.createRecipeFromTemplate(recipe.id);
-    this.actionInProgressId.set(null);
-
-    if (error || !copy) {
-      return null;
-    }
-
-    return copy;
   }
 
   async onRatingChange(recipeId: string, rating: number | null): Promise<void> {

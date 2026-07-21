@@ -202,6 +202,21 @@ function getRecipeRow(id: string, userId: string): RecipeRow | undefined {
     .get(id, userId) as RecipeRow | undefined;
 }
 
+function getVisibleRecipeRow(id: string, userId: string): RecipeRow | undefined {
+  return getRecipeRow(id, userId) ?? getBaseRecipeRow(id);
+}
+
+function getPersonalCopyByBaseId(baseRecipeId: string, userId: string): RecipeRow | undefined {
+  return db
+    .prepare(
+      `select ${RECIPE_SELECT}
+       from recipes
+       where user_id = ? and base_recipe_id = ? and is_base_recipe = 0
+       limit 1`
+    )
+    .get(userId, baseRecipeId) as RecipeRow | undefined;
+}
+
 function getBaseRecipeRow(id: string): RecipeRow | undefined {
   return db
     .prepare(
@@ -288,7 +303,7 @@ function serializePreparedPortion(row: PreparedPortionRow) {
 
 function serializeMealPlanItem(row: MealPlanItemRow) {
   const recipe = row.recipe_id
-    ? serializeRecipeSummary(getRecipeRow(row.recipe_id, row.user_id))
+    ? serializeRecipeSummary(getVisibleRecipeRow(row.recipe_id, row.user_id))
     : null;
   const preparedPortionRow = row.prepared_portion_id
     ? getPreparedPortionRow(row.prepared_portion_id, row.user_id)
@@ -730,14 +745,23 @@ app.post('/recipes/from-template/:baseId', authMiddleware, (req: AuthenticatedRe
     return;
   }
 
+  const existing = getPersonalCopyByBaseId(base.id, req.userId!);
+  if (existing) {
+    res.json({ data: serializeRecipe(existing) });
+    return;
+  }
+
   const id = crypto.randomUUID();
   db.prepare(
     `insert into recipes (
       id, user_id, title, description, prep_time_minutes, cook_time_minutes, portions, tags,
       image_url, image_status, image_prompt, image_provider, image_version, image_generated_at,
       image_error, image_storage_provider, image_storage_key,
-      is_base_recipe, base_recipe_id, meal_type, category, difficulty, instructions
-    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`
+      is_base_recipe, base_recipe_id, meal_type, category, difficulty, instructions,
+      nutrition_calories, nutrition_fat_g, nutrition_cholesterol_mg, nutrition_protein_g,
+      nutrition_sugar_g, nutrition_sodium_mg, nutrition_carbs_g, nutrition_fiber_g,
+      nutrition_calculated_at
+    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     req.userId,
@@ -760,7 +784,16 @@ app.post('/recipes/from-template/:baseId', authMiddleware, (req: AuthenticatedRe
     base.meal_type,
     base.category,
     base.difficulty,
-    base.instructions
+    base.instructions,
+    base.nutrition_calories,
+    base.nutrition_fat_g,
+    base.nutrition_cholesterol_mg,
+    base.nutrition_protein_g,
+    base.nutrition_sugar_g,
+    base.nutrition_sodium_mg,
+    base.nutrition_carbs_g,
+    base.nutrition_fiber_g,
+    base.nutrition_calculated_at
   );
 
   const baseIngredients = db
@@ -794,8 +827,18 @@ app.get('/recipes', authMiddleware, (req: AuthenticatedRequest, res) => {
   res.json({ data: rows.map(serializeRecipe) });
 });
 
+app.get('/recipes/by-base/:baseId', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const row = getPersonalCopyByBaseId(req.params['baseId']!, req.userId!);
+  if (!row) {
+    res.status(404).json({ error: 'Recipe not found.' });
+    return;
+  }
+
+  res.json({ data: serializeRecipe(row) });
+});
+
 app.get('/recipes/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
-  const row = getRecipeRow(req.params['id']!, req.userId!);
+  const row = getVisibleRecipeRow(req.params['id']!, req.userId!);
 
   if (!row) {
     res.status(404).json({ error: 'Recipe not found.' });
