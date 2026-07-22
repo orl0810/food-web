@@ -7,6 +7,7 @@ import { MealInspirationSliderComponent } from './components/meal-inspiration-sl
 import { RecentlyAddedSliderComponent } from './components/recently-added-slider/recently-added-slider.component';
 import { SmartSuggestionsSliderComponent } from './components/smart-suggestions-slider/smart-suggestions-slider.component';
 import { CompleteActionDialogComponent } from './components/complete-action-dialog/complete-action-dialog.component';
+import { RecipeCookingDialogComponent } from '../../shared/components/recipe-cooking-dialog/recipe-cooking-dialog.component';
 import { DashboardSmartActionCardComponent } from './components/dashboard-smart-action-card/dashboard-smart-action-card.component';
 import { DashboardFeedbackSectionComponent } from './components/dashboard-feedback-section/dashboard-feedback-section.component';
 import {
@@ -14,6 +15,8 @@ import {
   DashboardAction,
 } from './models/dashboard-action.model';
 import { DashboardFacadeService } from './services/dashboard-facade.service';
+import { RecipeCookingService } from '../../core/services/recipe-cooking.service';
+import { RecipeCookingDraft } from '../../core/models/recipe-cooking.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
@@ -49,6 +52,7 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
     RecentlyAddedSliderComponent,
     SmartSuggestionsSliderComponent,
     CompleteActionDialogComponent,
+    RecipeCookingDialogComponent,
     DashboardFeedbackSectionComponent,
     RouterLink,
   ],
@@ -72,6 +76,16 @@ import { toISODate } from '../../shared/utils/meal-plan.utils';
           [error]="facade.error()"
           (confirmed)="onDialogConfirmed($event)"
           (cancelled)="closeDialog()"
+        />
+      }
+
+      @if (recipeCookingDraft(); as cookingDraft) {
+        <app-recipe-cooking-dialog
+          [draft]="cookingDraft"
+          [busy]="recipeCookingBusy()"
+          [error]="recipeCookingError()"
+          (confirmed)="onRecipeCookingConfirmed($event)"
+          (cancelled)="closeRecipeCookingDialog()"
         />
       }
 
@@ -237,6 +251,7 @@ export class DashboardComponent implements OnInit {
   readonly mealPlanService = inject(MealPlanService);
   readonly preparedPortionService = inject(PreparedPortionService);
   readonly facade = inject(DashboardFacadeService);
+  private readonly recipeCookingService = inject(RecipeCookingService);
   private readonly progressService = inject(MealPlanProgressService);
   private readonly nutritionProgressService = inject(NutritionProgressService);
   readonly nutritionTargetsService = inject(NutritionTargetsService);
@@ -245,6 +260,10 @@ export class DashboardComponent implements OnInit {
 
   readonly dialogAction = signal<DashboardAction | null>(null);
   readonly dialogDraft = signal<ActionCompletionPayload | null>(null);
+  readonly recipeCookingDraft = signal<RecipeCookingDraft | null>(null);
+  readonly recipeCookingBusy = signal(false);
+  readonly recipeCookingError = signal<string | null>(null);
+  readonly pendingRecipeAction = signal<DashboardAction | null>(null);
   readonly todayProgressTitle = "Today's progress";
   readonly todayDate = computed(() => toISODate(new Date()));
 
@@ -291,8 +310,32 @@ export class DashboardComponent implements OnInit {
       return;
     }
 
+    if (action.type === 'cook_recipe_today' && action.relatedSlotItemId) {
+      void this.openRecipeCooking(action);
+      return;
+    }
+
     this.dialogDraft.set(this.facade.buildCompletionDraft(action));
     this.dialogAction.set(action);
+  }
+
+  async openRecipeCooking(action: DashboardAction): Promise<void> {
+    const item = this.mealPlanService.getItemById(action.relatedSlotItemId!);
+    if (!item) {
+      this.recipeCookingError.set('Could not find this planned meal.');
+      return;
+    }
+
+    this.recipeCookingError.set(null);
+    this.pendingRecipeAction.set(action);
+
+    const { draft, error } = await this.recipeCookingService.buildDraftFromMealItem(item);
+    if (error || !draft) {
+      this.recipeCookingError.set(error ?? 'Could not prepare cooking confirmation.');
+      return;
+    }
+
+    this.recipeCookingDraft.set(draft);
   }
 
   onSmartActionDismiss(): void {
@@ -317,6 +360,37 @@ export class DashboardComponent implements OnInit {
   closeDialog(): void {
     this.dialogAction.set(null);
     this.dialogDraft.set(null);
+  }
+
+  closeRecipeCookingDialog(): void {
+    this.recipeCookingDraft.set(null);
+    this.recipeCookingError.set(null);
+    this.pendingRecipeAction.set(null);
+  }
+
+  async onRecipeCookingConfirmed(draft: RecipeCookingDraft): Promise<void> {
+    this.recipeCookingBusy.set(true);
+    this.recipeCookingError.set(null);
+
+    const { error } = await this.recipeCookingService.completeCooking(draft);
+    this.recipeCookingBusy.set(false);
+
+    if (error) {
+      this.recipeCookingError.set(error);
+      return;
+    }
+
+    const action = this.pendingRecipeAction();
+    if (action) {
+      this.facade.dismiss(action);
+    }
+
+    await Promise.all([
+      this.mealPlanService.getTodayMeals(),
+      this.facade.loadDashboardData(),
+    ]);
+
+    this.closeRecipeCookingDialog();
   }
 
   availabilityLabel(portion: PreparedPortion): string {

@@ -1,5 +1,6 @@
 import { MealSlotItem } from '../../../core/models/meal-slot-item.model';
 import {
+  getCookBatchSelection,
   getGroupedPendingCookItems,
   getPendingMealsToPrepare,
   getSlotDisplayStatus,
@@ -172,6 +173,71 @@ describe('meal-slot-status.utils', () => {
       expect(grouped.length).toBe(1);
       expect(grouped[0].count).toBe(3);
       expect(grouped[0].occurrences.map((entry) => entry.itemId)).toEqual(['2', '3', '1']);
+    });
+
+    it('uses recipe yield to calculate one batch for two planned portions', () => {
+      const recipe = {
+        id: 'r1',
+        title: 'Pasta Carbonara',
+        description: null,
+        tags: [],
+        prep_time_minutes: 10,
+        image_url: null,
+        image_status: 'pending' as const,
+        image_storage_key: null,
+        meal_type: 'dinner' as const,
+        category: 'Pasta',
+        portions: 2,
+      };
+      const items = [
+        slotItem({ id: '1', date: '2026-06-25', recipe }),
+        slotItem({ id: '2', date: '2026-06-27', recipe }),
+      ];
+
+      const [group] = getGroupedPendingCookItems(items, '2026-06-25', '2026-06-30');
+
+      expect(group.plannedPortions).toBe(2);
+      expect(group.recipeYield).toBe(2);
+      expect(group.batchCount).toBe(1);
+      expect(getCookBatchSelection(group, 'next')).toEqual({
+        itemIds: ['1', '2'],
+        portionsCovered: 2,
+        batches: 1,
+        extraPortions: 0,
+      });
+    });
+
+    it('selects the next full batch and reports leftovers', () => {
+      const recipe = {
+        id: 'r1',
+        title: 'Soup',
+        description: null,
+        tags: [],
+        prep_time_minutes: 10,
+        image_url: null,
+        image_status: 'pending' as const,
+        image_storage_key: null,
+        meal_type: 'dinner' as const,
+        category: 'Soup',
+        portions: 3,
+      };
+      const items = [
+        slotItem({ id: '1', date: '2026-06-25', recipe }),
+        slotItem({ id: '2', date: '2026-06-26', recipe }),
+        slotItem({ id: '3', date: '2026-06-27', recipe }),
+        slotItem({ id: '4', date: '2026-06-28', recipe }),
+      ];
+
+      const [group] = getGroupedPendingCookItems(items, '2026-06-25', '2026-06-30');
+
+      expect(group.batchCount).toBe(2);
+      expect(getCookBatchSelection(group, 'next').itemIds).toEqual(['1', '2', '3']);
+      expect(getCookBatchSelection(group, 'all')).toEqual({
+        itemIds: ['1', '2', '3', '4'],
+        portionsCovered: 4,
+        batches: 2,
+        extraPortions: 2,
+      });
     });
 
     it('excludes prepared items from grouped cook items', () => {

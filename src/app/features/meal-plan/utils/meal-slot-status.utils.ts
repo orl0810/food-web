@@ -34,6 +34,7 @@ export interface CookItemOccurrence {
   mealType: MealType;
   dateLabel: string;
   mealTypeLabel: string;
+  portionsUsed: number;
 }
 
 export interface GroupedCookItem {
@@ -43,6 +44,16 @@ export interface GroupedCookItem {
   representativeItem: MealSlotItem;
   occurrences: CookItemOccurrence[];
   count: number;
+  plannedPortions: number;
+  recipeYield: number;
+  batchCount: number;
+}
+
+export interface CookBatchSelection {
+  itemIds: string[];
+  portionsCovered: number;
+  batches: number;
+  extraPortions: number;
 }
 
 const DISPLAY_STATUS_CONFIG: Record<
@@ -195,15 +206,21 @@ export function getGroupedPendingCookItems(
       mealType: item.meal_type,
       dateLabel: formatSlotDateLabel(item.date, startDate),
       mealTypeLabel: MEAL_TYPE_LABELS[item.meal_type],
+      portionsUsed: Math.max(1, item.portions_used || 1),
     };
 
     const existing = groups.get(groupKey);
     if (existing) {
       existing.occurrences.push(occurrence);
       existing.count += 1;
+      existing.plannedPortions += occurrence.portionsUsed;
       continue;
     }
 
+    const recipeYield =
+      item.item_type === 'recipe'
+        ? Math.max(1, item.recipe?.portions ?? 1)
+        : 1;
     groups.set(groupKey, {
       groupKey,
       displayName: getMealSlotItemDisplayName(item),
@@ -211,16 +228,72 @@ export function getGroupedPendingCookItems(
       representativeItem: item,
       occurrences: [occurrence],
       count: 1,
+      plannedPortions: occurrence.portionsUsed,
+      recipeYield,
+      batchCount: 1,
     });
   }
 
-  const grouped = [...groups.values()].map((group) => ({
-    ...group,
-    occurrences: [...group.occurrences].sort(compareOccurrences),
-  }));
+  const grouped = [...groups.values()].map((group) => {
+    const occurrences = [...group.occurrences].sort(compareOccurrences);
+    const batchCount = group.recipeId
+      ? Math.ceil(group.plannedPortions / group.recipeYield)
+      : group.count;
+    return { ...group, occurrences, batchCount };
+  });
 
   grouped.sort((a, b) => compareOccurrences(a.occurrences[0], b.occurrences[0]));
   return grouped;
+}
+
+export function getCookBatchSelection(
+  group: GroupedCookItem,
+  mode: 'next' | 'all'
+): CookBatchSelection {
+  if (group.occurrences.length === 0) {
+    return { itemIds: [], portionsCovered: 0, batches: 0, extraPortions: 0 };
+  }
+
+  if (!group.recipeId) {
+    const occurrences = mode === 'all' ? group.occurrences : group.occurrences.slice(0, 1);
+    return {
+      itemIds: occurrences.map((occurrence) => occurrence.itemId),
+      portionsCovered: occurrences.length,
+      batches: occurrences.length,
+      extraPortions: 0,
+    };
+  }
+
+  if (mode === 'all') {
+    return {
+      itemIds: group.occurrences.map((occurrence) => occurrence.itemId),
+      portionsCovered: group.plannedPortions,
+      batches: group.batchCount,
+      extraPortions: group.batchCount * group.recipeYield - group.plannedPortions,
+    };
+  }
+
+  const selected: CookItemOccurrence[] = [];
+  let portionsCovered = 0;
+  let batches = 0;
+
+  for (const occurrence of group.occurrences) {
+    const candidatePortions = portionsCovered + occurrence.portionsUsed;
+    const candidateBatches = Math.ceil(candidatePortions / group.recipeYield);
+    if (selected.length > 0 && candidateBatches > batches) {
+      break;
+    }
+    selected.push(occurrence);
+    portionsCovered = candidatePortions;
+    batches = candidateBatches;
+  }
+
+  return {
+    itemIds: selected.map((occurrence) => occurrence.itemId),
+    portionsCovered,
+    batches,
+    extraPortions: batches * group.recipeYield - portionsCovered,
+  };
 }
 
 export function getPendingMealsToPrepare(

@@ -1431,6 +1431,142 @@ app.delete('/meal-plan-items/:id', authMiddleware, (req: AuthenticatedRequest, r
   res.status(204).send();
 });
 
+app.post('/meal-plan/complete-recipe-cooking', authMiddleware, (req: AuthenticatedRequest, res) => {
+  const mealPlanItemIds = Array.isArray(req.body?.mealPlanItemIds)
+    ? (req.body.mealPlanItemIds as string[])
+    : [];
+  const inventoryChanges = Array.isArray(req.body?.inventoryChanges)
+    ? req.body.inventoryChanges
+    : [];
+  const inventoryCreates = Array.isArray(req.body?.inventoryCreates)
+    ? req.body.inventoryCreates
+    : [];
+  const readyPortion = req.body?.readyPortion ?? null;
+
+  if (mealPlanItemIds.length === 0) {
+    res.status(400).json({ error: 'At least one meal plan item is required.' });
+    return;
+  }
+
+  try {
+    db.transaction(() => {
+      for (const itemId of mealPlanItemIds) {
+        const row = getMealPlanItemRow(itemId, req.userId!);
+        if (!row) {
+          throw new Error('Meal plan item not found.');
+        }
+        if (row.status !== 'planned') {
+          throw new Error('One or more meals are no longer planned. Refresh and try again.');
+        }
+      }
+
+      for (const change of inventoryChanges) {
+        const itemId = String(change?.itemId ?? '');
+        const expectedQuantity = Number(change?.expectedQuantity);
+        const remainingQuantity = Number(change?.remainingQuantity);
+        const name = String(change?.name ?? 'item');
+
+        const item = db
+          .prepare('select id, quantity from food_items where id = ? and user_id = ?')
+          .get(itemId, req.userId) as { id: string; quantity: number } | undefined;
+
+        if (!item) {
+          throw new Error(`Inventory item not found: ${name}.`);
+        }
+
+        if (Math.abs(item.quantity - expectedQuantity) > 1e-6) {
+          throw new Error(`Inventory changed for ${name}. Refresh and try again.`);
+        }
+
+        if (remainingQuantity <= 0) {
+          db.prepare('delete from food_items where id = ? and user_id = ?').run(itemId, req.userId);
+        } else {
+          db.prepare('update food_items set quantity = ? where id = ? and user_id = ?').run(
+            remainingQuantity,
+            itemId,
+            req.userId
+          );
+        }
+      }
+
+      for (const create of inventoryCreates) {
+        const name = formatInventoryName(String(create?.name ?? ''));
+        const quantity = Number(create?.quantity ?? 0);
+        const unit = create?.unit?.trim?.() || null;
+        const location = String(create?.location ?? 'pantry');
+
+        if (!name || quantity <= 0) {
+          continue;
+        }
+
+        if (!['fridge', 'freezer', 'pantry'].includes(location)) {
+          throw new Error('Invalid storage location for new inventory item.');
+        }
+
+        const id = crypto.randomUUID();
+        db.prepare(
+          `insert into food_items (id, user_id, name, category, quantity, unit, expiration_date, location)
+           values (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).run(id, req.userId, name, null, quantity, unit, null, location);
+
+        upsertFoodItemHistory(req.userId!, {
+          name,
+          category: null,
+          unit,
+          location,
+          default_quantity: quantity,
+        });
+      }
+
+      const completedAt = new Date().toISOString();
+      const updateStatus = db.prepare(
+        `update meal_plan_items
+         set status = 'prepared', completed_at = ?
+         where id = ? and user_id = ? and status = 'planned'`
+      );
+
+      for (const itemId of mealPlanItemIds) {
+        const result = updateStatus.run(completedAt, itemId, req.userId);
+        if (result.changes === 0) {
+          throw new Error('One or more meals are no longer planned. Refresh and try again.');
+        }
+      }
+
+      if (readyPortion && Number(readyPortion.portions) > 0) {
+        const portionId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        const totalPortions = Math.max(1, Number(readyPortion.portions));
+        db.prepare(
+          `insert into prepared_portions (
+             id, user_id, name, source_type, recipe_id, total_portions, available_portions,
+             cooked_at, expires_at, storage_location, notes, status, created_at, updated_at
+           ) values (?, ?, ?, 'recipe', ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?)`
+        ).run(
+          portionId,
+          req.userId,
+          String(readyPortion.name ?? 'Ready portion').trim(),
+          readyPortion.recipeId ?? null,
+          totalPortions,
+          totalPortions,
+          now.slice(0, 10),
+          readyPortion.expiresAt ?? null,
+          readyPortion.storageLocation ?? 'fridge',
+          null,
+          now,
+          now
+        );
+      }
+    })();
+  } catch (error) {
+    res.status(409).json({
+      error: error instanceof Error ? error.message : 'Could not complete cooking.',
+    });
+    return;
+  }
+
+  res.json({ data: { updatedMealPlanItemIds: mealPlanItemIds } });
+});
+
 app.post('/food-photos', authMiddleware, (req: AuthenticatedRequest, res) => {
   const filename = String(req.body?.filename ?? '').trim();
   const dataBase64 = String(req.body?.dataBase64 ?? '').trim();

@@ -291,6 +291,18 @@ export class LocalApiService {
     return response.data;
   }
 
+  async completeRecipeCooking(payload: Record<string, unknown>): Promise<{ updatedMealPlanItemIds: string[] }> {
+    const response = await this.request<{ data: { updatedMealPlanItemIds: string[] } }>(
+      '/meal-plan/complete-recipe-cooking',
+      {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify(payload),
+      }
+    );
+    return response.data;
+  }
+
   async uploadFoodPhoto(filename: string, dataBase64: string): Promise<string> {
     const response = await this.request<{ data: { url: string } }>('/food-photos', {
       method: 'POST',

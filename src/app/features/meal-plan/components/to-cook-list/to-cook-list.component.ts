@@ -44,7 +44,7 @@ import { GroupedCookItem } from '../../utils/meal-slot-status.utils';
   } @else if (groups().length > 0) {
     <section aria-labelledby="to-cook-list-title">
       <p id="to-cook-list-title" class="mb-4 text-sm text-stone-600">
-        {{ totalCount() }} meal{{ totalCount() === 1 ? '' : 's' }} waiting to be prepared
+        {{ totalCount() }} batch{{ totalCount() === 1 ? '' : 'es' }} waiting to be prepared
       </p>
 
       <ul class="space-y-4">
@@ -88,12 +88,12 @@ import { GroupedCookItem } from '../../utils/meal-slot-status.utils';
                   </div>
                 }
 
-                @if (group.count > 1) {
+                @if (displayCount(group) > 1) {
                   <span
                     class="absolute right-3 top-3 inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-brand-600 px-2 text-sm font-bold text-white shadow-sm"
-                    [attr.aria-label]="group.count + ' planned meals'"
+                    [attr.aria-label]="displayCount(group) + ' batches to cook'"
                   >
-                    {{ group.count }}
+                    {{ displayCount(group) }}
                   </span>
                 }
               </div>
@@ -117,7 +117,7 @@ import { GroupedCookItem } from '../../utils/meal-slot-status.utils';
                     type="button"
                     class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md active:scale-[0.99] disabled:opacity-50"
                     [disabled]="markingGroupKey() === group.groupKey"
-                    [attr.aria-label]="'Mark next ' + group.displayName + ' as ready'"
+                    [attr.aria-label]="primaryActionLabel(group) + ': ' + group.displayName"
                     (click)="markNextReady.emit(group)"
                   >
                     @if (markingGroupKey() === group.groupKey) {
@@ -130,19 +130,19 @@ import { GroupedCookItem } from '../../utils/meal-slot-status.utils';
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                       </svg>
-                      Mark as ready
+                      {{ primaryActionLabel(group) }}
                     }
                   </button>
 
-                  @if (group.count > 1) {
+                  @if (showAllAction(group)) {
                     <button
                       type="button"
                       class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-700 shadow-sm transition-all hover:bg-stone-50 active:scale-[0.99] disabled:opacity-50"
                       [disabled]="markingGroupKey() === group.groupKey"
-                      [attr.aria-label]="'Mark all ' + group.displayName + ' as ready'"
+                      [attr.aria-label]="'Cook all batches: ' + group.displayName"
                       (click)="markAllReady.emit(group)"
                     >
-                      Mark all as ready
+                      {{ group.recipeId ? 'Cook all batches' : 'Mark all as ready' }}
                     </button>
                   }
                 </div>
@@ -181,8 +181,20 @@ export class ToCookListComponent {
   readonly retry = output<void>();
 
   readonly totalCount = computed(() =>
-    this.groups().reduce((total, group) => total + group.count, 0)
+    this.groups().reduce((total, group) => total + this.displayCount(group), 0)
   );
+
+  displayCount(group: GroupedCookItem): number {
+    return group.recipeId ? group.batchCount : group.count;
+  }
+
+  primaryActionLabel(group: GroupedCookItem): string {
+    return group.recipeId ? 'Cook next batch' : 'Mark as ready';
+  }
+
+  showAllAction(group: GroupedCookItem): boolean {
+    return group.recipeId ? group.batchCount > 1 : group.count > 1;
+  }
 
   resolveRecipe(item: MealSlotItem): RecipeMealPlanSummary | null {
     if (item.item_type !== 'recipe' || !item.recipe_id) {
