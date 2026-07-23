@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env['LOCAL_API_JWT_SECRET'] ?? 'pantryflow-local-dev-secret';
+const JWT_SECRET = process.env['LOCAL_API_JWT_SECRET'] ?? 'soozi-local-dev-secret';
 const TOKEN_EXPIRY = '7d';
 
 export interface AuthTokenPayload {

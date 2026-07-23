@@ -1,4 +1,4 @@
--- PantryFlow Phase 4: shopping list with RLS
+-- Soozi Phase 4: shopping list with RLS
 -- Run this in the Supabase SQL Editor. Safe to run more than once.
 
 create table if not exists public.shopping_items (

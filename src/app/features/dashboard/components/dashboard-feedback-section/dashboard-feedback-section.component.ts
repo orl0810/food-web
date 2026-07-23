@@ -23,7 +23,7 @@ const MAX_COMMENT_LENGTH = 1000;
           <div>
             <h2 id="dashboard-feedback-title" class="section-title">Thanks for your feedback!</h2>
             <p class="mt-1 text-sm text-stone-600">
-              Your input helps improve PantryFlow. You can share more feedback anytime.
+              Your input helps improve Soozi. You can share more feedback anytime.
             </p>
             <button type="button" class="btn-secondary-sm mt-4" (click)="resetForm()">
               Send more feedback
@@ -31,7 +31,7 @@ const MAX_COMMENT_LENGTH = 1000;
           </div>
         </div>
       } @else {
-        <h2 id="dashboard-feedback-title" class="section-title">Help improve PantryFlow</h2>
+        <h2 id="dashboard-feedback-title" class="section-title">Help improve Soozi</h2>
         <p class="mt-1 text-sm text-stone-600">
           How is your experience so far? Rate the app and optionally tell us what to improve.
         </p>

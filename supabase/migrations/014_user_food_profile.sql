@@ -1,4 +1,4 @@
--- PantryFlow: User Food Profile (preferences, allergies, settings)
+-- Soozi: User Food Profile (preferences, allergies, settings)
 -- Safe to run more than once.
 
 create table if not exists public.user_food_profiles (

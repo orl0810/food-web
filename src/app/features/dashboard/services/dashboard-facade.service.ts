@@ -16,7 +16,7 @@ import { DashboardActionEngineService } from './dashboard-action-engine.service'
 import { UserProfileFacadeService } from '../../user-profile/services/user-profile-facade.service';
 import { toISODate } from '../../../shared/utils/meal-plan.utils';
 
-const DISMISSED_STORAGE_KEY = 'pantryflow.smartAction.dismissed';
+const DISMISSED_STORAGE_KEY = 'soozi.smartAction.dismissed';
 const SUCCESS_MESSAGE_MS = 4000;
 
 interface DismissedState {

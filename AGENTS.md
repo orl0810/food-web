@@ -1,4 +1,4 @@
-# PantryFlow — Agent Instructions
+# Soozi — Agent Instructions
 
 Instructions for Cursor Cloud Agents (including the iOS app). Human developers can use `README.md` for the same setup details.
 
@@ -25,7 +25,7 @@ Unless the user explicitly asks otherwise:
 
 ## Architecture: dual backend
 
-PantryFlow switches backends via `environment.useLocalApi`:
+Soozi switches backends via `environment.useLocalApi`:
 
 | Mode | Config file | Backend | When to use |
 |------|-------------|---------|-------------|
@@ -48,7 +48,7 @@ Seeded dev account (created on first API start):
 - Email: `dev@local.test`
 - Password: `password`
 
-The SQLite database is created at `local-api/data/pantryflow.sqlite` (gitignored). Delete that file to reset local data.
+The SQLite database is created at `local-api/data/soozi.sqlite` (gitignored). Delete that file to reset local data.
 
 ### When to use Supabase in agent work
 

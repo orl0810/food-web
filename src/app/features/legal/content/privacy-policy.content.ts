@@ -10,7 +10,7 @@ export const PRIVACY_POLICY_CONTENT: LegalPageContent = {
       title: '1. Introduction',
       paragraphs: [
         `${LEGAL_PLACEHOLDERS.appName} helps you plan meals, track food at home, manage recipes, and reduce waste. To provide these features, we process information you provide and information generated through your use of the app.`,
-        'This policy applies to the PantryFlow web application and related services. It does not cover third-party websites or services you may access through links in the app, such as payment pages hosted by our payment provider.',
+        'This policy applies to the Soozi web application and related services. It does not cover third-party websites or services you may access through links in the app, such as payment pages hosted by our payment provider.',
       ],
     },
     {
@@ -52,7 +52,7 @@ export const PRIVACY_POLICY_CONTENT: LegalPageContent = {
       title: '4. Nutrition and health-related data',
       paragraphs: [
         'If you provide nutrition profile information, we use it to estimate targets and support meal planning features within the app.',
-        'Nutrition information in PantryFlow is provided for general planning purposes only. Calorie and macro estimates are approximations and may not be accurate for your individual needs.',
+        'Nutrition information in Soozi is provided for general planning purposes only. Calorie and macro estimates are approximations and may not be accurate for your individual needs.',
         `${LEGAL_PLACEHOLDERS.appName} is not a medical device and does not provide medical, dietary, or health advice. You should consult a qualified healthcare or nutrition professional before making decisions about allergies, medical conditions, or significant dietary changes.`,
       ],
     },

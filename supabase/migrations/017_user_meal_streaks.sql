@@ -1,4 +1,4 @@
--- PantryFlow: Daily meal completion streak summary
+-- Soozi: Daily meal completion streak summary
 -- Safe to run more than once.
 
 create table if not exists public.user_meal_streaks (

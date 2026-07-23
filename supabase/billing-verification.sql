@@ -1,4 +1,4 @@
--- PantryFlow billing verification queries
+-- Soozi billing verification queries
 -- Run in Supabase SQL editor after applying migration 20260712000000_billing_subscriptions.sql
 
 -- 1. Confirm subscription table exists

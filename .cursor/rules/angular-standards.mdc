@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 ---
-description: Angular coding standards for PantryFlow
+description: Angular coding standards for Soozi
 globs: src/**/*.ts,src/**/*.html,src/**/*.scss
 alwaysApply: true
 ---

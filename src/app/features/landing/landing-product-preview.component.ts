@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="overflow-hidden rounded-[1.75rem] border border-[#ddcfbd] bg-white shadow-[0_28px_70px_rgba(67,78,68,.16)]" aria-label="PantryFlow weekly plan preview">
+    <div class="overflow-hidden rounded-[1.75rem] border border-[#ddcfbd] bg-white shadow-[0_28px_70px_rgba(67,78,68,.16)]" aria-label="Soozi weekly plan preview">
       <div class="flex items-center justify-between border-b border-stone-100 px-4 py-3 sm:px-6">
         <div class="flex items-center gap-2 font-semibold text-pantry-charcoal"><span class="grid size-7 place-items-center rounded-lg bg-pantry-mint">⌂</span> This week</div>
         <span class="text-xs font-medium text-stone-500">May 12–18</span>

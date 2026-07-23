@@ -1,4 +1,4 @@
--- PantryFlow Phase 1: food inventory table with RLS
+-- Soozi Phase 1: food inventory table with RLS
 -- Run this in the Supabase SQL Editor
 
 create table public.food_items (

@@ -16,7 +16,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
       <div>
         <h1 class="page-title">Early Access Pricing</h1>
         <p class="page-subtitle">
-          Full access to PantryFlow while we build together. Founding prices are kept while your
+          Full access to Soozi while we build together. Founding prices are kept while your
           subscription stays active.
         </p>
       </div>

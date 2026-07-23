@@ -6,7 +6,7 @@ All primary CTAs navigate to `/auth/login?mode=signup`. Existing `utm_*` query p
 
 ## Analytics
 
-`LandingAnalyticsService` is provider-agnostic. It dispatches browser events named `pantryflow:<event>` with the current route, referrer, UTM campaign values, and non-sensitive placement metadata. A future analytics provider can subscribe once at the application boundary.
+`LandingAnalyticsService` is provider-agnostic. It dispatches browser events named `soozi:<event>` with the current route, referrer, UTM campaign values, and non-sensitive placement metadata. A future analytics provider can subscribe once at the application boundary.
 
 | Event | Trigger |
 | --- | --- |
@@ -27,5 +27,5 @@ No inventory, recipe, meal, email, or other personal data is included.
 
 - Replace the relative canonical URL with the final public production origin when it is known.
 - Privacy Policy (`/privacy`), Terms of Service (`/terms`), and Cookie Policy (`/cookies`) pages are implemented as editable drafts. Have them reviewed by a lawyer and update placeholders (`[Company/Owner Name]`, `[Jurisdiction]`, `[Last Updated Date]`) before public launch.
-- Confirm `hello@pantryflow.app` is monitored before launch.
+- Confirm `hello@soozi.app` is monitored before launch.
 - Add a licensed Open Graph image and `og:image` metadata when a final social asset exists.

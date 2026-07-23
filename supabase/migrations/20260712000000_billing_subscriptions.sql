@@ -1,4 +1,4 @@
--- PantryFlow: Early Access billing, trials, entitlements, and free-tier limits
+-- Soozi: Early Access billing, trials, entitlements, and free-tier limits
 -- Safe to run more than once.
 --
 -- Existing-user backfill: users without a subscription row receive a NEW 20-day trial

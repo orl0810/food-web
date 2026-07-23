@@ -143,7 +143,7 @@ export class UserProfileFacadeService {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'pantryflow-profile.json';
+    anchor.download = 'soozi-profile.json';
     anchor.click();
     URL.revokeObjectURL(url);
   }

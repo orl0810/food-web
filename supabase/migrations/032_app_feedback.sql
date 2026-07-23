@@ -1,4 +1,4 @@
--- PantryFlow: In-app user feedback (rating + comment)
+-- Soozi: In-app user feedback (rating + comment)
 -- Safe to run more than once.
 
 create table if not exists public.app_feedback (

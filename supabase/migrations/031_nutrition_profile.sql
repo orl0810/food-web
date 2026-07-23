@@ -1,4 +1,4 @@
--- PantryFlow: Nutrition profile fields on user_food_profiles
+-- Soozi: Nutrition profile fields on user_food_profiles
 -- Safe to run more than once.
 
 alter table public.user_food_profiles

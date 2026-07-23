@@ -1,4 +1,4 @@
-# PantryFlow Supabase local config
+# Soozi Supabase local config
 # See: https://supabase.com/docs/guides/cli/config
 
 [functions.stripe-webhook]

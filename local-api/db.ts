@@ -8,7 +8,7 @@ import { allBaseRecipeSeeds } from '../supabase/seeds/base-recipes/index.ts';
 import type { BaseRecipeSeed } from '../supabase/seeds/base-recipes/types.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = join(__dirname, 'data', 'pantryflow.sqlite');
+const dbPath = join(__dirname, 'data', 'soozi.sqlite');
 const foodWasteCollectionPath = join(
   __dirname,
   '..',

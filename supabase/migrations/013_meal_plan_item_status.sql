@@ -1,4 +1,4 @@
--- PantryFlow: meal plan item lifecycle status (planned/prepared/eaten/skipped)
+-- Soozi: meal plan item lifecycle status (planned/prepared/eaten/skipped)
 -- Safe to run more than once.
 
 alter table public.meal_plan_items

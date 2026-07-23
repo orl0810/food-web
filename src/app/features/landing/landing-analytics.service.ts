@@ -28,6 +28,6 @@ export class LandingAnalyticsService {
       referrer: this.document.referrer || undefined,
       campaign: Object.keys(campaign).length ? campaign : undefined,
     };
-    window.dispatchEvent(new CustomEvent(`pantryflow:${event}`, { detail }));
+    window.dispatchEvent(new CustomEvent(`soozi:${event}`, { detail }));
   }
 }
