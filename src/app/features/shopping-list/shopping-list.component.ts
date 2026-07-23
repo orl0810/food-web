@@ -9,6 +9,7 @@ import { FoodInventoryService } from '../../core/services/food-inventory.service
 import { MealPlanService } from '../../core/services/meal-plan.service';
 import { RecipeService } from '../../core/services/recipe.service';
 import { ShoppingListService } from '../../core/services/shopping-list.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
@@ -172,16 +173,16 @@ import {
           <div class="space-y-2">
             @for (item of shoppingListService.uncheckedItems(); track item.id) {
               <article class="card p-4">
-                <div class="flex items-start gap-3">
+                <div class="flex flex-wrap items-start gap-3">
                   <input
                     type="checkbox"
-                    class="mt-1 h-4 w-4 rounded border-stone-300 text-brand-600"
+                    class="mt-1 h-5 w-5 rounded border-stone-300 text-brand-600"
                     [checked]="false"
                     [disabled]="movingItemId() === item.id"
                     (change)="toggleItem(item, $event)"
                   />
                   <app-food-icon-badge [name]="item.name" size="sm" />
-                  <div class="min-w-0 flex-1">
+                  <div class="min-w-0 flex-1 basis-[min(100%,12rem)]">
                     <p class="text-base font-semibold text-stone-900">{{ item.name }}</p>
                     @if (item.quantity !== null || item.unit) {
                       <p class="mt-1 text-sm text-stone-600">
@@ -194,11 +195,11 @@ import {
                       </span>
                     }
                   </div>
-                  <div class="flex gap-2">
-                    <button type="button" class="btn-secondary-sm" (click)="openEditForm(item)">
+                  <div class="ml-auto flex shrink-0 gap-2">
+                    <button type="button" class="btn-secondary-sm touch-target-inline" (click)="openEditForm(item)">
                       Edit
                     </button>
-                    <button type="button" class="btn-danger" (click)="deleteItem(item)">
+                    <button type="button" class="btn-danger touch-target-inline" (click)="deleteItem(item)">
                       Delete
                     </button>
                   </div>
@@ -217,6 +218,7 @@ export class ShoppingListComponent implements OnInit {
   private readonly recipeService = inject(RecipeService);
   private readonly inventoryService = inject(FoodInventoryService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmDialog = inject(ConfirmDialogService);
 
   readonly showForm = signal(false);
   readonly editingItem = signal<ShoppingItem | null>(null);
@@ -328,7 +330,12 @@ export class ShoppingListComponent implements OnInit {
   }
 
   async deleteItem(item: ShoppingItem): Promise<void> {
-    const confirmed = window.confirm(`Remove "${item.name}" from your shopping list?`);
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Remove item',
+      message: `Remove "${item.name}" from your shopping list?`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
     if (!confirmed) {
       return;
     }
@@ -365,9 +372,13 @@ export class ShoppingListComponent implements OnInit {
     }
 
     if (this.shoppingListService.items().length > 0) {
-      const confirmed = window.confirm(
-        'Generating will replace your entire shopping list with items from the selected date range. Continue?'
-      );
+      const confirmed = await this.confirmDialog.confirm({
+        title: 'Replace shopping list',
+        message:
+          'Generating will replace your entire shopping list with items from the selected date range. Continue?',
+        confirmLabel: 'Replace list',
+        danger: true,
+      });
       if (!confirmed) {
         return;
       }

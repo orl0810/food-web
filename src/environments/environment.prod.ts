@@ -8,4 +8,5 @@ export const environment: Environment = {
   supabaseAnonKey: 'sb_publishable_DomMaeJ3jG48RQ37PDojZg_Oc_5ai5h',
   authSiteUrl: 'https://food-web-orlando-0810.vercel.app',
   recipeImagesBaseUrl: 'https://cdk.orlando-photo.com',
+  enableServiceWorker: true,
 };

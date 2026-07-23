@@ -23,6 +23,8 @@ export type RecipeImageSource = Pick<
         <img
           [src]="imageUrl()!"
           [alt]="altText()"
+          loading="lazy"
+          decoding="async"
           class="h-full w-full object-cover"
           (error)="onImageError()"
         />

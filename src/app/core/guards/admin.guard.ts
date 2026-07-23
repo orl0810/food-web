@@ -2,8 +2,9 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserProfileService } from '../services/user-profile.service';
+import { sanitizeReturnUrl } from '../utils/return-url.utils';
 
-export const adminGuard: CanActivateFn = async () => {
+export const adminGuard: CanActivateFn = async (_route, state) => {
   const authService = inject(AuthService);
   const userProfileService = inject(UserProfileService);
   const router = inject(Router);
@@ -11,7 +12,11 @@ export const adminGuard: CanActivateFn = async () => {
   await authService.whenReady();
 
   if (!authService.isAuthenticated()) {
-    return router.createUrlTree(['/auth/login']);
+    const returnUrl = sanitizeReturnUrl(state.url);
+    return router.createUrlTree(
+      ['/auth/login'],
+      returnUrl ? { queryParams: { returnUrl } } : undefined
+    );
   }
 
   const role = await userProfileService.resolveRole();

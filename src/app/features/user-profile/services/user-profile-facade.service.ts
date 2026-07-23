@@ -11,6 +11,7 @@ import {
   UserProfileSaveState,
 } from '../../../core/models/user-profile.model';
 import { AuthService } from '../../../core/services/auth.service';
+import { ExternalLinkService } from '../../../core/services/external-link.service';
 import { UserProfileService } from '../../../core/services/user-profile.service';
 
 const SUCCESS_MESSAGE_MS = 3000;
@@ -19,6 +20,7 @@ const SUCCESS_MESSAGE_MS = 3000;
 export class UserProfileFacadeService {
   private readonly profileService = inject(UserProfileService);
   private readonly authService = inject(AuthService);
+  private readonly externalLinks = inject(ExternalLinkService);
 
   private readonly saveStateSignal = signal<UserProfileSaveState>('idle');
   private readonly saveMessageSignal = signal<string | null>(null);
@@ -140,12 +142,7 @@ export class UserProfileFacadeService {
       return;
     }
     const blob = new Blob([JSON.stringify(profile, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'soozi-profile.json';
-    anchor.click();
-    URL.revokeObjectURL(url);
+    this.externalLinks.downloadBlob(blob, 'soozi-profile.json');
   }
 
   getProfileForSuggestions(): Pick<

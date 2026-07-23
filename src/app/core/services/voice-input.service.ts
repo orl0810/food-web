@@ -64,7 +64,9 @@ export class VoiceInputService {
   startListening(): void {
     const Recognition = this.getRecognitionConstructor();
     if (!Recognition) {
-      this.errorSignal.set('Voice input is not supported in this browser. Please add items manually.');
+      this.errorSignal.set(
+        'Voice input is not supported on this device. Please type your items instead.'
+      );
       return;
     }
 
@@ -155,8 +157,11 @@ export class VoiceInputService {
       return 'Microphone access was blocked. Please allow microphone access and try again.';
     }
     if (error === 'no-speech') {
-      return 'I could not hear anything. Please try speaking again.';
+      return 'No speech was detected. Please try again.';
     }
-    return 'Voice input stopped unexpectedly. Please try again.';
+    if (error === 'network') {
+      return 'Voice input needs a network connection. Please check your connection and try again.';
+    }
+    return 'Voice input failed. Please try again or type your items instead.';
   }
 }

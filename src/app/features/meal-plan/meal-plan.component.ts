@@ -10,6 +10,7 @@ import { MealSlotItem } from '../../core/models/meal-slot-item.model';
 import { MealPlanService } from '../../core/services/meal-plan.service';
 import { RecipeService } from '../../core/services/recipe.service';
 import { EntitlementService } from '../../core/services/entitlement.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { getMondayOfWeek } from '../../shared/utils/meal-plan.utils';
 import { MealStreakService } from '../../core/services/meal-streak.service';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
@@ -141,13 +142,13 @@ interface SelectedSlot {
       </div>
 
       <!-- Week day picker -->
-      <div class="grid w-full grid-cols-7 gap-0.5 sm:gap-1">
+      <div class="meal-week-strip grid w-full grid-cols-7 gap-0.5 sm:gap-1">
         @for (date of mealPlanService.weekDates(); track date) {
           @let day = formatDayShort(date);
           @let mealCount = mealsForDate(date);
           <button
             type="button"
-            class="flex w-full flex-col items-center rounded-lg px-0.5 py-2 transition-colors sm:rounded-xl sm:px-1 sm:py-2.5"
+            class="meal-week-day flex w-full min-h-11 flex-col items-center justify-center rounded-lg px-0 py-1.5 transition-colors sm:min-h-0 sm:rounded-xl sm:px-1 sm:py-2.5"
             [class.bg-brand-600]="selectedDate() === date"
             [class.text-white]="selectedDate() === date"
             [class.bg-stone-100]="selectedDate() !== date"
@@ -156,10 +157,12 @@ interface SelectedSlot {
             [class.ring-brand-600]="isTodayDate(date) && selectedDate() !== date"
             [class.ring-offset-1]="isTodayDate(date) && selectedDate() !== date"
             [class.opacity-60]="isPastDate(date)"
+            [attr.aria-pressed]="selectedDate() === date"
+            [attr.aria-current]="isTodayDate(date) ? 'date' : null"
             (click)="selectDate(date)"
           >
-            <span class="text-[10px] font-medium sm:text-xs">{{ day.weekday }}</span>
-            <span class="mt-0.5 text-base font-semibold leading-none sm:text-lg">{{ day.day }}</span>
+            <span class="text-[9px] font-medium leading-none tracking-wide sm:text-xs">{{ day.weekday }}</span>
+            <span class="mt-0.5 text-sm font-semibold leading-none sm:text-lg">{{ day.day }}</span>
             <span class="mt-1 flex h-1.5 items-center justify-center gap-0.5" aria-hidden="true">
               @for (dot of mealCountDots(mealCount); track $index) {
                 <span
@@ -395,6 +398,7 @@ export class MealPlanComponent implements OnInit {
   readonly mealPlanService = inject(MealPlanService);
   private readonly recipeService = inject(RecipeService);
   private readonly entitlementService = inject(EntitlementService);
+  private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly progressService = inject(MealPlanProgressService);
   private readonly toCookService = inject(ToCookService);
   private readonly nutritionProgressService = inject(NutritionProgressService);
@@ -739,7 +743,13 @@ export class MealPlanComponent implements OnInit {
 
   async onRemoveItem(item: MealSlotItem): Promise<void> {
     const title = getMealSlotItemDisplayName(item);
-    if (!window.confirm(`Remove "${title}" from this meal slot?`)) {
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Remove from meal',
+      message: `Remove "${title}" from this meal slot?`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -786,11 +796,13 @@ export class MealPlanComponent implements OnInit {
       return;
     }
 
-    if (
-      !window.confirm(
-        "Copy last week's meals into empty slots for this week? Existing meals will not be overwritten."
-      )
-    ) {
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Duplicate previous week',
+      message:
+        "Copy last week's meals into empty slots for this week? Existing meals will not be overwritten.",
+      confirmLabel: 'Copy meals',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -801,7 +813,10 @@ export class MealPlanComponent implements OnInit {
     this.duplicating.set(false);
 
     if (!error && copiedCount === 0) {
-      window.alert('No empty slots were available to copy into.');
+      await this.confirmDialog.alert({
+        title: 'Nothing to copy',
+        message: 'No empty slots were available to copy into.',
+      });
     }
   }
 

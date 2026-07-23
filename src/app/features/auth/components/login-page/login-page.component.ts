@@ -442,7 +442,8 @@ export class LoginPageComponent implements OnInit, OnDestroy {
 
     this.uiState.set('redirecting');
     try {
-      const target = await this.authFacade.handlePostLoginRedirect(user.id);
+      const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+      const target = await this.authFacade.handlePostLoginRedirect(user.id, returnUrl);
       await this.router.navigateByUrl(target);
     } catch (error) {
       this.uiState.set('idle');
