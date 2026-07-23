@@ -1,6 +1,6 @@
 # Supabase setup
 
-PantryFlow uses Supabase for auth and data storage. Production (Vercel) talks to Supabase directly (`useLocalApi: false`).
+Soozi uses Supabase for auth and data storage. Production (Vercel) talks to Supabase directly (`useLocalApi: false`).
 
 ## Initial setup
 

@@ -1,4 +1,4 @@
--- PantryFlow Phase 3: weekly meal plan with RLS
+-- Soozi Phase 3: weekly meal plan with RLS
 -- Run this in the Supabase SQL Editor. Safe to run more than once.
 
 create table if not exists public.meal_plan (

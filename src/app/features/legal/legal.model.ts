@@ -14,9 +14,9 @@ export interface LegalPageContent {
 
 /** Editable placeholders — update before legal review. */
 export const LEGAL_PLACEHOLDERS = {
-  appName: 'PantryFlow',
+  appName: 'Soozi',
   companyName: '[Company/Owner Name]',
-  supportEmail: 'hello@pantryflow.app',
+  supportEmail: 'hello@soozi.app',
   lastUpdated: '[Last Updated Date]',
   jurisdiction: '[Jurisdiction]',
 } as const;

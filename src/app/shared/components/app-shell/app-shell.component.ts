@@ -22,7 +22,7 @@ import { TrialStatusBannerComponent } from '../trial-status-banner/trial-status-
         <div class="mx-auto max-w-5xl px-4 py-4">
           <div class="flex items-center justify-between gap-4">
             <a routerLink="/dashboard" class="shrink-0 text-lg font-semibold text-brand-700">
-              PantryFlow
+              Soozi
             </a>
 
             <nav class="hidden items-center gap-1 md:flex">

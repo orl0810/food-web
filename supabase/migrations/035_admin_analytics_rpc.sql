@@ -1,4 +1,4 @@
--- PantryFlow: aggregated admin analytics RPC (security definer, admin-only)
+-- Soozi: aggregated admin analytics RPC (security definer, admin-only)
 -- Safe to run more than once.
 --
 -- Metric definitions:

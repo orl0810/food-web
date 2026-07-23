@@ -37,12 +37,12 @@ export const COOKIE_POLICY_CONTENT: LegalPageContent = {
     },
     {
       id: 'specific-storage',
-      title: '4. Specific storage used by PantryFlow',
+      title: '4. Specific storage used by Soozi',
       paragraphs: ['Examples of storage keys used by the app include:'],
       list: [
         'Supabase authentication session (localStorage) — keeps you signed in using secure tokens.',
-        'pantryflow.smartAction.dismissed (localStorage) — remembers dashboard smart actions you dismissed for the day.',
-        'pantryflow.suggestions.dailyFeatured (localStorage) — rotates featured recipe suggestions.',
+        'soozi.smartAction.dismissed (localStorage) — remembers dashboard smart actions you dismissed for the day.',
+        'soozi.suggestions.dailyFeatured (localStorage) — rotates featured recipe suggestions.',
         'Local development tokens (localStorage, development only) — used when running the app against a local API during development.',
       ],
     },

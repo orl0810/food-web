@@ -1,4 +1,4 @@
--- PantryFlow Phase 2: recipes + recipe ingredients with RLS
+-- Soozi Phase 2: recipes + recipe ingredients with RLS
 -- Run this in the Supabase SQL Editor. Safe to run more than once.
 
 create table if not exists public.recipes (

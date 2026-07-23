@@ -86,8 +86,8 @@ export class LandingPageComponent implements OnInit, OnDestroy {
   }
 
   private setMetadata(): void {
-    const title = 'PantryFlow — Weekly meal planning around what you already have';
-    const description = 'Plan weekly meals around pantry ingredients, use food before it expires, organize prepared portions, and cook fewer times with PantryFlow.';
+    const title = 'Soozi — Weekly meal planning around what you already have';
+    const description = 'Plan weekly meals around pantry ingredients, use food before it expires, organize prepared portions, and cook fewer times with Soozi.';
     this.title.setTitle(title);
     this.meta.updateTag({ name: 'description', content: description });
     this.meta.updateTag({ property: 'og:title', content: title });
@@ -103,17 +103,17 @@ export class LandingPageComponent implements OnInit, OnDestroy {
       this.document.head.appendChild(canonical);
     }
     canonical.href = '/';
-    let structuredData = this.document.getElementById('pantryflow-structured-data');
+    let structuredData = this.document.getElementById('soozi-structured-data');
     if (!structuredData) {
       structuredData = this.document.createElement('script');
-      structuredData.id = 'pantryflow-structured-data';
+      structuredData.id = 'soozi-structured-data';
       structuredData.setAttribute('type', 'application/ld+json');
       this.document.head.appendChild(structuredData);
     }
     structuredData.textContent = JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
-      name: 'PantryFlow',
+      name: 'Soozi',
       applicationCategory: 'LifestyleApplication',
       operatingSystem: 'Web',
       description,

@@ -161,7 +161,7 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
               class="space-y-5 border-t border-stone-200/60 px-4 pb-4 pt-4 sm:px-5"
             >
               <p class="text-sm text-stone-600">
-                PantryFlow sends your selected preferences to a secure Supabase Edge Function. The function loads only your inventory items needed for recipe ideas.
+                Soozi sends your selected preferences to a secure Supabase Edge Function. The function loads only your inventory items needed for recipe ideas.
               </p>
 
               @if (inventoryService.items().length === 0) {
@@ -351,7 +351,7 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
         @if (recipeService.recipes().length === 0) {
           <app-empty-state
             title="No saved recipes yet"
-            description="Use AI suggestions above or add a few recipes manually so PantryFlow can show rule-based suggestions."
+            description="Use AI suggestions above or add a few recipes manually so Soozi can show rule-based suggestions."
             actionLabel="Add a recipe"
             (actionClick)="goToRecipes()"
           />

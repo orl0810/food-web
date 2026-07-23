@@ -1,12 +1,12 @@
 ---
 alwaysApply: true
 ---
-description: Product roadmap and phase control for PantryFlow
+description: Product roadmap and phase control for Soozi
 globs: **/*
 alwaysApply: true
 ---
 
-# PantryFlow Roadmap
+# Soozi Roadmap
 
 ## Phase 1: Inventory MVP
 

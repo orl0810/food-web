@@ -1,4 +1,4 @@
--- PantryFlow: persistent food item history for form suggestions
+-- Soozi: persistent food item history for form suggestions
 
 create table public.food_item_history (
   id uuid primary key default gen_random_uuid(),

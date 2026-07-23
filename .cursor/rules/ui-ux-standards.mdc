@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 
-description: UI and UX standards for PantryFlow
+description: UI and UX standards for Soozi
 globs: src/**/*.html,src/**/*.scss,src/**/*.ts
 alwaysApply: true
 ---

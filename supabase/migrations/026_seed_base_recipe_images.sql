@@ -1,4 +1,4 @@
--- PantryFlow: incremental base recipe image updates
+-- Soozi: incremental base recipe image updates
 -- Apply after uploading approved images to Cloudflare R2.
 -- Replace YOUR_PUBLIC_BASE_URL with your R2 custom domain (e.g. https://images.myapp.com).
 

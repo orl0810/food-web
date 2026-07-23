@@ -1,4 +1,4 @@
--- PantryFlow: atomic recipe cooking completion (meal status + inventory + ready portions)
+-- Soozi: atomic recipe cooking completion (meal status + inventory + ready portions)
 -- Safe to run more than once.
 
 create or replace function public.complete_recipe_cooking(

@@ -2,14 +2,14 @@
 alwaysApply: true
 ---
 ---
-description: Project context and product direction for PantryFlow meal planner app
+description: Project context and product direction for Soozi meal planner app
 globs: **/*
 alwaysApply: true
 ---
 
 # Project Overview
 
-This project is a personal meal planner web app called PantryFlow.
+This project is a personal meal planner web app called Soozi.
 
 The main goal is to help the user save time and money by:
 - Tracking food already available at home.
