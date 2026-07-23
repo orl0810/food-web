@@ -176,6 +176,100 @@ export class OnboardingPlanGeneratorService {
     };
   }
 
+  async replaceRecipe(
+    state: OnboardingState,
+    plan: GeneratedOnboardingMealPlan,
+    slot: MealSlotType,
+    target: GeneratedMealSlotItem
+  ): Promise<GeneratedOnboardingMealPlan> {
+    if (target.type !== 'recipe') {
+      throw new Error('Only planned recipes can be changed.');
+    }
+
+    await this.recipeService.loadRecipes();
+    const existingRecipes = this.recipeService.recipes();
+    const mealType = mealSlotToMealType(slot);
+    const usedTitles = plan.days.flatMap((day) =>
+      day.meals.flatMap((meal) =>
+        meal.items.filter((item) => item.type === 'recipe').map((item) => item.name)
+      )
+    );
+    const usedTitleKeys = new Set(usedTitles.map((title) => normalizeNameKey(title)));
+
+    const pendingAlternative = (plan.pendingRecipes ?? []).find(
+      (recipe) =>
+        !usedTitleKeys.has(normalizeNameKey(recipe.title)) &&
+        (!recipe.mealType || recipe.mealType === mealType) &&
+        !recipeViolatesOnboardingConstraints(recipe.ingredients, state)
+    );
+
+    const existingAlternative = existingRecipes
+      .filter((recipe) => !usedTitleKeys.has(normalizeNameKey(recipe.title)))
+      .filter((recipe) => !recipe.meal_type || recipe.meal_type === mealType)
+      .filter((recipe) => this.recipeMatchesOnboardingState(recipe, state))
+      .map((recipe) => ({
+        recipe,
+        score: this.scoreExistingRecipe(recipe, state),
+      }))
+      .sort((a, b) => b.score - a.score)[0]?.recipe;
+
+    let replacement: GeneratedMealSlotItem;
+    let replacementPending: PendingOnboardingRecipe | null = null;
+
+    if (pendingAlternative) {
+      replacementPending = pendingAlternative;
+      replacement = this.pendingToSlotItem(pendingAlternative);
+    } else if (existingAlternative) {
+      replacement = {
+        type: 'recipe',
+        name: existingAlternative.title,
+        recipeId: existingAlternative.id,
+        portionsUsed: target.portionsUsed ?? 1,
+      };
+    } else {
+      const generated = await this.generatePendingRecipes(
+        state,
+        mealType,
+        1,
+        (plan.pendingRecipes?.length ?? 0) + usedTitles.length,
+        usedTitles
+      );
+      replacementPending = generated[0] ?? null;
+      if (!replacementPending) {
+        throw new Error('Could not find another recipe that matches your preferences.');
+      }
+      replacement = this.pendingToSlotItem(replacementPending);
+    }
+
+    const days = plan.days.map((day) => ({
+      ...day,
+      meals: day.meals.map((meal) => ({
+        ...meal,
+        items: meal.items.map((item) =>
+          this.isSameRecipe(item, target)
+            ? { ...replacement, portionsUsed: item.portionsUsed ?? replacement.portionsUsed }
+            : item
+        ),
+      })),
+    }));
+
+    const pendingRecipes = (plan.pendingRecipes ?? []).filter(
+      (recipe) => recipe.tempKey !== target.tempRecipeKey
+    );
+    if (
+      replacementPending &&
+      !pendingRecipes.some((recipe) => recipe.tempKey === replacementPending?.tempKey)
+    ) {
+      pendingRecipes.push(replacementPending);
+    }
+
+    return this.rebuildDerivedPlan(state, {
+      ...plan,
+      days,
+      pendingRecipes,
+    }, existingRecipes);
+  }
+
   private async buildRecipePool(
     state: OnboardingState,
     existingRecipes: Recipe[],
@@ -258,14 +352,21 @@ export class OnboardingPlanGeneratorService {
     state: OnboardingState,
     mealType: MealType,
     count: number,
-    startIndex: number
+    startIndex: number,
+    excludeTitles: string[] = []
   ): Promise<PendingOnboardingRecipe[]> {
     let recipes: PendingOnboardingRecipe[];
 
     if (environment.useLocalApi) {
-      recipes = generateMockOnboardingRecipes(state, mealType, count, startIndex);
+      recipes = generateMockOnboardingRecipes(
+        state,
+        mealType,
+        count,
+        startIndex,
+        excludeTitles
+      );
     } else {
-      const suggestions = await this.fetchAiRecipes(state, mealType, count);
+      const suggestions = await this.fetchAiRecipes(state, mealType, count, excludeTitles);
       recipes = suggestions.map((suggestion, index) =>
         this.suggestionToPending(suggestion, mealType, startIndex + index)
       );
@@ -276,7 +377,12 @@ export class OnboardingPlanGeneratorService {
     );
 
     if (valid.length < count && !environment.useLocalApi) {
-      const retrySuggestions = await this.fetchAiRecipes(state, mealType, count);
+      const retrySuggestions = await this.fetchAiRecipes(
+        state,
+        mealType,
+        count,
+        excludeTitles
+      );
       const retryRecipes = retrySuggestions
         .map((suggestion, index) =>
           this.suggestionToPending(suggestion, mealType, startIndex + valid.length + index)
@@ -303,7 +409,8 @@ export class OnboardingPlanGeneratorService {
   private async fetchAiRecipes(
     state: OnboardingState,
     mealType: MealType,
-    count: number
+    count: number,
+    excludeTitles: string[] = []
   ): Promise<AiRecipeSuggestion[]> {
     const maxPrep =
       state.goals.includes('save_time') || state.dietaryPreferences.includes('quick_meals')
@@ -316,6 +423,7 @@ export class OnboardingPlanGeneratorService {
       prioritizeExpiringIngredients: state.goals.includes('reduce_food_waste'),
       includeMissingIngredients: true,
       numberOfSuggestions: Math.min(count, 3),
+      excludeTitles,
       onboardingContext: {
         dietaryPreferences: state.dietaryPreferences,
         allergies: state.allergies,
@@ -343,6 +451,7 @@ export class OnboardingPlanGeneratorService {
   ): PendingOnboardingRecipe {
     return {
       tempKey: `ai-${mealType}-${index}-${normalizeNameKey(suggestion.title)}`,
+      mealType,
       source: 'ai',
       title: suggestion.title,
       description: suggestion.description,
@@ -455,5 +564,149 @@ export class OnboardingPlanGeneratorService {
     }
 
     return [...items.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private pendingToSlotItem(recipe: PendingOnboardingRecipe): GeneratedMealSlotItem {
+    return {
+      type: 'recipe',
+      name: recipe.title,
+      tempRecipeKey: recipe.tempKey,
+      portionsUsed: 1,
+    };
+  }
+
+  private isSameRecipe(item: GeneratedMealSlotItem, target: GeneratedMealSlotItem): boolean {
+    if (item.type !== 'recipe') return false;
+    if (target.recipeId) return item.recipeId === target.recipeId;
+    if (target.tempRecipeKey) return item.tempRecipeKey === target.tempRecipeKey;
+    return normalizeNameKey(item.name) === normalizeNameKey(target.name);
+  }
+
+  private recipeMatchesOnboardingState(recipe: Recipe, state: OnboardingState): boolean {
+    const allergies = state.allergies.map((name) => ({
+      id: '',
+      name,
+      normalizedName: normalizeNameKey(name),
+      strictExclusion: true as const,
+    }));
+    const disliked = state.dislikedIngredients.map((ingredientName) => ({
+      id: '',
+      ingredientName,
+      normalizedName: normalizeNameKey(ingredientName),
+      source: 'manual' as const,
+    }));
+    return (
+      !recipeContainsAllergen(recipe, allergies) &&
+      !recipeContainsDisliked(recipe, disliked) &&
+      !recipeViolatesOnboardingConstraints(recipe.ingredients ?? [], state)
+    );
+  }
+
+  private scoreExistingRecipe(recipe: Recipe, state: OnboardingState): number {
+    const disliked = state.dislikedIngredients.map((ingredientName) => ({
+      id: '',
+      ingredientName,
+      normalizedName: normalizeNameKey(ingredientName),
+      source: 'manual' as const,
+    }));
+    let score = buildSuggestion(recipe, [], new Set()).score;
+    score = applyProfileScoring(score, recipe, {
+      favorites: [],
+      disliked,
+      dietaryPreferences: state.dietaryPreferences,
+    });
+    if (
+      (state.goals.includes('save_time') ||
+        state.dietaryPreferences.includes('quick_meals')) &&
+      (recipe.prep_time_minutes ?? 60) <= 30
+    ) {
+      score += 10;
+    }
+    return score;
+  }
+
+  private rebuildDerivedPlan(
+    state: OnboardingState,
+    plan: GeneratedOnboardingMealPlan,
+    existingRecipes: Recipe[]
+  ): GeneratedOnboardingMealPlan {
+    const pool: ScoredRecipe[] = [
+      ...existingRecipes.map((recipe) => ({
+        recipe,
+        score: 0,
+        isPending: false,
+        mealType: recipe.meal_type ?? 'dinner' as MealType,
+      })),
+      ...(plan.pendingRecipes ?? []).map((recipe) => ({
+        recipe,
+        score: 0,
+        isPending: true,
+        mealType: recipe.mealType ?? 'dinner',
+      })),
+    ];
+    const cookingSessions = plan.cookingSessions.map((session) => {
+      const names =
+        plan.days
+          .find((day) => day.date === session.date)
+          ?.meals.flatMap((meal) => meal.items.map((item) => item.name))
+          .filter(Boolean)
+          .slice(0, 4) ?? [];
+      return {
+        ...session,
+        tasks: session.tasks.map((task) => ({
+          ...task,
+          relatedMealNames: names,
+        })),
+      };
+    });
+    const weekDates = plan.days.map((day) => day.date);
+    const preparedPortionSuggestions =
+      state.cookingEffort === 'batch_cooking' || state.cookingEffort === 'minimal_cooking'
+        ? cookingSessions.slice(0, 2).map((session, index) => ({
+            name: session.tasks[0]?.relatedMealNames?.[0] ?? `Batch meal ${index + 1}`,
+            portions: 2,
+            usedOnDays: weekDates.slice(index + 1, index + 3).map((date) =>
+              new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+                weekday: 'short',
+              })
+            ),
+            storageLocation: 'fridge' as const,
+          }))
+        : [];
+    const mealsPlanned = plan.days.reduce(
+      (sum, day) => sum + day.meals.filter((meal) => meal.items.length > 0).length,
+      0
+    );
+    const firstCook = cookingSessions[0];
+    const firstSmartAction = {
+      title: firstCook
+        ? `Today's focus: ${firstCook.tasks[0]?.title ?? 'Start cooking'}`
+        : 'Your meal plan is ready',
+      description: firstCook?.tasks[0]?.relatedMealNames?.length
+        ? `Cook ${firstCook.tasks[0].relatedMealNames.join(', ')}. Save portions for later this week.`
+        : 'Open your meal plan and start with today\'s meals.',
+      ctaLabel: 'View meal plan',
+      route: '/meal-plan',
+      priority: 'high' as const,
+    };
+
+    return {
+      ...plan,
+      shoppingListItems: this.buildShoppingList(
+        plan.days,
+        pool,
+        state.availableInventoryItems
+      ),
+      cookingSessions,
+      preparedPortionSuggestions,
+      firstSmartAction,
+      summary: {
+        ...plan.summary,
+        mealsPlanned,
+        cookingSessions: cookingSessions.length,
+        estimatedTimeSavedMinutes: Math.max(30, mealsPlanned * 12),
+        generatedAt: new Date().toISOString(),
+      },
+    };
   }
 }

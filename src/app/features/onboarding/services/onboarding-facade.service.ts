@@ -6,6 +6,7 @@ import { INPUT_STEPS, ONBOARDING_STEPS } from '../models/onboarding.constants';
 import { DietaryPreference } from '../../../core/models/user-profile.model';
 import {
   CookingEffortPreference,
+  GeneratedMealSlotItem,
   GeneratedOnboardingMealPlan,
   MealSlotType,
   OnboardingInventoryInput,
@@ -25,6 +26,7 @@ export class OnboardingFacadeService {
   private readonly stateSignal = signal<OnboardingState | null>(null);
   private readonly isGeneratingSignal = signal(false);
   private readonly isConfirmingSignal = signal(false);
+  private readonly replacingRecipeKeySignal = signal<string | null>(null);
   private readonly errorSignal = signal<string | null>(null);
   private readonly initializedSignal = signal(false);
 
@@ -33,6 +35,8 @@ export class OnboardingFacadeService {
   readonly generatedPlan = computed(() => this.stateSignal()?.generatedPlan ?? null);
   readonly isGenerating = this.isGeneratingSignal.asReadonly();
   readonly isConfirming = this.isConfirmingSignal.asReadonly();
+  readonly replacingRecipeKey = this.replacingRecipeKeySignal.asReadonly();
+  readonly isReplacingRecipe = computed(() => this.replacingRecipeKeySignal() !== null);
   readonly error = this.errorSignal.asReadonly();
   readonly initialized = this.initializedSignal.asReadonly();
 
@@ -211,6 +215,7 @@ export class OnboardingFacadeService {
   }
 
   async regeneratePlan(): Promise<void> {
+    if (this.isReplacingRecipe()) return;
     await this.generatePlan();
   }
 
@@ -219,10 +224,36 @@ export class OnboardingFacadeService {
     void this.persist();
   }
 
+  async replaceRecipe(slot: MealSlotType, item: GeneratedMealSlotItem): Promise<void> {
+    const state = this.stateSignal();
+    if (!state?.generatedPlan || item.type !== 'recipe' || this.isReplacingRecipe()) return;
+
+    this.replacingRecipeKeySignal.set(this.recipeKey(item));
+    this.errorSignal.set(null);
+    try {
+      const plan = await this.generator.replaceRecipe(state, state.generatedPlan, slot, item);
+      this.updateState({ generatedPlan: plan });
+      await this.persist();
+    } catch (error) {
+      this.errorSignal.set(
+        error instanceof Error ? error.message : 'Could not change this recipe. Please try again.'
+      );
+    } finally {
+      this.replacingRecipeKeySignal.set(null);
+    }
+  }
+
+  isReplacing(item: GeneratedMealSlotItem): boolean {
+    return this.replacingRecipeKeySignal() === this.recipeKey(item);
+  }
+
   async confirmPlan(): Promise<{ error: string | null }> {
     const state = this.stateSignal();
     if (!state?.generatedPlan) {
       return { error: 'No plan to confirm.' };
+    }
+    if (this.isReplacingRecipe()) {
+      return { error: 'Wait for the recipe change to finish.' };
     }
 
     this.isConfirmingSignal.set(true);
@@ -273,5 +304,9 @@ export class OnboardingFacadeService {
     if (error) {
       this.errorSignal.set(error);
     }
+  }
+
+  private recipeKey(item: GeneratedMealSlotItem): string {
+    return item.recipeId ?? item.tempRecipeKey ?? item.name.trim().toLowerCase();
   }
 }

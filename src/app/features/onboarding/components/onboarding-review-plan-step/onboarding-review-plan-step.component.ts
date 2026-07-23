@@ -1,6 +1,10 @@
 import { Component, computed, inject } from '@angular/core';
 import { MEAL_SLOT_OPTIONS } from '../../../../core/models/dietary-preference.constants';
-import { GeneratedOnboardingMealPlan } from '../../models/onboarding.model';
+import {
+  GeneratedMealSlotItem,
+  GeneratedOnboardingMealPlan,
+  MealSlotType,
+} from '../../models/onboarding.model';
 import { OnboardingStepLayoutComponent } from '../onboarding-step-layout/onboarding-step-layout.component';
 import { OnboardingFacadeService } from '../../services/onboarding-facade.service';
 
@@ -38,13 +42,27 @@ import { OnboardingFacadeService } from '../../services/onboarding-facade.servic
                       @for (item of meal.items; track item.name) {
                         <div class="mt-2 flex items-center justify-between gap-2">
                           <span class="text-sm font-medium text-stone-800">{{ item.name }}</span>
-                          <button
-                            type="button"
-                            class="btn-danger text-xs"
-                            (click)="removeItem(day.date, meal.slot, item.name)"
-                          >
-                            Remove
-                          </button>
+                          <div class="flex shrink-0 items-center gap-2">
+                            @if (item.type === 'recipe') {
+                              <button
+                                type="button"
+                                class="btn-secondary text-xs"
+                                [disabled]="facade.isReplacingRecipe()"
+                                [attr.aria-label]="'Change ' + item.name"
+                                (click)="changeRecipe(meal.slot, item)"
+                              >
+                                {{ facade.isReplacing(item) ? 'Changing…' : 'Change' }}
+                              </button>
+                            }
+                            <button
+                              type="button"
+                              class="btn-danger text-xs"
+                              [disabled]="facade.isReplacingRecipe()"
+                              (click)="removeItem(day.date, meal.slot, item.name)"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       }
                     }
@@ -69,7 +87,7 @@ import { OnboardingFacadeService } from '../../services/onboarding-facade.servic
             <button
               type="button"
               class="btn-secondary"
-              [disabled]="facade.isGenerating()"
+              [disabled]="facade.isGenerating() || facade.isReplacingRecipe()"
               (click)="regenerate()"
             >
               Regenerate plan
@@ -77,7 +95,7 @@ import { OnboardingFacadeService } from '../../services/onboarding-facade.servic
             <button
               type="button"
               class="btn-primary"
-              [disabled]="facade.isConfirming()"
+              [disabled]="facade.isConfirming() || facade.isReplacingRecipe()"
               (click)="confirm()"
             >
               {{ facade.isConfirming() ? 'Saving…' : 'Confirm plan' }}
@@ -109,6 +127,10 @@ export class OnboardingReviewPlanStepComponent {
 
   regenerate(): void {
     void this.facade.regeneratePlan();
+  }
+
+  changeRecipe(slot: MealSlotType, item: GeneratedMealSlotItem): void {
+    void this.facade.replaceRecipe(slot, item);
   }
 
   async confirm(): Promise<void> {

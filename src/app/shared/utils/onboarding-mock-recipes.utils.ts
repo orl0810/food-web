@@ -265,6 +265,7 @@ function templateToPending(
 
   return {
     tempKey: `mock-${mealType}-${startIndex + index}-${normalizeNameKey(template.title)}`,
+    mealType,
     source: 'mock',
     title: template.title,
     description: template.description,
@@ -280,12 +281,15 @@ export function generateMockOnboardingRecipes(
   state: OnboardingState,
   mealType: MealType,
   count: number,
-  startIndex = 0
+  startIndex = 0,
+  excludeTitles: string[] = []
 ): PendingOnboardingRecipe[] {
+  const excludedTitleKeys = new Set(excludeTitles.map((title) => normalizeNameKey(title)));
   const candidates = MOCK_TEMPLATES.filter(
     (template) =>
       template.mealTypes.includes(mealType) &&
-      isTemplateAllowed(template, state.dietaryPreferences)
+      isTemplateAllowed(template, state.dietaryPreferences) &&
+      !excludedTitleKeys.has(normalizeNameKey(template.title))
   )
     .map((template) => applyInventoryAndDislikes(template, state))
     .filter(

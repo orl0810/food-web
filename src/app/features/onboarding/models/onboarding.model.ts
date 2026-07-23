@@ -71,6 +71,8 @@ export interface GeneratedOnboardingMealPlan {
 
 export interface PendingOnboardingRecipe {
   tempKey: string;
+  /** Meal type this generated recipe was created for. Optional for persisted legacy drafts. */
+  mealType?: MealType;
   title: string;
   description: string;
   prepTimeMinutes: number;
