@@ -354,6 +354,7 @@ interface SelectedSlot {
                     [canAdd]="canAddToSelectedDate()"
                     [canChange]="canAddToSelectedDate()"
                     [status]="slotDisplayStatus(selectedDate(), mealType)"
+                    [tourItemId]="tourFirstRecipeId()"
                     (addItem)="openPicker(selectedDate(), mealType)"
                     (removeItem)="onRemoveItem($event)"
                     (changeItem)="onChangeItem($event)"
@@ -487,6 +488,22 @@ export class MealPlanComponent implements OnInit {
     getDayProgressTitle(this.selectedDate(), this.isTodayDate(this.selectedDate()))
   );
 
+  /** First planned recipe on the selected day (for the first-user tour highlight). */
+  readonly tourFirstRecipeId = computed(() => {
+    const date = this.selectedDate();
+    for (const mealType of this.mealTypes) {
+      const recipe = this.itemsFor(date, mealType).find(
+        (item) => item.item_type === 'recipe' && !!item.recipe_id
+      );
+      if (recipe) return recipe.id;
+    }
+    for (const mealType of this.mealTypes) {
+      const first = this.itemsFor(date, mealType)[0];
+      if (first) return first.id;
+    }
+    return null;
+  });
+
   readonly streakFeedbackMessage = computed(() => {
     if (!this.isTodayDate(this.selectedDate())) {
       return null;
@@ -512,6 +529,17 @@ export class MealPlanComponent implements OnInit {
       this.nutritionTargetsService.ensureProfileLoaded(),
       this.recipeService.loadBaseRecipes(),
     ]);
+
+    this.route.queryParamMap.subscribe((params) => {
+      const date = params.get('date');
+      if (date && this.mealPlanService.weekDates().includes(date)) {
+        this.selectedDate.set(date);
+      }
+      const mealType = params.get('tourMealType') as MealType | null;
+      if (mealType && MEAL_TYPES.includes(mealType)) {
+        this.tourTargetMealType.set(mealType);
+      }
+    });
   }
 
   goToNutritionProfile(): void {

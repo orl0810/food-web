@@ -22,7 +22,10 @@ import {
     >
       <ul class="divide-y divide-stone-100">
         @for (item of items(); track item.id) {
-          <li class="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-3 gap-y-0.5 py-2 first:pt-0 last:pb-0">
+          <li
+            class="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-3 gap-y-0.5 py-2 first:pt-0 last:pb-0"
+            [attr.data-tour]="tourItemId() === item.id ? 'meal-plan-first-recipe' : null"
+          >
             <div class="row-span-2 shrink-0 self-start [&_figure]:!h-16 [&_figure]:!w-16">
               @if (item.item_type === 'recipe' && item.recipe) {
                 <app-recipe-image [recipe]="item.recipe" variant="thumbnail" />
@@ -136,6 +139,7 @@ export class MealSlotItemsComponent {
   readonly canAdd = input(true);
   readonly canChange = input(true);
   readonly status = input<MealSlotDisplayStatus>('planned');
+  readonly tourItemId = input<string | null>(null);
 
   readonly addItem = output<void>();
   readonly removeItem = output<MealSlotItem>();

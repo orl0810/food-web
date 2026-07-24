@@ -5,10 +5,11 @@ export const FIRST_TOUR_SELECTORS = {
   inventoryNav: '[data-tour="inventory-nav"]',
   generator: '[data-tour="meal-plan-generator"]',
   generatorDialog: '[data-tour="meal-plan-generator-dialog"]',
+  firstRecipe: '[data-tour="meal-plan-first-recipe"]',
   shoppingCheckbox: '[data-tour="shopping-checkbox"]',
+  shoppingItem: '[data-tour="shopping-item"]',
   shoppingFallback: '[data-tour="shopping-fallback"]',
   inventoryRow: '[data-tour="inventory-row"]',
   inventoryFallback: '[data-tour="inventory-fallback"]',
   mealStatusAction: '[data-tour="meal-status-action"]',
 } as const;
-

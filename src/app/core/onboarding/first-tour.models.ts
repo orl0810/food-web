@@ -1,7 +1,7 @@
 export const FIRST_TOUR_ID = 'first-user-tour' as const;
-export const FIRST_TOUR_VERSION = 1 as const;
+export const FIRST_TOUR_VERSION = 2 as const;
 
-export type FirstTourStep = 1 | 2 | 3 | 4 | 5;
+export type FirstTourStep = 1 | 2 | 3 | 4 | 5 | 6;
 export type OnboardingStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
 
 export interface OnboardingProgress {
@@ -12,4 +12,3 @@ export interface OnboardingProgress {
   currentStep: FirstTourStep;
   updatedAt: string;
 }
-

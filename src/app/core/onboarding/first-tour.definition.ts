@@ -18,19 +18,30 @@ export const FIRST_TOUR_COPY: Record<FirstTourStep, FirstTourCopy> = {
     action: 'Continue',
   },
   3: {
-    title: 'Shop what you need',
-    description: 'Check an item to add it to Inventory. Soozi removes it from this list after it is saved.',
+    title: 'You already have planned recipes',
+    description:
+      'You can change it if you don’t like it, view it, or create your own from the Recipes menu.',
     action: 'Continue',
   },
   4: {
+    title: 'Everything you need is here',
+    description: 'Everything you need to complete your meal plan is here.',
+    action: 'Continue',
+  },
+  5: {
     title: 'See what you have',
     description: 'Inventory keeps your food, locations, and expiration dates in one place.',
     action: 'Continue',
   },
-  5: {
+  6: {
     title: 'Cook your plan',
     description: 'Mark this planned meal as cooked. The tour finishes after Soozi saves the change.',
     action: 'Finish',
   },
 };
 
+export const SHOPPING_NAV_BRIDGE_COPY: FirstTourCopy = {
+  title: 'Next: Shopping',
+  description: 'Open Shopping to see ingredients for your plan.',
+  action: 'Continue',
+};

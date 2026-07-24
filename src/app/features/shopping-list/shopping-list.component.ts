@@ -174,7 +174,10 @@ import {
           </h2>
           <div class="space-y-2">
             @for (item of shoppingListService.uncheckedItems(); track item.id; let first = $first) {
-              <article class="card p-4">
+              <article
+                class="card p-4"
+                [attr.data-tour]="first ? 'shopping-item' : null"
+              >
                 <div class="flex flex-wrap items-start gap-3">
                   <input
                     type="checkbox"

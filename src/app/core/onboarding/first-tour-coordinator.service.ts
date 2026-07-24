@@ -6,7 +6,7 @@ import { AuthService } from '../services/auth.service';
 import { MealPlanService } from '../services/meal-plan.service';
 import { OnboardingService } from '../services/onboarding.service';
 import { PlatformService } from '../services/platform.service';
-import { FIRST_TOUR_COPY } from './first-tour.definition';
+import { FIRST_TOUR_COPY, SHOPPING_NAV_BRIDGE_COPY } from './first-tour.definition';
 import { FirstTourEventsService } from './first-tour-events.service';
 import { FirstTourStep } from './first-tour.models';
 import { FIRST_TOUR_SELECTORS } from './first-tour.selectors';
@@ -15,10 +15,13 @@ import { FirstTourStorageService } from './first-tour-storage.service';
 const STEP_ROUTES: Record<FirstTourStep, string> = {
   1: '/dashboard',
   2: '/meal-plan',
-  3: '/shopping-list',
-  4: '/inventory',
-  5: '/meal-plan',
+  3: '/meal-plan',
+  4: '/shopping-list',
+  5: '/inventory',
+  6: '/meal-plan',
 };
+
+const TOTAL_STEPS = 6;
 
 @Injectable({ providedIn: 'root' })
 export class FirstTourCoordinatorService {
@@ -37,6 +40,7 @@ export class FirstTourCoordinatorService {
   private autoOfferCheckedForUser: string | null = null;
   private restoreFocusTo: HTMLElement | null = null;
   private targetedMealIds = new Set<string>();
+  private shoppingNavBridgeActive = false;
   private readonly keydownHandler = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && this.active()) {
       event.preventDefault();
@@ -60,13 +64,13 @@ export class FirstTourCoordinatorService {
             this.mealPlan.entries().some((item) => item.status === 'planned' && !!item.recipe_id);
           if (usable) void this.advanceTo(3);
         }
-        if (event.type === 'shopping-item-moved' && this.currentStep() === 3) {
-          void this.advanceTo(4);
+        if (event.type === 'shopping-item-moved' && this.currentStep() === 4) {
+          void this.advanceTo(5);
         }
         if (
           event.type === 'meal-status-persisted' &&
           event.status === 'prepared' &&
-          this.currentStep() === 5 &&
+          this.currentStep() === 6 &&
           event.itemIds.some((id) => this.targetedMealIds.has(id))
         ) {
           this.complete();
@@ -102,6 +106,7 @@ export class FirstTourCoordinatorService {
     const nextStep = step ?? (saved?.status === 'in_progress' ? saved.currentStep : 1);
     this.restoreFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.active.set(true);
+    this.shoppingNavBridgeActive = false;
     document.addEventListener('keydown', this.keydownHandler);
     this.currentStep.set(nextStep);
     this.storage.save(userId, 'in_progress', nextStep);
@@ -122,6 +127,7 @@ export class FirstTourCoordinatorService {
     this.driverInstance?.destroy();
     this.driverInstance = null;
     this.targetedMealIds.clear();
+    this.shoppingNavBridgeActive = false;
     this.active.set(false);
     this.restoreFocusTo?.focus();
     this.restoreFocusTo = null;
@@ -140,6 +146,7 @@ export class FirstTourCoordinatorService {
   private async advanceTo(step: FirstTourStep): Promise<void> {
     const userId = this.auth.user()?.id;
     if (!userId) return;
+    this.shoppingNavBridgeActive = false;
     this.currentStep.set(step);
     this.storage.save(userId, 'in_progress', step);
     await this.showStep(step);
@@ -147,7 +154,7 @@ export class FirstTourCoordinatorService {
 
   private complete(): void {
     const userId = this.auth.user()?.id;
-    if (userId) this.storage.save(userId, 'completed', 5);
+    if (userId) this.storage.save(userId, 'completed', 6);
     this.destroy();
   }
 
@@ -156,24 +163,46 @@ export class FirstTourCoordinatorService {
     this.driverInstance?.destroy();
     this.driverInstance = null;
 
-    const route = STEP_ROUTES[step];
-    if (!this.router.url.startsWith(route)) {
-      if (step === 5) {
-        const target = this.findTargetMeal();
-        if (!target) {
+    if (step === 3) {
+      const target = this.findTargetMeal();
+      if (!target) {
+        if (!this.router.url.startsWith('/meal-plan')) {
           await this.router.navigate(['/meal-plan']);
-          this.showFallback(step, 'No current or future planned recipe is available yet.');
-          return;
         }
-        this.targetedMealIds = new Set(
-          this.mealPlan.getItemsForSlot(target.date, target.meal_type).map((item) => item.id)
-        );
+        this.showFallback(step, 'No planned recipe is available yet.');
+        return;
+      }
+      const url = this.router.url;
+      const onMealPlan = url.startsWith('/meal-plan');
+      const dateMatches = url.includes(`date=${target.date}`);
+      if (!onMealPlan || !dateMatches) {
+        await this.router.navigate(['/meal-plan'], { queryParams: { date: target.date } });
+        return;
+      }
+    }
+
+    if (step === 6) {
+      const target = this.findTargetMeal();
+      if (!target) {
+        await this.router.navigate(['/meal-plan']);
+        this.showFallback(step, 'No current or future planned recipe is available yet.');
+        return;
+      }
+      this.targetedMealIds = new Set(
+        this.mealPlan.getItemsForSlot(target.date, target.meal_type).map((item) => item.id)
+      );
+      const url = this.router.url;
+      if (!url.startsWith('/meal-plan') || !url.includes(`date=${target.date}`)) {
         await this.router.navigate(['/meal-plan'], {
           queryParams: { date: target.date, tourMealType: target.meal_type },
         });
-      } else {
-        await this.router.navigateByUrl(route);
+        return;
       }
+    }
+
+    const route = STEP_ROUTES[step];
+    if (!this.router.url.startsWith(route)) {
+      await this.router.navigateByUrl(route);
       return;
     }
 
@@ -185,15 +214,21 @@ export class FirstTourCoordinatorService {
     const selector = this.selectorFor(step);
     const element = await this.waitForVisible(selector);
     if (!this.active() || this.currentStep() !== step) return;
-    element ? this.highlight(step, element) : this.showFallback(step);
+    if (element) {
+      this.scrollCentered(element);
+      this.highlight(step, element);
+    } else {
+      this.showFallback(step);
+    }
   }
 
   private selectorFor(step: FirstTourStep): string {
     switch (step) {
       case 2: return FIRST_TOUR_SELECTORS.generator;
-      case 3: return `${FIRST_TOUR_SELECTORS.shoppingCheckbox}, ${FIRST_TOUR_SELECTORS.shoppingFallback}`;
-      case 4: return `${FIRST_TOUR_SELECTORS.inventoryRow}, ${FIRST_TOUR_SELECTORS.inventoryFallback}`;
-      case 5: return FIRST_TOUR_SELECTORS.mealStatusAction;
+      case 3: return FIRST_TOUR_SELECTORS.firstRecipe;
+      case 4: return `${FIRST_TOUR_SELECTORS.shoppingItem}, ${FIRST_TOUR_SELECTORS.shoppingFallback}`;
+      case 5: return `${FIRST_TOUR_SELECTORS.inventoryRow}, ${FIRST_TOUR_SELECTORS.inventoryFallback}`;
+      case 6: return FIRST_TOUR_SELECTORS.mealStatusAction;
       default: return '';
     }
   }
@@ -202,21 +237,22 @@ export class FirstTourCoordinatorService {
     const copy = FIRST_TOUR_COPY[step];
     const needsContinue = this.needsContinueButton(step, element);
     const interactive = !needsContinue;
-    const isTipOnly = step === 2;
+    const isTipOnly = step === 2 || step === 4;
     this.driverInstance = driver({
       animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       allowClose: true,
       allowKeyboardControl: false,
       overlayClickBehavior: () => undefined,
-      disableActiveInteraction: step === 1 || step === 4,
+      disableActiveInteraction: step === 1 || step === 5,
       popoverClass: this.popoverClass(interactive),
       stagePadding: 8,
       stageRadius: 16,
       onCloseClick: () => this.dismiss(),
       onNextClick: () => {
         if (step === 1) void this.advanceTo(2);
-        if (step === 3) void this.advanceTo(4);
+        if (step === 3) this.showShoppingNavBridge();
         if (step === 4) void this.advanceTo(5);
+        if (step === 5) void this.advanceTo(6);
       },
       onPopoverRender: (popover) => this.renderControls(popover, step, element),
     });
@@ -225,7 +261,6 @@ export class FirstTourCoordinatorService {
       popover: {
         title: copy.title,
         description: copy.description,
-        // Prefer top so the tip does not cover the highlighted CTA / dialog footer.
         side: element ? (interactive ? 'top' : 'bottom') : undefined,
         align: 'center',
         showButtons: needsContinue ? ['next', 'close'] : ['close'],
@@ -235,6 +270,53 @@ export class FirstTourCoordinatorService {
     });
 
     if (step === 2) this.watchForGeneratorDialog();
+  }
+
+  private showShoppingNavBridge(): void {
+    this.shoppingNavBridgeActive = true;
+    const nav = this.visibleElement(FIRST_TOUR_SELECTORS.shoppingNav);
+    if (!nav) {
+      void this.advanceTo(4);
+      return;
+    }
+    this.scrollCentered(nav);
+    this.driverInstance?.destroy();
+    this.driverInstance = driver({
+      animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      allowClose: true,
+      allowKeyboardControl: false,
+      overlayClickBehavior: () => undefined,
+      disableActiveInteraction: false,
+      popoverClass: this.popoverClass(true),
+      stagePadding: 8,
+      stageRadius: 16,
+      onCloseClick: () => this.dismiss(),
+      onNextClick: () => void this.advanceTo(4),
+      onPopoverRender: (popover) => {
+        popover.wrapper.className = `driver-popover ${this.popoverClass(true)}`;
+        popover.previousButton.hidden = true;
+        popover.previousButton.style.display = 'none';
+        popover.progress.textContent = `Step 3 of ${TOTAL_STEPS}`;
+        popover.progress.setAttribute('aria-live', 'polite');
+        popover.nextButton.textContent = SHOPPING_NAV_BRIDGE_COPY.action;
+        popover.nextButton.classList.add('soozi-tour-action');
+        popover.nextButton.hidden = false;
+        popover.nextButton.style.display = 'inline-flex';
+        queueMicrotask(() => popover.nextButton.focus());
+      },
+    });
+    this.driverInstance.highlight({
+      element: nav,
+      popover: {
+        title: SHOPPING_NAV_BRIDGE_COPY.title,
+        description: SHOPPING_NAV_BRIDGE_COPY.description,
+        side: 'top',
+        align: 'center',
+        showButtons: ['next', 'close'],
+        showProgress: true,
+        nextBtnText: SHOPPING_NAV_BRIDGE_COPY.action,
+      },
+    });
   }
 
   private renderControls(popover: PopoverDOM, step: FirstTourStep, element?: Element): void {
@@ -254,9 +336,20 @@ export class FirstTourCoordinatorService {
       return;
     }
 
+    if (step === 4 && !element?.matches(FIRST_TOUR_SELECTORS.shoppingFallback)) {
+      popover.progress.style.display = 'none';
+      popover.footer.style.display = 'none';
+      queueMicrotask(() => (
+        elementIsFocusable(this.driverInstance?.getActiveElement())
+          ? this.driverInstance?.getActiveElement() as HTMLElement
+          : popover.closeButton
+      ).focus());
+      return;
+    }
+
     popover.progress.style.display = '';
     popover.footer.style.display = '';
-    popover.progress.textContent = `Step ${step} of 5`;
+    popover.progress.textContent = `Step ${step} of ${TOTAL_STEPS}`;
     popover.progress.setAttribute('aria-live', 'polite');
 
     if (needsContinue) {
@@ -271,7 +364,7 @@ export class FirstTourCoordinatorService {
 
     const instruction = document.createElement('span');
     instruction.className = 'soozi-tour-instruction';
-    instruction.textContent = step === 3
+    instruction.textContent = step === 4
       ? 'Check the highlighted item to continue.'
       : 'Use “Mark as cooked” to finish.';
     popover.footer.insertBefore(instruction, popover.footerButtons);
@@ -322,7 +415,7 @@ export class FirstTourCoordinatorService {
         popover.wrapper.className = `driver-popover ${this.popoverClass(false)}`;
         popover.previousButton.hidden = true;
         popover.previousButton.style.display = 'none';
-        popover.progress.textContent = `Step ${step} of 5`;
+        popover.progress.textContent = `Step ${step} of ${TOTAL_STEPS}`;
         popover.nextButton.textContent = 'Try again';
         popover.nextButton.classList.add('soozi-tour-action');
         popover.nextButton.style.display = 'inline-flex';
@@ -341,9 +434,9 @@ export class FirstTourCoordinatorService {
   }
 
   private needsContinueButton(step: FirstTourStep, element?: Element | null): boolean {
-    if (step === 1 || step === 4) return true;
-    if (step === 3 && element?.matches(FIRST_TOUR_SELECTORS.shoppingFallback)) return true;
-    if (step === 3 && !element && !!document.querySelector(FIRST_TOUR_SELECTORS.shoppingFallback)) {
+    if (step === 1 || step === 3 || step === 5) return true;
+    if (step === 4 && element?.matches(FIRST_TOUR_SELECTORS.shoppingFallback)) return true;
+    if (step === 4 && !element && !!document.querySelector(FIRST_TOUR_SELECTORS.shoppingFallback)) {
       return true;
     }
     return false;
@@ -366,6 +459,17 @@ export class FirstTourCoordinatorService {
       if (userId && url.startsWith('/dashboard')) void this.offerIfEligible(userId);
       return;
     }
+
+    // Bridge: user tapped Shopping nav while recipe step is bridging.
+    if (
+      this.shoppingNavBridgeActive &&
+      this.currentStep() === 3 &&
+      url.startsWith('/shopping-list')
+    ) {
+      void this.advanceTo(4);
+      return;
+    }
+
     const expected = STEP_ROUTES[this.currentStep()];
     if (!url.startsWith(expected)) {
       this.destroy();
@@ -378,7 +482,13 @@ export class FirstTourCoordinatorService {
     const today = new Date().toISOString().slice(0, 10);
     return [...this.mealPlan.entries()]
       .filter((item) => item.date >= today && item.status === 'planned' && !!item.recipe_id)
-      .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null;
+      .sort((a, b) => a.date.localeCompare(b.date) || a.meal_type.localeCompare(b.meal_type))[0] ?? null;
+  }
+
+  private scrollCentered(element: Element): void {
+    if (element instanceof HTMLElement) {
+      element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+    }
   }
 
   private waitForVisible(selector: string, timeoutMs = 5000): Promise<Element | null> {
