@@ -208,15 +208,15 @@ export class FirstTourCoordinatorService {
 
   private highlight(step: FirstTourStep, element?: Element): void {
     const copy = FIRST_TOUR_COPY[step];
-    const needsContinue = step === 1 || step === 4 ||
-      (step === 3 && element?.matches(FIRST_TOUR_SELECTORS.shoppingFallback));
+    const needsContinue = this.needsContinueButton(step, element);
+    const interactive = !needsContinue;
     this.driverInstance = driver({
       animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       allowClose: true,
       allowKeyboardControl: false,
       overlayClickBehavior: () => undefined,
       disableActiveInteraction: step === 1 || step === 4,
-      popoverClass: 'soozi-first-tour',
+      popoverClass: this.popoverClass(interactive),
       stagePadding: 8,
       stageRadius: 16,
       onCloseClick: () => void this.skip(),
@@ -225,16 +225,18 @@ export class FirstTourCoordinatorService {
         if (step === 3) void this.advanceTo(4);
         if (step === 4) void this.advanceTo(5);
       },
-      onPopoverRender: (popover) => this.renderControls(popover, step),
+      onPopoverRender: (popover) => this.renderControls(popover, step, element),
     });
     this.driverInstance.highlight({
       ...(element ? { element } : {}),
       popover: {
         title: copy.title,
         description: copy.description,
-        side: element ? 'bottom' : undefined,
+        // Prefer top so the tip does not cover the highlighted CTA / dialog footer.
+        side: element ? (interactive ? 'top' : 'bottom') : undefined,
         align: 'center',
         showButtons: needsContinue ? ['next', 'close'] : ['close'],
+        showProgress: true,
         nextBtnText: copy.action,
       },
     });
@@ -242,21 +244,27 @@ export class FirstTourCoordinatorService {
     if (step === 2) this.watchForGeneratorDialog();
   }
 
-  private renderControls(popover: PopoverDOM, step: FirstTourStep): void {
+  private renderControls(popover: PopoverDOM, step: FirstTourStep, element?: Element): void {
+    const needsContinue = this.needsContinueButton(
+      step,
+      element ?? this.visibleTarget(step) ?? undefined
+    );
+    popover.wrapper.className = `driver-popover ${this.popoverClass(!needsContinue)}`;
     popover.progress.textContent = `Step ${step} of 5`;
     popover.progress.setAttribute('aria-live', 'polite');
-    const needsContinue = step === 1 || step === 4 ||
-      (step === 3 && !!document.querySelector(FIRST_TOUR_SELECTORS.shoppingFallback));
     if (needsContinue) {
       popover.nextButton.textContent = FIRST_TOUR_COPY[step].action;
       popover.nextButton.classList.add('soozi-tour-action');
       popover.nextButton.hidden = false;
+      popover.nextButton.removeAttribute('disabled');
+      popover.nextButton.style.display = 'inline-flex';
       queueMicrotask(() => popover.nextButton.focus());
     } else {
+      popover.footer.querySelectorAll('.soozi-tour-instruction').forEach((node) => node.remove());
       const instruction = document.createElement('span');
       instruction.className = 'soozi-tour-instruction';
       instruction.textContent = step === 2
-        ? 'Use the highlighted control to continue.'
+        ? 'Tap Generate meal plan to continue.'
         : step === 3
           ? 'Check the highlighted item to continue.'
           : 'Use “Mark as cooked” to finish.';
@@ -277,9 +285,21 @@ export class FirstTourCoordinatorService {
           popover: {
             title: FIRST_TOUR_COPY[2].title,
             description: 'Choose dates and meals, then generate. We’ll continue after the plan is saved.',
-            side: 'bottom',
+            side: 'top',
             align: 'center',
             showButtons: ['close'],
+            showProgress: true,
+            popoverClass: this.popoverClass(true),
+            onPopoverRender: (popover) => {
+              popover.wrapper.className = `driver-popover ${this.popoverClass(true)}`;
+              popover.progress.textContent = 'Step 2 of 5';
+              popover.progress.setAttribute('aria-live', 'polite');
+              popover.footer.querySelectorAll('.soozi-tour-instruction').forEach((node) => node.remove());
+              const instruction = document.createElement('span');
+              instruction.className = 'soozi-tour-instruction';
+              instruction.textContent = 'Pick dates and meals, then tap Generate meals.';
+              popover.footer.insertBefore(instruction, popover.footerButtons);
+            },
           },
         });
         this.clearWaiting();
@@ -292,13 +312,15 @@ export class FirstTourCoordinatorService {
   private showFallback(step: FirstTourStep, message = 'This tour target did not become available.'): void {
     this.driverInstance = driver({
       allowClose: true,
-      popoverClass: 'soozi-first-tour',
+      popoverClass: this.popoverClass(false),
       onCloseClick: () => void this.skip(),
       onNextClick: () => void this.showStep(step),
       onPopoverRender: (popover) => {
+        popover.wrapper.className = `driver-popover ${this.popoverClass(false)}`;
         popover.progress.textContent = `Step ${step} of 5`;
         popover.nextButton.textContent = 'Try again';
         popover.nextButton.classList.add('soozi-tour-action');
+        popover.nextButton.style.display = 'inline-flex';
         queueMicrotask(() => popover.nextButton.focus());
       },
     });
@@ -307,9 +329,30 @@ export class FirstTourCoordinatorService {
         title: 'Let’s try that again',
         description: message,
         showButtons: ['next', 'close'],
+        showProgress: true,
         nextBtnText: 'Try again',
       },
     });
+  }
+
+  private needsContinueButton(step: FirstTourStep, element?: Element | null): boolean {
+    if (step === 1 || step === 4) return true;
+    if (step === 3 && element?.matches(FIRST_TOUR_SELECTORS.shoppingFallback)) return true;
+    if (step === 3 && !element && !!document.querySelector(FIRST_TOUR_SELECTORS.shoppingFallback)) {
+      return true;
+    }
+    return false;
+  }
+
+  private popoverClass(interactive: boolean): string {
+    return interactive
+      ? 'soozi-first-tour soozi-first-tour--dock-top'
+      : 'soozi-first-tour soozi-first-tour--dock-bottom';
+  }
+
+  private visibleTarget(step: FirstTourStep): Element | null {
+    const selector = this.selectorFor(step);
+    return selector ? this.visibleElement(selector) : null;
   }
 
   private onNavigation(url: string): void {
