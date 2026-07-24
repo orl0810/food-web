@@ -10,6 +10,7 @@ import { DislikedIngredientsSectionComponent } from '../disliked-ingredients-sec
 import { AllergiesSectionComponent } from '../allergies-section/allergies-section.component';
 import { MealPlanningProgressSectionComponent } from '../meal-planning-progress-section/meal-planning-progress-section.component';
 import { NutritionProfileSectionComponent } from '../nutrition-profile-section/nutrition-profile-section.component';
+import { FirstTourCoordinatorService } from '../../../../core/onboarding/first-tour-coordinator.service';
 
 type ProfileSection = 'summary' | 'preferences' | 'nutrition' | 'progress';
 
@@ -77,6 +78,9 @@ type ProfileSection = 'summary' | 'preferences' | 'nutrition' | 'progress';
             <button type="button" class="btn-secondary-sm" (click)="exportProfile()">
               Export preferences
             </button>
+            <button type="button" class="btn-secondary-sm" data-tour="replay-tour" (click)="replayTour()">
+              Replay Soozi tour
+            </button>
             <button type="button" class="btn-secondary-sm text-red-600" (click)="resetProfile()">
               Reset preferences
             </button>
@@ -91,6 +95,7 @@ export class UserProfilePageComponent implements OnInit {
   private readonly onboardingService = inject(OnboardingService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly firstTour = inject(FirstTourCoordinatorService);
 
   readonly activeSection = signal<ProfileSection>('summary');
 
@@ -134,5 +139,9 @@ export class UserProfilePageComponent implements OnInit {
     if (!proceed) return;
     await this.onboardingService.restart();
     await this.router.navigateByUrl('/onboarding?restart=true');
+  }
+
+  async replayTour(): Promise<void> {
+    await this.firstTour.replay();
   }
 }

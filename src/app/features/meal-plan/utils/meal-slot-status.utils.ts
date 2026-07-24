@@ -64,7 +64,7 @@ const DISPLAY_STATUS_CONFIG: Record<
     label: 'Planned',
     pillClass: 'bg-stone-100 text-stone-700',
     cardClass: '',
-    primaryActionLabel: 'Mark as ready',
+    primaryActionLabel: 'Mark as cooked',
     secondaryActionLabel: null,
     description: 'Scheduled but not cooked yet',
   },

@@ -11,7 +11,7 @@ import { MealPlanAutogenerateService } from '../services/meal-plan-autogenerate.
   standalone: true,
   template: `
     <div class="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/40 p-0 sm:items-center sm:p-4" role="presentation" (click)="close()">
-      <section class="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-2xl sm:p-6"
+      <section data-tour="meal-plan-generator-dialog" class="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-2xl sm:p-6"
         role="dialog" aria-modal="true" aria-labelledby="autogenerate-title" (click)="$event.stopPropagation()">
         <div class="flex items-start justify-between gap-4">
           <div><h2 id="autogenerate-title" class="text-xl font-semibold text-stone-900">Autogenerate meal plan</h2>

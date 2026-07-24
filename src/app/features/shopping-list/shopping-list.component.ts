@@ -10,6 +10,7 @@ import { MealPlanService } from '../../core/services/meal-plan.service';
 import { RecipeService } from '../../core/services/recipe.service';
 import { ShoppingListService } from '../../core/services/shopping-list.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { FirstTourEventsService } from '../../core/onboarding/first-tour-events.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
@@ -160,6 +161,7 @@ import {
         </p>
       } @else if (shoppingListService.items().length === 0) {
         <app-empty-state
+          data-tour="shopping-fallback"
           title="Your shopping list is empty."
           description="Select a date range and generate a list from your meal plan, or add items manually."
           actionLabel="Generate shopping list"
@@ -171,11 +173,12 @@ import {
             To buy ({{ shoppingListService.uncheckedCount() }})
           </h2>
           <div class="space-y-2">
-            @for (item of shoppingListService.uncheckedItems(); track item.id) {
+            @for (item of shoppingListService.uncheckedItems(); track item.id; let first = $first) {
               <article class="card p-4">
                 <div class="flex flex-wrap items-start gap-3">
                   <input
                     type="checkbox"
+                    [attr.data-tour]="first ? 'shopping-checkbox' : null"
                     class="mt-1 h-5 w-5 rounded border-stone-300 text-brand-600"
                     [checked]="false"
                     [disabled]="movingItemId() === item.id"
@@ -219,6 +222,7 @@ export class ShoppingListComponent implements OnInit {
   private readonly inventoryService = inject(FoodInventoryService);
   private readonly fb = inject(FormBuilder);
   private readonly confirmDialog = inject(ConfirmDialogService);
+  private readonly firstTourEvents = inject(FirstTourEventsService);
 
   readonly showForm = signal(false);
   readonly editingItem = signal<ShoppingItem | null>(null);
@@ -327,6 +331,7 @@ export class ShoppingListComponent implements OnInit {
     }
 
     this.infoMessage.set(`Added "${item.name}" to your inventory.`);
+    this.firstTourEvents.publish({ type: 'shopping-item-moved', itemId: item.id });
   }
 
   async deleteItem(item: ShoppingItem): Promise<void> {

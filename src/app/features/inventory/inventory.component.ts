@@ -165,6 +165,7 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
         </p>
       } @else if (filteredItems().length === 0) {
         <app-empty-state
+          data-tour="inventory-fallback"
           [title]="searchTerm().trim() ? 'No matching ingredients' : 'No food items here'"
           [description]="
             searchTerm().trim()
@@ -177,8 +178,8 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
       } @else {
         <section class="card overflow-hidden">
           <div class="divide-y divide-stone-200/60">
-            @for (item of filteredItems(); track item.id) {
-              <article class="flex flex-wrap items-start gap-x-2.5 gap-y-2 px-4 py-3 transition-colors hover:bg-stone-50/60 sm:flex-nowrap sm:items-center sm:gap-3 sm:px-5">
+            @for (item of filteredItems(); track item.id; let first = $first) {
+              <article [attr.data-tour]="first ? 'inventory-row' : null" class="flex flex-wrap items-start gap-x-2.5 gap-y-2 px-4 py-3 transition-colors hover:bg-stone-50/60 sm:flex-nowrap sm:items-center sm:gap-3 sm:px-5">
                 <app-food-icon-badge [name]="item.name" [category]="item.category" />
 
                 <div class="min-w-0 flex-1 sm:flex sm:items-center sm:gap-5">

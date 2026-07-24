@@ -18,6 +18,7 @@ interface NavItem {
         @for (item of navItems; track item.route) {
           <a
             [routerLink]="item.route"
+            [attr.data-tour]="tourAttribute(item.route)"
             routerLinkActive="bottom-nav-item-active"
             [routerLinkActiveOptions]="{ exact: item.exact }"
             class="bottom-nav-item"
@@ -66,4 +67,13 @@ export class BottomNavComponent {
     { label: 'Recipes', route: '/recipes', exact: false },
     { label: 'Shopping', route: '/shopping-list', exact: true },
   ];
+
+  tourAttribute(route: string): string | null {
+    return ({
+      '/dashboard': 'dashboard-nav',
+      '/inventory': 'inventory-nav',
+      '/meal-plan': 'meal-plan-nav',
+      '/shopping-list': 'shopping-nav',
+    } as Record<string, string>)[route] ?? null;
+  }
 }

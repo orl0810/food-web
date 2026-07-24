@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'driver.js/dist/driver.css';
 
 :root {
   --safe-area-top: env(safe-area-inset-top, 0px);
@@ -245,5 +246,78 @@ textarea {
     opacity: 0.85;
     transform: scale(1.06);
     box-shadow: 0 0 12px 2px rgb(34 197 94 / 0.25);
+  }
+}
+
+.driver-popover.soozi-first-tour {
+  width: min(24rem, calc(100vw - 2rem));
+  border: 1px solid var(--color-tan);
+  border-radius: 1rem;
+  background: var(--color-cream);
+  color: var(--color-pantry-charcoal);
+  box-shadow: 0 18px 50px rgb(36 48 41 / 0.2);
+}
+
+.soozi-first-tour .driver-popover-title {
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
+
+.soozi-first-tour .driver-popover-description {
+  font-size: 0.925rem;
+  line-height: 1.55;
+}
+
+.soozi-first-tour .driver-popover-footer {
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.soozi-first-tour .driver-popover-footer button,
+.soozi-tour-action,
+.soozi-tour-skip {
+  min-height: 2.75rem;
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.soozi-tour-action {
+  border: 0;
+  background: var(--color-brand-600);
+  color: white;
+}
+
+.soozi-tour-skip {
+  border: 1px solid #d6d3d1;
+  background: white;
+  color: #57534e;
+}
+
+.soozi-tour-instruction {
+  max-width: 12rem;
+  color: #57534e;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  text-align: right;
+}
+
+@media (max-width: 639px) {
+  .driver-popover.soozi-first-tour {
+    position: fixed;
+    inset: auto 1rem calc(1rem + var(--safe-area-bottom)) 1rem !important;
+    width: auto;
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .driver-overlay,
+  .driver-popover,
+  .driver-active-element {
+    transition: none !important;
+    animation: none !important;
   }
 }

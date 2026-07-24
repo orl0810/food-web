@@ -42,6 +42,7 @@ import {
           @if (config.primaryActionLabel) {
             <button
               type="button"
+              [attr.data-tour]="tourTarget() ? 'meal-status-action' : null"
               class="meal-status-control__primary"
               [class.meal-status-control__primary--animating]="animating()"
               [attr.aria-label]="primaryAriaLabel()"
@@ -77,6 +78,7 @@ export class MealStatusControlComponent {
   readonly mealType = input.required<MealType>();
   readonly displayStatus = input.required<MealSlotDisplayStatus>();
   readonly loading = input(false);
+  readonly tourTarget = input(false);
 
   readonly statusChange = output<MealSlotItemStatus>();
 

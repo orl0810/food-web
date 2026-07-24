@@ -11,11 +11,12 @@ import { UserProfileFacadeService } from '../../../features/user-profile/service
 import { MealStreakService } from '../../../core/services/meal-streak.service';
 import { EntitlementService } from '../../../core/services/entitlement.service';
 import { TrialStatusBannerComponent } from '../trial-status-banner/trial-status-banner.component';
+import { FirstTourHostComponent } from '../../../core/onboarding/first-tour-host.component';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, BottomNavComponent, CookFabComponent, ToCookPanelComponent, MealStreakBadgeComponent, ProfileMenuComponent, TrialStatusBannerComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, BottomNavComponent, CookFabComponent, ToCookPanelComponent, MealStreakBadgeComponent, ProfileMenuComponent, TrialStatusBannerComponent, FirstTourHostComponent],
   styles: `
     .app-shell-header {
       padding-top: var(--safe-area-top);
@@ -33,6 +34,7 @@ import { TrialStatusBannerComponent } from '../trial-status-banner/trial-status-
             <nav class="hidden items-center gap-1 md:flex">
               <a
                 routerLink="/dashboard"
+                data-tour="dashboard-nav"
                 routerLinkActive="bg-brand-50 text-brand-700"
                 class="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
               >
@@ -40,6 +42,7 @@ import { TrialStatusBannerComponent } from '../trial-status-banner/trial-status-
               </a>
               <a
                 routerLink="/inventory"
+                data-tour="inventory-nav"
                 routerLinkActive="bg-brand-50 text-brand-700"
                 class="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
               >
@@ -47,6 +50,7 @@ import { TrialStatusBannerComponent } from '../trial-status-banner/trial-status-
               </a>
               <a
                 routerLink="/meal-plan"
+                data-tour="meal-plan-nav"
                 routerLinkActive="bg-brand-50 text-brand-700"
                 class="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
               >
@@ -62,6 +66,7 @@ import { TrialStatusBannerComponent } from '../trial-status-banner/trial-status-
               </a>
               <a
                 routerLink="/shopping-list"
+                data-tour="shopping-nav"
                 routerLinkActive="bg-brand-50 text-brand-700"
                 class="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
               >
@@ -101,6 +106,7 @@ import { TrialStatusBannerComponent } from '../trial-status-banner/trial-status-
       }
 
       <app-bottom-nav />
+      <app-first-tour-host />
     </div>
   `,
 })
