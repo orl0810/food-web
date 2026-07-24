@@ -2,8 +2,9 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { AuthFacadeService } from '../../features/auth/services/auth-facade.service';
+import { sanitizeReturnUrl } from '../utils/return-url.utils';
 
-export const authGuard: CanActivateFn = async () => {
+export const authGuard: CanActivateFn = async (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
@@ -13,10 +14,14 @@ export const authGuard: CanActivateFn = async () => {
     return true;
   }
 
-  return router.createUrlTree(['/auth/login']);
+  const returnUrl = sanitizeReturnUrl(state.url);
+  return router.createUrlTree(
+    ['/auth/login'],
+    returnUrl ? { queryParams: { returnUrl } } : undefined
+  );
 };
 
-export const guestGuard: CanActivateFn = async () => {
+export const guestGuard: CanActivateFn = async (route) => {
   const authService = inject(AuthService);
   const authFacade = inject(AuthFacadeService);
 
@@ -31,5 +36,6 @@ export const guestGuard: CanActivateFn = async () => {
     return true;
   }
 
-  return authFacade.handlePostLoginRedirect(user.id);
+  const returnUrl = sanitizeReturnUrl(route.queryParamMap.get('returnUrl'));
+  return authFacade.handlePostLoginRedirect(user.id, returnUrl);
 };

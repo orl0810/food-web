@@ -5,6 +5,7 @@ import { MEAL_TYPE_LABELS, MealType } from '../../../core/models/meal-plan.model
 import { Recipe, RecipeNutrition } from '../../../core/models/recipe.model';
 import { FoodItemHistoryService } from '../../../core/services/food-item-history.service';
 import { RecipeService } from '../../../core/services/recipe.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { FoodIconBadgeComponent } from '../../../shared/components/food-icon-badge/food-icon-badge.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { RecipeImageComponent } from '../../../shared/components/recipe-image/recipe-image.component';
@@ -288,6 +289,7 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly recipeService = inject(RecipeService);
   private readonly foodItemHistoryService = inject(FoodItemHistoryService);
+  private readonly confirmDialog = inject(ConfirmDialogService);
 
   private imagePollTimer: ReturnType<typeof setInterval> | null = null;
   private imagePollAttempts = 0;
@@ -524,7 +526,12 @@ export class RecipeDetailComponent implements OnInit, OnDestroy {
   }
 
   async deleteRecipe(recipe: Recipe): Promise<void> {
-    const confirmed = window.confirm(`Delete "${recipe.title}"?`);
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Delete recipe',
+      message: `Delete "${recipe.title}"?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
     if (!confirmed) {
       return;
     }

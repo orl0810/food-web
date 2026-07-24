@@ -1,5 +1,4 @@
-import { isPlatformBrowser } from '@angular/common';
-import { computed, effect, inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { FoodItem } from '../models/food-item.model';
 import { Recipe } from '../models/recipe.model';
 import {
@@ -28,6 +27,7 @@ import { UserProfileFacadeService } from '../../features/user-profile/services/u
 import { FoodInventoryService } from './food-inventory.service';
 import { MealPlanService } from './meal-plan.service';
 import { RecipeService } from './recipe.service';
+import { StorageService } from './storage.service';
 
 const AVAILABLE_INVENTORY_MATCH_THRESHOLD = 50;
 const LOW_MISSING_INGREDIENT_LIMIT = 2;
@@ -39,7 +39,7 @@ export class SmartSuggestionService {
   private readonly recipeService = inject(RecipeService);
   private readonly mealPlanService = inject(MealPlanService);
   private readonly profileFacade = inject(UserProfileFacadeService);
-  private readonly platformId = inject(PLATFORM_ID);
+  private readonly storage = inject(StorageService);
 
   private readonly plannedRecipeIdsSignal = signal<Set<string>>(new Set());
   private readonly dailyFeaturedState = signal<DailyFeaturedState | null>(this.loadDailyFeaturedState());
@@ -231,17 +231,8 @@ export class SmartSuggestionService {
   }
 
   private loadDailyFeaturedState(): DailyFeaturedState | null {
-    if (!isPlatformBrowser(this.platformId)) {
-      return null;
-    }
-
     try {
-      const raw = localStorage.getItem(DAILY_FEATURED_STORAGE_KEY);
-      if (!raw) {
-        return null;
-      }
-
-      const parsed: unknown = JSON.parse(raw);
+      const parsed = this.storage.getJson<unknown>(DAILY_FEATURED_STORAGE_KEY);
       return isDailyFeaturedState(parsed) ? parsed : null;
     } catch {
       return null;
@@ -249,14 +240,6 @@ export class SmartSuggestionService {
   }
 
   private persistDailyFeaturedState(state: DailyFeaturedState): void {
-    if (!isPlatformBrowser(this.platformId)) {
-      return;
-    }
-
-    try {
-      localStorage.setItem(DAILY_FEATURED_STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // Storage unavailable (private mode) — featured pick just won't persist.
-    }
+    this.storage.setJson(DAILY_FEATURED_STORAGE_KEY, state);
   }
 }

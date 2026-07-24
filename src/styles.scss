@@ -1,5 +1,12 @@
 @import 'tailwindcss';
 
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+}
+
 @theme {
   --color-brand-50: #f0fdf4;
   --color-brand-100: #dcfce7;
@@ -29,8 +36,8 @@
 }
 
 html {
-  scroll-padding-top: 4.5rem;
-  scroll-padding-bottom: 7rem;
+  scroll-padding-top: calc(4.5rem + var(--safe-area-top));
+  scroll-padding-bottom: calc(7rem + var(--safe-area-bottom));
 }
 
 body {
@@ -80,7 +87,7 @@ textarea {
   }
 
   .btn-primary-sm {
-    @apply rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
@@ -88,15 +95,15 @@ textarea {
   }
 
   .btn-secondary-sm {
-    @apply rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50;
+    @apply inline-flex min-h-11 items-center rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50;
   }
 
   .btn-danger {
-    @apply rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 transition-colors hover:bg-red-50;
+    @apply inline-flex min-h-11 items-center rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 transition-colors hover:bg-red-50;
   }
 
   .filter-pill {
-    @apply rounded-full px-3 py-1.5 text-sm font-medium transition-colors;
+    @apply inline-flex min-h-11 items-center rounded-full px-3 py-2 text-sm font-medium transition-colors;
   }
 
   .filter-pill-active {
@@ -150,9 +157,20 @@ textarea {
     @apply rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-800;
   }
 
+  .touch-target {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .touch-target-inline {
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+  }
+
   .bottom-nav {
     position: fixed;
-    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(1rem + var(--safe-area-bottom));
     left: 50%;
     z-index: var(--z-index-bottom-nav);
     width: calc(100% - 2rem);
@@ -189,7 +207,7 @@ textarea {
   .cook-fab {
     position: fixed;
     right: 1rem;
-    bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(5.75rem + var(--safe-area-bottom));
     z-index: calc(var(--z-index-bottom-nav) + 5);
     @apply flex h-14 w-14 items-center justify-center rounded-full border border-stone-200/80 bg-card text-brand-700 shadow-[0_4px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] backdrop-blur-xl transition-transform hover:scale-105 active:scale-95;
   }

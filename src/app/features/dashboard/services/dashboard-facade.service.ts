@@ -1,11 +1,11 @@
-import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { FoodInventoryService } from '../../../core/services/food-inventory.service';
 import { MealPlanService } from '../../../core/services/meal-plan.service';
 import { PreparedPortionService } from '../../../core/services/prepared-portion.service';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { ShoppingListService } from '../../../core/services/shopping-list.service';
 import { SmartSuggestionService } from '../../../core/services/smart-suggestion.service';
+import { StorageService } from '../../../core/services/storage.service';
 import { normalizeNameKey } from '../../../shared/utils/name-normalization.utils';
 import {
   ActionCompletionPayload,
@@ -26,7 +26,7 @@ interface DismissedState {
 
 @Injectable({ providedIn: 'root' })
 export class DashboardFacadeService {
-  private readonly platformId = inject(PLATFORM_ID);
+  private readonly storage = inject(StorageService);
   private readonly actionEngine = inject(DashboardActionEngineService);
   private readonly inventoryService = inject(FoodInventoryService);
   private readonly mealPlanService = inject(MealPlanService);
@@ -280,18 +280,13 @@ export class DashboardFacadeService {
   }
 
   private loadDismissedIds(): string[] {
-    if (!isPlatformBrowser(this.platformId)) {
-      return [];
-    }
-
     try {
-      const raw = localStorage.getItem(DISMISSED_STORAGE_KEY);
-      if (!raw) {
+      const state = this.storage.getJson<DismissedState>(DISMISSED_STORAGE_KEY);
+      if (!state) {
         return [];
       }
-      const state = JSON.parse(raw) as DismissedState;
       if (state.date !== toISODate(new Date())) {
-        localStorage.removeItem(DISMISSED_STORAGE_KEY);
+        this.storage.removeItem(DISMISSED_STORAGE_KEY);
         return [];
       }
       return Array.isArray(state.ids) ? state.ids : [];
@@ -301,18 +296,10 @@ export class DashboardFacadeService {
   }
 
   private persistDismissedIds(): void {
-    if (!isPlatformBrowser(this.platformId)) {
-      return;
-    }
-
     const state: DismissedState = {
       date: toISODate(new Date()),
       ids: this.dismissedIdsSignal(),
     };
-    try {
-      localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // Storage unavailable (private mode) — dismissals just won't persist.
-    }
+    this.storage.setJson(DISMISSED_STORAGE_KEY, state);
   }
 }

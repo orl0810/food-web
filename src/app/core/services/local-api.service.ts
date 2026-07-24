@@ -3,6 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { AppUser } from '../models/auth-user.model';
 import { RecipeImageMetadataUpdate } from '../models/recipe.model';
+import { StorageService } from './storage.service';
 
 const TOKEN_STORAGE_KEY = 'soozi_local_token';
 const USER_STORAGE_KEY = 'soozi_local_user';
@@ -19,6 +20,7 @@ interface ApiErrorResponse {
 @Injectable({ providedIn: 'root' })
 export class LocalApiService {
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly storage = inject(StorageService);
 
   isEnabled(): boolean {
     return environment.useLocalApi && isPlatformBrowser(this.platformId);
@@ -29,8 +31,8 @@ export class LocalApiService {
       return null;
     }
 
-    const accessToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-    const userRaw = localStorage.getItem(USER_STORAGE_KEY);
+    const accessToken = this.storage.getItem(TOKEN_STORAGE_KEY);
+    const userRaw = this.storage.getItem(USER_STORAGE_KEY);
 
     if (!accessToken || !userRaw) {
       return null;
@@ -45,13 +47,13 @@ export class LocalApiService {
   }
 
   storeSession(user: AppUser, accessToken: string): void {
-    localStorage.setItem(TOKEN_STORAGE_KEY, accessToken);
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    this.storage.setItem(TOKEN_STORAGE_KEY, accessToken);
+    this.storage.setJson(USER_STORAGE_KEY, user);
   }
 
   clearStoredSession(): void {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-    localStorage.removeItem(USER_STORAGE_KEY);
+    this.storage.removeItem(TOKEN_STORAGE_KEY);
+    this.storage.removeItem(USER_STORAGE_KEY);
   }
 
   async signUp(email: string, password: string): Promise<{ user: AppUser; accessToken: string }> {

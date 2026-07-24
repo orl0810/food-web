@@ -56,7 +56,7 @@ import {
                 }
                 <button
                   type="button"
-                  class="rounded-md px-1 py-0.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                  class="touch-target-inline rounded-md px-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
                   [disabled]="removingId() === item.id"
                   (click)="removeItem.emit(item)"
                 >
@@ -100,7 +100,7 @@ import {
               @if (canChangeRecipe(item)) {
                 <button
                   type="button"
-                  class="inline-flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-50 hover:text-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                  class="touch-target-inline inline-flex shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-50 hover:text-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
                   [attr.aria-label]="'Change recipe: ' + displayName(item)"
                   (click)="changeItem.emit(item)"
                 >
@@ -118,7 +118,7 @@ import {
       @if (canAdd()) {
         <button
           type="button"
-          class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-1.5 text-xs font-medium text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-50/30"
+          class="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-2 text-xs font-medium text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-50/30"
           (click)="addItem.emit()"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">

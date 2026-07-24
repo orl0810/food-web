@@ -10,6 +10,7 @@ import { provideServiceWorker } from '@angular/service-worker';
 
 import { routes } from './app.routes';
 import { AuthService } from './core/services/auth.service';
+import { environment } from '../environments/environment';
 
 function initializeAuth(authService: AuthService): () => Promise<void> {
   return () => authService.init();
@@ -27,7 +28,7 @@ export const appConfig: ApplicationConfig = {
       multi: true,
     },
     provideServiceWorker('ngsw-worker.js', {
-      enabled: !isDevMode(),
+      enabled: !isDevMode() && environment.enableServiceWorker,
       registrationStrategy: 'registerWhenStable:30000',
     }),
   ],

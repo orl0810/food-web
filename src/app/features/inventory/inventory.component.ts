@@ -12,6 +12,7 @@ import { FoodInventoryService } from '../../core/services/food-inventory.service
 import { FoodItemHistoryService } from '../../core/services/food-item-history.service';
 import { FoodCategoryService } from '../../core/services/food-category.service';
 import { FoodCatalogService } from '../../core/services/food-catalog.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { VoiceInventoryDraftItem } from '../../core/models/voice-inventory.model';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { FoodIconBadgeComponent } from '../../shared/components/food-icon-badge/food-icon-badge.component';
@@ -234,14 +235,14 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
                 <div class="flex w-full shrink-0 items-center justify-end gap-1 sm:w-auto sm:self-center">
                   <button
                     type="button"
-                    class="rounded-md px-2 py-1 text-xs font-medium text-stone-600 transition-colors hover:bg-stone-100"
+                    class="touch-target-inline rounded-md px-3 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100"
                     (click)="openEditForm(item)"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    class="rounded-md px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                    class="touch-target-inline rounded-md px-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
                     (click)="deleteItem(item)"
                   >
                     Delete
@@ -268,6 +269,7 @@ import { PreparedPortion } from '../../core/models/prepared-portion.model';
 })
 export class InventoryComponent implements OnInit {
   readonly inventoryService = inject(FoodInventoryService);
+  private readonly confirmDialog = inject(ConfirmDialogService);
   readonly foodItemHistoryService = inject(FoodItemHistoryService);
   readonly foodCategoryService = inject(FoodCategoryService);
   readonly foodCatalogService = inject(FoodCatalogService);
@@ -551,7 +553,12 @@ export class InventoryComponent implements OnInit {
   }
 
   async deleteItem(item: FoodItem): Promise<void> {
-    const confirmed = window.confirm(`Delete "${item.name}" from your inventory?`);
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Delete item',
+      message: `Delete "${item.name}" from your inventory?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
     if (!confirmed) {
       return;
     }

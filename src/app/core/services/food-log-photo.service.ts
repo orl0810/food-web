@@ -35,47 +35,63 @@ export class FoodLogPhotoService {
   }
 
   async optimizeImage(file: File): Promise<File> {
-    if (file.type === 'image/heic' || !this.canOptimizeInBrowser(file.type)) {
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif';
+    if (isHeic || !this.canOptimizeInBrowser(file.type)) {
+      if (isHeic) {
+        try {
+          return await this.compressBitmapToJpeg(file);
+        } catch {
+          throw new Error(
+            'This HEIC photo cannot be processed here. Please choose a JPEG or PNG, or convert the photo first.'
+          );
+        }
+      }
       return file;
     }
 
     try {
-      const bitmap = await createImageBitmap(file);
-      const scale = Math.min(1, MAX_DISPLAY_WIDTH / bitmap.width);
-      if (scale >= 1 && file.type === 'image/webp' && file.size <= MAX_PHOTO_BYTES) {
-        bitmap.close();
-        return file;
-      }
-
-      const width = Math.round(bitmap.width * scale);
-      const height = Math.round(bitmap.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext('2d');
-      if (!context) {
-        bitmap.close();
-        return file;
-      }
-
-      context.drawImage(bitmap, 0, 0, width, height);
-      bitmap.close();
-
-      const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, outputType, outputType === 'image/jpeg' ? 0.85 : undefined)
-      );
-
-      if (!blob) {
-        return file;
-      }
-
-      const extension = outputType === 'image/png' ? '.png' : '.jpg';
-      const baseName = file.name.replace(/\.[^.]+$/, '') || 'food-photo';
-      return new File([blob], `${baseName}${extension}`, { type: outputType });
+      return await this.compressBitmapToJpeg(file, file.type === 'image/png' ? 'image/png' : 'image/jpeg');
     } catch {
       return file;
     }
+  }
+
+  private async compressBitmapToJpeg(
+    file: File,
+    outputType: 'image/jpeg' | 'image/png' = 'image/jpeg'
+  ): Promise<File> {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_DISPLAY_WIDTH / bitmap.width);
+    if (scale >= 1 && file.type === 'image/webp' && file.size <= MAX_PHOTO_BYTES) {
+      bitmap.close();
+      return file;
+    }
+
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      bitmap.close();
+      throw new Error('Could not process the selected image.');
+    }
+
+    context.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, outputType, outputType === 'image/jpeg' ? 0.85 : undefined)
+    );
+
+    if (!blob) {
+      throw new Error('Could not process the selected image.');
+    }
+
+    const extension = outputType === 'image/png' ? '.png' : '.jpg';
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'food-photo';
+    return new File([blob], `${baseName}${extension}`, { type: outputType });
   }
 
   private async uploadPhoto(

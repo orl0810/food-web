@@ -13,4 +13,9 @@ export interface Environment {
   authSiteUrl: string;
   /** Public CDN/custom domain for recipe images (no trailing slash). Empty = use image_url as-is. */
   recipeImagesBaseUrl: string;
+  /**
+   * When false, Angular NGSW is not registered.
+   * Native Capacitor builds should set this to false to avoid asset-caching conflicts.
+   */
+  enableServiceWorker: boolean;
 }

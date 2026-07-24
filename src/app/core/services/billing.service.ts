@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { CheckoutPlanCode, billingErrorMessage } from '../models/billing.model';
+import { ExternalLinkService } from './external-link.service';
 import { SupabaseService } from './supabase.service';
 
 interface CheckoutResponse {
@@ -20,6 +21,7 @@ interface BillingFunctionError {
 @Injectable({ providedIn: 'root' })
 export class BillingService {
   private readonly supabaseService = inject(SupabaseService);
+  private readonly externalLinks = inject(ExternalLinkService);
 
   private readonly checkoutLoadingSignal = signal(false);
   private readonly portalLoadingSignal = signal(false);
@@ -35,7 +37,7 @@ export class BillingService {
 
   async startCheckout(planCode: CheckoutPlanCode): Promise<void> {
     const url = await this.createCheckoutSession(planCode);
-    window.location.assign(url);
+    await this.externalLinks.openExternalUrl(url);
   }
 
   async createCheckoutSession(planCode: CheckoutPlanCode): Promise<string> {
@@ -65,7 +67,7 @@ export class BillingService {
 
   async openCustomerPortal(): Promise<void> {
     const url = await this.createPortalSession();
-    window.location.assign(url);
+    await this.externalLinks.openExternalUrl(url);
   }
 
   async createPortalSession(): Promise<string> {

@@ -41,6 +41,9 @@ import { Component, input, output } from '@angular/core';
       z-index: var(--z-index-overlay-page);
       overflow-y: auto;
       background-color: #fafaf9;
+      padding-top: var(--safe-area-top);
+      padding-right: var(--safe-area-right);
+      padding-left: var(--safe-area-left);
     }
   `,
 })

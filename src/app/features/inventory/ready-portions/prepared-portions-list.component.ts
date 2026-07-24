@@ -6,6 +6,7 @@ import {
   PREPARED_PORTION_FILTERS,
 } from '../../../core/models/prepared-portion.model';
 import { PreparedPortionService } from '../../../core/services/prepared-portion.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { PreparedPortionCardComponent } from './prepared-portion-card.component';
@@ -85,6 +86,7 @@ import { PreparedPortionFormComponent } from './prepared-portion-form.component'
 })
 export class PreparedPortionsListComponent implements OnInit {
   readonly preparedPortionService = inject(PreparedPortionService);
+  private readonly confirmDialog = inject(ConfirmDialogService);
 
   readonly addToMealPlan = output<PreparedPortion>();
 
@@ -152,10 +154,13 @@ export class PreparedPortionsListComponent implements OnInit {
   }
 
   async onMarkEaten(portion: PreparedPortion): Promise<void> {
-    const countStr = window.prompt(
-      `How many portions did you eat? (${portion.available_portions} available)`,
-      '1'
-    );
+    const countStr = await this.confirmDialog.prompt({
+      title: 'Mark as eaten',
+      message: `How many portions did you eat? (${portion.available_portions} available)`,
+      defaultValue: '1',
+      promptLabel: 'Portions',
+      confirmLabel: 'Mark eaten',
+    });
     if (!countStr) {
       return;
     }
@@ -168,7 +173,13 @@ export class PreparedPortionsListComponent implements OnInit {
   }
 
   async onDelete(portion: PreparedPortion): Promise<void> {
-    if (!window.confirm(`Delete "${portion.name}"? This cannot be undone.`)) {
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Delete prepared food',
+      message: `Delete "${portion.name}"? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) {
       return;
     }
     await this.preparedPortionService.deletePortion(portion.id);
