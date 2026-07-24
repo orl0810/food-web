@@ -3,7 +3,6 @@ import { NavigationEnd, Router } from '@angular/router';
 import { Driver, PopoverDOM, driver } from 'driver.js';
 import { filter, Subscription } from 'rxjs';
 import { AuthService } from '../services/auth.service';
-import { ConfirmDialogService } from '../services/confirm-dialog.service';
 import { MealPlanService } from '../services/meal-plan.service';
 import { OnboardingService } from '../services/onboarding.service';
 import { PlatformService } from '../services/platform.service';
@@ -28,7 +27,6 @@ export class FirstTourCoordinatorService {
   private readonly onboarding = inject(OnboardingService);
   private readonly storage = inject(FirstTourStorageService);
   private readonly events = inject(FirstTourEventsService);
-  private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly mealPlan = inject(MealPlanService);
   private readonly platform = inject(PlatformService);
 
@@ -42,7 +40,7 @@ export class FirstTourCoordinatorService {
   private readonly keydownHandler = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && this.active()) {
       event.preventDefault();
-      void this.skip();
+      this.dismiss();
     }
   };
 
@@ -110,13 +108,7 @@ export class FirstTourCoordinatorService {
     await this.showStep(nextStep);
   }
 
-  async skip(): Promise<void> {
-    const confirmed = await this.confirmDialog.confirm({
-      title: 'Skip the Soozi tour?',
-      message: 'You can replay it any time from your profile.',
-      confirmLabel: 'Skip tour',
-    });
-    if (!confirmed) return;
+  dismiss(): void {
     const userId = this.auth.user()?.id;
     if (userId) this.storage.save(userId, 'skipped', this.currentStep());
     this.destroy();
@@ -136,7 +128,7 @@ export class FirstTourCoordinatorService {
   }
 
   private async offerIfEligible(userId: string): Promise<void> {
-    if (this.autoOfferCheckedForUser === userId || this.active() || this.confirmDialog.pending()) return;
+    if (this.autoOfferCheckedForUser === userId || this.active()) return;
     this.autoOfferCheckedForUser = userId;
     const existing = this.storage.get(userId);
     if (existing?.status === 'completed' || existing?.status === 'skipped') return;
@@ -210,6 +202,7 @@ export class FirstTourCoordinatorService {
     const copy = FIRST_TOUR_COPY[step];
     const needsContinue = this.needsContinueButton(step, element);
     const interactive = !needsContinue;
+    const isTipOnly = step === 2;
     this.driverInstance = driver({
       animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       allowClose: true,
@@ -219,7 +212,7 @@ export class FirstTourCoordinatorService {
       popoverClass: this.popoverClass(interactive),
       stagePadding: 8,
       stageRadius: 16,
-      onCloseClick: () => void this.skip(),
+      onCloseClick: () => this.dismiss(),
       onNextClick: () => {
         if (step === 1) void this.advanceTo(2);
         if (step === 3) void this.advanceTo(4);
@@ -236,7 +229,7 @@ export class FirstTourCoordinatorService {
         side: element ? (interactive ? 'top' : 'bottom') : undefined,
         align: 'center',
         showButtons: needsContinue ? ['next', 'close'] : ['close'],
-        showProgress: true,
+        showProgress: !isTipOnly,
         nextBtnText: copy.action,
       },
     });
@@ -250,8 +243,22 @@ export class FirstTourCoordinatorService {
       element ?? this.visibleTarget(step) ?? undefined
     );
     popover.wrapper.className = `driver-popover ${this.popoverClass(!needsContinue)}`;
+    popover.previousButton.hidden = true;
+    popover.previousButton.style.display = 'none';
+    popover.footer.querySelectorAll('.soozi-tour-instruction').forEach((node) => node.remove());
+
+    if (step === 2) {
+      popover.progress.style.display = 'none';
+      popover.footer.style.display = 'none';
+      queueMicrotask(() => popover.closeButton.focus());
+      return;
+    }
+
+    popover.progress.style.display = '';
+    popover.footer.style.display = '';
     popover.progress.textContent = `Step ${step} of 5`;
     popover.progress.setAttribute('aria-live', 'polite');
+
     if (needsContinue) {
       popover.nextButton.textContent = FIRST_TOUR_COPY[step].action;
       popover.nextButton.classList.add('soozi-tour-action');
@@ -259,20 +266,18 @@ export class FirstTourCoordinatorService {
       popover.nextButton.removeAttribute('disabled');
       popover.nextButton.style.display = 'inline-flex';
       queueMicrotask(() => popover.nextButton.focus());
-    } else {
-      popover.footer.querySelectorAll('.soozi-tour-instruction').forEach((node) => node.remove());
-      const instruction = document.createElement('span');
-      instruction.className = 'soozi-tour-instruction';
-      instruction.textContent = step === 2
-        ? 'Tap Generate meal plan to continue.'
-        : step === 3
-          ? 'Check the highlighted item to continue.'
-          : 'Use “Mark as cooked” to finish.';
-      popover.footer.insertBefore(instruction, popover.footerButtons);
-      queueMicrotask(() => (elementIsFocusable(this.driverInstance?.getActiveElement())
-        ? this.driverInstance?.getActiveElement() as HTMLElement
-        : popover.closeButton).focus());
+      return;
     }
+
+    const instruction = document.createElement('span');
+    instruction.className = 'soozi-tour-instruction';
+    instruction.textContent = step === 3
+      ? 'Check the highlighted item to continue.'
+      : 'Use “Mark as cooked” to finish.';
+    popover.footer.insertBefore(instruction, popover.footerButtons);
+    queueMicrotask(() => (elementIsFocusable(this.driverInstance?.getActiveElement())
+      ? this.driverInstance?.getActiveElement() as HTMLElement
+      : popover.closeButton).focus());
   }
 
   private watchForGeneratorDialog(): void {
@@ -284,21 +289,19 @@ export class FirstTourCoordinatorService {
           disableActiveInteraction: false,
           popover: {
             title: FIRST_TOUR_COPY[2].title,
-            description: 'Choose dates and meals, then generate. We’ll continue after the plan is saved.',
+            description: FIRST_TOUR_COPY[2].description,
             side: 'top',
             align: 'center',
             showButtons: ['close'],
-            showProgress: true,
+            showProgress: false,
             popoverClass: this.popoverClass(true),
             onPopoverRender: (popover) => {
               popover.wrapper.className = `driver-popover ${this.popoverClass(true)}`;
-              popover.progress.textContent = 'Step 2 of 5';
-              popover.progress.setAttribute('aria-live', 'polite');
+              popover.previousButton.hidden = true;
+              popover.previousButton.style.display = 'none';
+              popover.progress.style.display = 'none';
+              popover.footer.style.display = 'none';
               popover.footer.querySelectorAll('.soozi-tour-instruction').forEach((node) => node.remove());
-              const instruction = document.createElement('span');
-              instruction.className = 'soozi-tour-instruction';
-              instruction.textContent = 'Pick dates and meals, then tap Generate meals.';
-              popover.footer.insertBefore(instruction, popover.footerButtons);
             },
           },
         });
@@ -313,10 +316,12 @@ export class FirstTourCoordinatorService {
     this.driverInstance = driver({
       allowClose: true,
       popoverClass: this.popoverClass(false),
-      onCloseClick: () => void this.skip(),
+      onCloseClick: () => this.dismiss(),
       onNextClick: () => void this.showStep(step),
       onPopoverRender: (popover) => {
         popover.wrapper.className = `driver-popover ${this.popoverClass(false)}`;
+        popover.previousButton.hidden = true;
+        popover.previousButton.style.display = 'none';
         popover.progress.textContent = `Step ${step} of 5`;
         popover.nextButton.textContent = 'Try again';
         popover.nextButton.classList.add('soozi-tour-action');

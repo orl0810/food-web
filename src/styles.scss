@@ -313,6 +313,10 @@ textarea {
   gap: 0.5rem;
 }
 
+.soozi-first-tour .driver-popover-prev-btn {
+  display: none !important;
+}
+
 /* Beat driver.js `all: unset` so the Start / Continue CTA stays visible. */
 .soozi-first-tour .driver-popover-footer-btn,
 .soozi-tour-action,
