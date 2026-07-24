@@ -1,4 +1,4 @@
--- PantryFlow: low-volume product milestone events (failures and non-derivable actions)
+-- Soozi: low-volume product milestone events (failures and non-derivable actions)
 -- Safe to run more than once.
 
 create table if not exists public.product_events (

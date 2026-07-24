@@ -1,4 +1,4 @@
--- PantryFlow: global food categories and catalog items for form suggestions
+-- Soozi: global food categories and catalog items for form suggestions
 
 create table public.food_categories (
   id uuid primary key default gen_random_uuid(),

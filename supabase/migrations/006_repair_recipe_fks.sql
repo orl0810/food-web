@@ -1,4 +1,4 @@
--- PantryFlow: repair missing FK between recipe_ingredients and recipes
+-- Soozi: repair missing FK between recipe_ingredients and recipes
 -- Safe to run more than once. Run after 004_recipes.sql if PostgREST returns PGRST200.
 --
 -- Verify orphans before adding the constraint (should return 0 rows):

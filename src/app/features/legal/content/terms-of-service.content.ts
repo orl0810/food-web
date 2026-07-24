@@ -9,7 +9,7 @@ export const TERMS_OF_SERVICE_CONTENT: LegalPageContent = {
       id: 'acceptance',
       title: '1. Acceptance of terms',
       paragraphs: [
-        'By accessing or using PantryFlow, you confirm that you have read, understood, and agree to be bound by these Terms and our Privacy Policy.',
+        'By accessing or using Soozi, you confirm that you have read, understood, and agree to be bound by these Terms and our Privacy Policy.',
         'If you do not agree, do not use the app.',
       ],
     },

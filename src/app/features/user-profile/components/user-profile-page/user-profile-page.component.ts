@@ -30,7 +30,7 @@ type ProfileSection = 'summary' | 'preferences' | 'nutrition' | 'progress';
     <div class="page">
       <div>
         <h1 class="page-title">Your Food Profile</h1>
-        <p class="page-subtitle">Personalize how PantryFlow plans meals and suggests recipes.</p>
+        <p class="page-subtitle">Personalize how Soozi plans meals and suggests recipes.</p>
       </div>
 
       <nav class="sticky top-0 z-10 -mx-1 flex gap-2 overflow-x-auto bg-surface/95 px-1 py-2 backdrop-blur-sm">

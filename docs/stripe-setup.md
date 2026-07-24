@@ -1,10 +1,10 @@
-# Stripe Setup — PantryFlow Early Access
+# Stripe Setup — Soozi Early Access
 
 This guide covers Stripe Dashboard configuration for the Early Access subscription system (`PRICING_PHASE=early_access`).
 
 ## 1. Products and Prices
 
-Create one product (e.g. **PantryFlow Early Access**) with two recurring prices:
+Create one product (e.g. **Soozi Early Access**) with two recurring prices:
 
 | Plan | Amount | Interval | Internal plan code |
 |------|--------|----------|-------------------|

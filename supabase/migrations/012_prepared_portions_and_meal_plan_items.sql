@@ -1,4 +1,4 @@
--- PantryFlow: Ready Portions + multi-item meal plan
+-- Soozi: Ready Portions + multi-item meal plan
 -- Safe to run more than once.
 
 -- Prepared portions (cooked food batches)

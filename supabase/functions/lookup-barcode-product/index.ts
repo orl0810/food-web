@@ -19,7 +19,7 @@ serve(async(req)=>{
   if(cached&&(cached.source==='user_created'||cached.verification_status==='verified'||age<((cached.data_completeness??0)>=.7?90:14))) return found(cached,'local',userClient);
   try {
     const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),8000);
-    const response=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`,{signal:controller.signal,headers:{'User-Agent':'PantryFlow/1.0 (hello@pantryflow.app)'}}); clearTimeout(timer);
+    const response=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`,{signal:controller.signal,headers:{'User-Agent':'Soozi/1.0 (hello@soozi.app)'}}); clearTimeout(timer);
     if(!response.ok) return cached?found(cached,'local',userClient):json({status:'temporarily_unavailable',retryable:true},503);
     const payload=await response.json(); const p=payload?.product;
     if(payload?.status!==1||!p) return cached?found(cached,'local',userClient):json({status:'not_found',barcode});

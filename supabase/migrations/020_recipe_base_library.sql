@@ -1,4 +1,4 @@
--- PantryFlow: base recipe library (starter templates on recipes table)
+-- Soozi: base recipe library (starter templates on recipes table)
 
 alter table public.recipes
   add column if not exists is_base_recipe boolean not null default false,

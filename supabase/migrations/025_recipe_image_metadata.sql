@@ -1,4 +1,4 @@
--- PantryFlow: recipe image metadata for Cloudflare R2 storage
+-- Soozi: recipe image metadata for Cloudflare R2 storage
 
 alter table public.recipes
   add column if not exists image_status text not null default 'pending',

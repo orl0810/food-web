@@ -30,7 +30,7 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
   template: `
     <app-auth-layout>
       <div class="card w-full max-w-md p-8">
-        <h1 class="page-title">Welcome to PantryFlow</h1>
+        <h1 class="page-title">Welcome to Soozi</h1>
         <p class="page-subtitle">Plan your meals, reduce waste, and cook smarter.</p>
 
         @if (uiState() === 'linkSent') {

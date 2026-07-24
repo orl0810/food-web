@@ -1,6 +1,6 @@
 import { SmartSuggestion } from '../../core/models/smart-suggestion.model';
 
-export const DAILY_FEATURED_STORAGE_KEY = 'pantryflow.suggestions.dailyFeatured';
+export const DAILY_FEATURED_STORAGE_KEY = 'soozi.suggestions.dailyFeatured';
 export const MAX_RECENT_FEATURED_DAYS = 7;
 
 export interface DailyFeaturedState {

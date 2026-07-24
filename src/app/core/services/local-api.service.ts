@@ -4,8 +4,8 @@ import { environment } from '../../../environments/environment';
 import { AppUser } from '../models/auth-user.model';
 import { RecipeImageMetadataUpdate } from '../models/recipe.model';
 
-const TOKEN_STORAGE_KEY = 'pantryflow_local_token';
-const USER_STORAGE_KEY = 'pantryflow_local_user';
+const TOKEN_STORAGE_KEY = 'soozi_local_token';
+const USER_STORAGE_KEY = 'soozi_local_user';
 
 interface LocalAuthResponse {
   user: AppUser;

@@ -1,4 +1,4 @@
--- PantryFlow: onboarding status and draft state on user_food_profiles
+-- Soozi: onboarding status and draft state on user_food_profiles
 
 alter table public.user_food_profiles
   add column if not exists onboarding_status text not null default 'pending'

@@ -12,7 +12,7 @@ Camera access requires HTTPS or localhost. No image or video frame is uploaded o
 
 Nutrition is canonical per 100 g; sodium is stored in milligrams per 100 g. Missing values remain `null`. Consumed values are calculated with `per100g × grams / 100`; rounding is presentation-only. Complete provider products refresh after 90 days and incomplete products after 14 days. User-created and locally verified products are never automatically overwritten.
 
-Shared Open Food Facts products have `owner_id = null`. User-created products require `owner_id = auth.uid()` and are private by default because PantryFlow has no moderation workflow. Meal Plan rows store product and nutrition snapshots so history does not change after catalog refreshes.
+Shared Open Food Facts products have `owner_id = null`. User-created products require `owner_id = auth.uid()` and are private by default because Soozi has no moderation workflow. Meal Plan rows store product and nutrition snapshots so history does not change after catalog refreshes.
 
 Open Food Facts data is displayed with source attribution. Review its database/content licensing and image attribution requirements before public release.
 

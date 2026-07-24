@@ -1,4 +1,4 @@
-# PantryFlow
+# Soozi
 
 Personal meal planner web app — Phase 1 focuses on food inventory and expiration tracking.
 
@@ -28,7 +28,7 @@ Dev auto-login is enabled (`skipLogin: true` in `environment.ts`). The app signs
 
 The login page remains available as a fallback (local API not running, after sign-out, or set `skipLogin: false`).
 
-If you already have `local-api/data/pantryflow.sqlite` from before the stable user ID was added, delete that file once and restart the API to pick up the fixed dev user ID.
+If you already have `local-api/data/soozi.sqlite` from before the stable user ID was added, delete that file once and restart the API to pick up the fixed dev user ID.
 
 You can also create new accounts from the login page — they are stored only in your local SQLite file.
 
@@ -42,7 +42,7 @@ npm run start:api
 npm start
 ```
 
-The SQLite database file is created at `local-api/data/pantryflow.sqlite` (gitignored).
+The SQLite database file is created at `local-api/data/soozi.sqlite` (gitignored).
 
 ## Production (Vercel + Supabase)
 

@@ -33,7 +33,7 @@ import { OnboardingWelcomeStepComponent } from '../onboarding-welcome-step/onboa
     <div class="min-h-screen bg-surface px-4 py-8">
       <div class="mx-auto max-w-2xl">
         <div class="mb-6 flex items-center justify-between gap-4">
-          <span class="text-lg font-semibold text-brand-700">PantryFlow</span>
+          <span class="text-lg font-semibold text-brand-700">Soozi</span>
           @if (showProgress()) {
             <div class="flex-1 max-w-xs">
               <div
